@@ -121,6 +121,13 @@ function renderCycleExplorer() {
   cycleSliderOffsetDays = 0;
   const slider = document.getElementById('cycleSlider');
   if (slider) slider.value = '0';
+  // The cycle slider's span is fixed (±180 days, no zoom), so its ticks never
+  // change — but the surface (and this tick row) gets rebuilt from scratch every
+  // time switchCycleSystem() returns to Astrology, so it still needs refilling
+  // here rather than once at load. timelineTicksMarkup works in minutes, so the
+  // ±180-day span is converted going in.
+  const tickList = document.getElementById('cycleTicks');
+  if (tickList && typeof timelineTicksMarkup === 'function') tickList.innerHTML = timelineTicksMarkup(180 * 1440);
   const summaryLabel = document.getElementById('cycleSummaryLabel');
   if (summaryLabel) summaryLabel.textContent = `${cycleDef.label.toUpperCase()} · AGE ${Math.round(occurrence.ageYears)}`;
   const anchorLabel = document.getElementById('cycleAnchorLabel');

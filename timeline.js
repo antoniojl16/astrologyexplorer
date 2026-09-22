@@ -105,8 +105,66 @@ function formatTimelineSpan(minutes) {
 // markup and wired up with this same behavior: zoom (buttons or mouse wheel),
 // and double-click to snap back to the origin moment (birth time for a real
 // chart, or the current moment in the Timeline Explorer).
+// Tick spacing units, largest to smallest (mirrors formatTimelineSpan's own unit
+// ladder so a tick's spacing and the zoom-span label always agree), each with the
+// short suffix its ticks get labeled with (e.g. "3h", "2w", "1y").
+const TIMELINE_TICK_UNIT_DEFS = [
+  {size: 525600, suffix: 'y'},
+  {size: 43200, suffix: 'mo'},
+  {size: 10080, suffix: 'w'},
+  {size: 1440, suffix: 'd'},
+  {size: 60, suffix: 'h'},
+  {size: 1, suffix: 'm'},
+];
+// Ticks (not counting the 2 end ticks, which are unlabeled edge markers) are
+// capped at this count — past it, native <datalist> ticks or dense text labels
+// stop being readable, so spacing widens (multiples of the chosen unit) instead.
+const TIMELINE_MAX_INNER_TICKS = 20;
+// Picks the largest unit (year down to minute) that places at least 4 inner ticks
+// across [-spanMinutes, spanMinutes], then widens the spacing (2x, 3x, ... of that
+// unit) only as far as needed to stay at or under TIMELINE_MAX_INNER_TICKS. Returns
+// {value, label, end} — end marks the two slider extremes (unlabeled unless they
+// happen to also land on a regular tick), value is in minutes, label is empty for
+// the center tick (already covered by the origin label above the slider).
+function timelineTicks(spanMinutes) {
+  let unit = TIMELINE_TICK_UNIT_DEFS[TIMELINE_TICK_UNIT_DEFS.length - 1];
+  for (const def of TIMELINE_TICK_UNIT_DEFS) {
+    if (Math.floor(spanMinutes / def.size) * 2 + 1 >= 4) {
+      unit = def;
+      break;
+    }
+  }
+  let multiplier = 1;
+  while (Math.floor(spanMinutes / (unit.size * multiplier)) * 2 + 1 > TIMELINE_MAX_INNER_TICKS) multiplier += 1;
+  const step = unit.size * multiplier;
+  const byValue = new Map();
+  const addTick = (value, label) => {
+    const existing = byValue.get(value);
+    byValue.set(value, {
+      value,
+      label: label || existing?.label || '',
+      end: existing?.end || Math.abs(value) === spanMinutes,
+    });
+  };
+  for (let value = 0; value <= spanMinutes; value += step) {
+    const label = value === 0 ? '' : `${Math.round(value / unit.size)}${unit.suffix}`;
+    addTick(value, label);
+    if (value !== 0) addTick(-value, label);
+  }
+  addTick(spanMinutes, '');
+  addTick(-spanMinutes, '');
+  return Array.from(byValue.values()).sort((a, b) => a.value - b.value);
+}
+function timelineTicksMarkup(spanMinutes) {
+  return timelineTicks(spanMinutes)
+    .map(tick => {
+      const percent = ((tick.value + spanMinutes) / (2 * spanMinutes)) * 100;
+      return `<span class="timeline-tick${tick.end ? ' end' : ''}" style="left:${percent}%"><i></i><b>${tick.label}</b></span>`;
+    })
+    .join('');
+}
 function timelineSliderInnerMarkup(labelText, value = 0) {
-  return `<div class="timeline-label"><span>${labelText}</span><strong data-timeline-date></strong></div><div class="timeline-exact" data-timeline-exact></div><div class="timeline-zoom" data-timeline-zoom><button type="button" aria-label="Expand timeline" title="Expand timeline">−</button><span>ZOOM</span><button type="button" aria-label="Shrink timeline" title="Shrink timeline">＋</button></div><input data-timeline-slider type="range" min="-1440" max="1440" step="1" value="${value}"><div class="timeline-ends" data-timeline-ends><span></span><span></span><span></span></div>`;
+  return `<div class="timeline-label"><span>${labelText}</span><strong data-timeline-date></strong></div><div class="timeline-exact" data-timeline-exact></div><div class="timeline-zoom" data-timeline-zoom><button type="button" class="timeline-center" data-timeline-center title="Reset to center">Center</button><button type="button" data-timeline-zoom-out aria-label="Expand timeline" title="Expand timeline">−</button><span>ZOOM</span><button type="button" data-timeline-zoom-in aria-label="Shrink timeline" title="Shrink timeline">＋</button></div><input data-timeline-slider type="range" min="-1440" max="1440" step="1" value="${value}"><div class="timeline-ticks" data-timeline-ticks></div><div class="timeline-ends" data-timeline-ends><span data-timeline-origin></span></div>`;
 }
 function timelineSliderMarkup(labelText, value = 0) {
   return `<div class="timeline-control">${timelineSliderInnerMarkup(labelText, value)}</div>`;
@@ -124,31 +182,29 @@ function updateTimelineReadout(container, chart, offsetMinutes) {
 function bindTimelineSlider(container, { onChange, originLabel = 'Birth moment', initialSpan = 1440 }) {
   const slider = container.querySelector('[data-timeline-slider]');
   const zoom = container.querySelector('[data-timeline-zoom]');
-  const endsRow = container.querySelector('[data-timeline-ends]');
+  const originEl = container.querySelector('[data-timeline-origin]');
+  const tickList = container.querySelector('[data-timeline-ticks]');
   if (!slider) return null;
   let span = initialSpan;
   const updateRange = () => {
     slider.min = String(-span);
     slider.max = String(span);
     slider.value = String(Math.max(-span, Math.min(span, Number(slider.value))));
-    const ends = endsRow ? endsRow.querySelectorAll('span') : [];
-    if (ends.length >= 3) {
-      const label = formatTimelineSpan(span);
-      ends[0].textContent = `− ${label}`;
-      ends[1].textContent = originLabel;
-      ends[2].textContent = `＋ ${label}`;
-    }
+    if (originEl) originEl.textContent = originLabel;
+    if (tickList) tickList.innerHTML = timelineTicksMarkup(span);
   };
   if (zoom) {
-    zoom.firstElementChild.addEventListener('click', () => { span = Math.min(525600, span * 2); updateRange(); });
-    zoom.lastElementChild.addEventListener('click', () => { span = Math.max(5, Math.round(span / 2)); updateRange(); });
+    zoom.querySelector('[data-timeline-zoom-out]')?.addEventListener('click', () => { span = Math.min(5256000000, span * 2); updateRange(); });
+    zoom.querySelector('[data-timeline-zoom-in]')?.addEventListener('click', () => { span = Math.max(5, Math.round(span / 2)); updateRange(); });
   }
+  const recenter = () => { slider.value = '0'; slider.dispatchEvent(new Event('input')); };
+  container.querySelector('[data-timeline-center]')?.addEventListener('click', recenter);
   slider.addEventListener('wheel', event => {
     event.preventDefault();
     span = event.deltaY < 0 ? Math.max(5, Math.round(span / 2)) : Math.min(525600, span * 2);
     updateRange();
   }, {passive: false});
-  slider.addEventListener('dblclick', () => { slider.value = '0'; slider.dispatchEvent(new Event('input')); });
+  slider.addEventListener('dblclick', recenter);
   slider.addEventListener('input', () => onChange(Number(slider.value)));
   updateRange();
   onChange(Number(slider.value));

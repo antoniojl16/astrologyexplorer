@@ -827,6 +827,337 @@ function renderHumanDesignMandala(surface, chart, offsetMinutes = 0) {
   }
 }
 
+// Gene Keys "All Paths" profile: the full 11-sphere / 14-path diagram (Activation
+// Sequence + Venus Sequence + the IQ/SQ/EQ/Attraction cluster), read directly off a
+// reference profile image — the hexagram ring and small per-sphere annotation text
+// around it were explicitly excluded per request, only the spheres, paths, and their
+// names/colors were kept. Sphere and path ids below (gk-sphere-*, gk-path-*) are
+// exactly the inferred names, so they can be checked against the source image.
+const GK_BLUE = "#577891";
+const GK_RED = "#a4433c";
+const GK_GREEN = "#4f8f6a";
+// Every sphere below has a set/planet mapping (personality/design × one of the 10
+// bodies computeHumanDesignChart already derives), so all 11 read real, live gates —
+// not just the 4 Activation Sequence spheres the old Golden Path view below covers.
+const GENE_KEYS_ALL_SPHERES = [
+  {
+    id: "lifeswork",
+    name: "Life's Work",
+    x: 390,
+    y: 55,
+    r: 30,
+    color: GK_GREEN,
+    set: "personality",
+    planet: "Sun",
+  },
+  {
+    id: "evolution",
+    name: "Evolution",
+    x: 690,
+    y: 300,
+    r: 30,
+    color: GK_GREEN,
+    set: "personality",
+    planet: "Earth",
+  },
+  {
+    id: "radiance",
+    name: "Radiance",
+    x: 90,
+    y: 300,
+    r: 30,
+    color: GK_GREEN,
+    set: "design",
+    planet: "Sun",
+  },
+  {
+    id: "purpose",
+    name: "Purpose",
+    x: 390,
+    y: 555,
+    r: 30,
+    color: GK_GREEN,
+    set: "design",
+    planet: "Earth",
+  },
+  {
+    id: "attraction",
+    name: "Attraction",
+    x: 390,
+    y: 430,
+    r: 20,
+    color: GK_RED,
+    set: "design",
+    planet: "Moon",
+  },
+  {
+    id: "iq",
+    name: "IQ",
+    x: 255,
+    y: 365,
+    r: 30,
+    color: GK_RED,
+    set: "personality",
+    planet: "Venus",
+  },
+  {
+    id: "eq",
+    name: "EQ",
+    x: 525,
+    y: 365,
+    r: 30,
+    color: GK_RED,
+    set: "personality",
+    planet: "Mars",
+  },
+  {
+    id: "sq",
+    name: "SQ",
+    x: 390,
+    y: 300,
+    r: 32,
+    color: GK_RED,
+    set: "design",
+    planet: "Venus",
+  },
+  {
+    id: "vocation",
+    name: "Vocation",
+    x: 255,
+    y: 235,
+    r: 30,
+    color: GK_RED,
+    set: "design",
+    planet: "Mars",
+  },
+  {
+    id: "culture",
+    name: "Culture",
+    x: 525,
+    y: 235,
+    r: 30,
+    color: GK_BLUE,
+    set: "design",
+    planet: "Jupiter",
+  },
+  {
+    id: "pearl",
+    name: "Pearl",
+    x: 390,
+    y: 175,
+    r: 32,
+    color: GK_BLUE,
+    set: "personality",
+    planet: "Jupiter",
+  },
+];
+const GENE_KEYS_SPHERE_BY_ID = new Map(
+  GENE_KEYS_ALL_SPHERES.map((sphere) => [sphere.id, sphere]),
+);
+const GENE_KEYS_SPHERE_INDEX_BY_ID = new Map(
+  GENE_KEYS_ALL_SPHERES.map((sphere, index) => [sphere.id, index]),
+);
+const GENE_KEYS_ALL_EDGES = [
+  { a: "lifeswork", b: "evolution", label: "Challenge", color: GK_GREEN },
+  { a: "evolution", b: "radiance", label: "Breakthrough", color: GK_GREEN },
+  { a: "radiance", b: "purpose", label: "Core Stability", color: GK_GREEN },
+  { a: "purpose", b: "attraction", label: "Dharma", color: GK_RED },
+  { a: "attraction", b: "iq", label: "Karma", color: GK_RED },
+  { a: "iq", b: "eq", label: "Intelligence", color: GK_RED },
+  { a: "eq", b: "sq", label: "Love", color: GK_RED },
+  { a: "sq", b: "vocation", label: "Realisation", color: GK_RED },
+  { a: "vocation", b: "lifeswork", label: "Service", color: GK_BLUE },
+  { a: "vocation", b: "culture", label: "Initiative", color: GK_BLUE },
+  { a: "culture", b: "lifeswork", label: "Growth", color: GK_BLUE },
+  { a: "vocation", b: "pearl", label: "Quantum", color: GK_BLUE },
+  { a: "culture", b: "pearl", label: "Quantum", color: GK_BLUE },
+  { a: "lifeswork", b: "pearl", label: "Quantum", color: GK_BLUE },
+];
+function geneKeysGateLabel(sphere, hd) {
+  if (!hd || !sphere.set) return "—";
+  const influence = hd[sphere.set].find(
+    (item) => item.planet === sphere.planet,
+  );
+  return influence && influence.label
+    ? `${influence.gate}.${influence.line}`
+    : "—";
+}
+// A path is active only when BOTH spheres it connects are active (or when
+// activeIndexes is null, meaning everything is active — the "All Paths" view).
+function geneKeysEdgesMarkup(activeIndexes) {
+  return GENE_KEYS_ALL_EDGES.map((edge, index) => {
+    const from = GENE_KEYS_SPHERE_BY_ID.get(edge.a);
+    const to = GENE_KEYS_SPHERE_BY_ID.get(edge.b);
+    const active =
+      !activeIndexes ||
+      (activeIndexes.has(GENE_KEYS_SPHERE_INDEX_BY_ID.get(edge.a)) &&
+        activeIndexes.has(GENE_KEYS_SPHERE_INDEX_BY_ID.get(edge.b)));
+    const midX = (from.x + to.x) / 2;
+    const midY = (from.y + to.y) / 2;
+    const angleDegrees =
+      (Math.atan2(to.y - from.y, to.x - from.x) * 180) / Math.PI;
+    // Flip the label 180deg when the line runs "backwards" so the text never
+    // renders upside-down, regardless of which sphere is listed as a/b.
+    const labelAngle =
+      angleDegrees > 90 || angleDegrees < -90
+        ? angleDegrees + 180
+        : angleDegrees;
+    const slug = edge.label.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+    return `
+      <g class="gk-path${active ? "" : " disabled"}" tabindex="${active ? "0" : "-1"}" id="gk-path-${slug}-${index}" data-path="${edge.label}" data-from="${from.name}" data-to="${to.name}" style="--gk-path-color:${edge.color}">
+        <line x1="${from.x}" y1="${from.y}" x2="${to.x}" y2="${to.y}" class="gk-path-track"/>
+        <text x="${midX}" y="${midY}" transform="rotate(${labelAngle} ${midX} ${midY})" text-anchor="middle" class="gk-path-label">${edge.label}</text>
+      </g>`;
+  }).join("");
+}
+// activeIndexes is a Set of GENE_KEYS_ALL_SPHERES indexes to render as "active"
+// (full color, interactive), or null to mean every sphere is active (the "All
+// Paths" view). Everything outside the set renders greyed-out and inert — no
+// tabindex, no click/hover (see the .gk-sphere.disabled / .gk-path.disabled CSS,
+// which also sets pointer-events:none).
+function geneKeysSpheresMarkup(hd, activeIndexes) {
+  return GENE_KEYS_ALL_SPHERES.map((sphere, index) => {
+    const label = geneKeysGateLabel(sphere, hd);
+    const active = !activeIndexes || activeIndexes.has(index);
+    return `
+      <g class="gk-sphere${active ? "" : " disabled"}" tabindex="${active ? "0" : "-1"}" id="gk-sphere-${sphere.id}" data-sphere="${sphere.name}" data-gate="${label}">
+        <circle cx="${sphere.x}" cy="${sphere.y}" r="${sphere.r}" fill="${sphere.color}"/>
+        <text x="${sphere.x}" y="${sphere.y - 5}" text-anchor="middle" class="gk-sphere-name">${sphere.name}</text>
+        <text x="${sphere.x}" y="${sphere.y + 13}" text-anchor="middle" class="gk-sphere-gate">${label}</text>
+      </g>`;
+  }).join("");
+}
+// Disabled spheres/paths get pointer-events:none in CSS (so hover-debug and
+// clicks can't reach them at all), but the :not(.disabled) filter here is a
+// belt-and-suspenders guard against ever wiring up a toast for a greyed-out
+// element regardless of how that CSS rule evolves.
+function bindGeneKeysAllPathsClicks(container) {
+  container.querySelectorAll(".gk-sphere:not(.disabled)").forEach((node) =>
+    node.addEventListener("click", (event) => {
+      event.stopPropagation();
+      showToast(`${node.dataset.sphere} · Gate ${node.dataset.gate}`);
+    }),
+  );
+  container.querySelectorAll(".gk-path:not(.disabled)").forEach((node) =>
+    node.addEventListener("click", (event) => {
+      event.stopPropagation();
+      showToast(
+        `${node.dataset.path} · ${node.dataset.from} → ${node.dataset.to}`,
+      );
+    }),
+  );
+}
+// Debug aid: hovering the Gene Keys diagram shows which sphere/path id is under the
+// pointer and its x,y coordinates in the SVG's own space — same pattern as the
+// mandala's and bodygraph's own hover-debug helpers.
+function ensureGeneKeysHoverTooltip() {
+  let tooltip = document.getElementById("geneKeysHoverTooltip");
+  if (!tooltip) {
+    tooltip = document.createElement("div");
+    tooltip.id = "geneKeysHoverTooltip";
+    tooltip.style.cssText =
+      'position:fixed;z-index:9999;pointer-events:none;display:none;white-space:nowrap;background:var(--ink);color:var(--paper);font:10px "DM Mono",monospace;padding:6px 9px;border-radius:3px;box-shadow:0 8px 20px rgba(0,0,0,.25)';
+    document.body.appendChild(tooltip);
+  }
+  return tooltip;
+}
+function bindGeneKeysHoverDebug(svg) {
+  if (!svg || svg.dataset.hoverDebugBound) return;
+  svg.dataset.hoverDebugBound = "true";
+  const tooltip = ensureGeneKeysHoverTooltip();
+  svg.addEventListener("mousemove", (event) => {
+    const point = svg.createSVGPoint();
+    point.x = event.clientX;
+    point.y = event.clientY;
+    const svgPoint = point.matrixTransform(svg.getScreenCTM().inverse());
+    const target = event.target;
+    const idHolder = target.closest("[id]");
+    const label = idHolder
+      ? `id: ${idHolder.id}`
+      : target.className && target.className.baseVal
+        ? `class: ${target.className.baseVal}`
+        : `<${target.tagName}>`;
+    tooltip.textContent = `${label} · (${svgPoint.x.toFixed(1)},${svgPoint.y.toFixed(1)})`;
+    tooltip.style.left = `${event.clientX + 14}px`;
+    tooltip.style.top = `${event.clientY + 14}px`;
+    tooltip.style.display = "block";
+  });
+  svg.addEventListener("mouseleave", () => {
+    tooltip.style.display = "none";
+  });
+}
+// Sub-path tabs (Golden Path, Venus Path, Pearl Path, Star Pearl) reuse this exact
+// same 11-sphere/14-path diagram, just with everything outside their own sphere
+// subset greyed out and inert — the geometry and gate data are never redrawn,
+// only which nodes/edges count as "active" changes. Indexes are into
+// GENE_KEYS_ALL_SPHERES. A path lights up only when both spheres it connects are
+// in the active set (see geneKeysEdgesMarkup).
+const GENE_KEYS_TAB_ACTIVE_INDEXES = {
+  "All Paths": null,
+  "Golden Path": new Set([0, 1, 2, 3]),
+  "Venus Path": new Set([3, 4, 5, 6, 7, 8]),
+  "Pearl Path": new Set([8, 9, 10, 0]),
+  "Star Pearl": new Set([10]),
+};
+function renderGeneKeysDiagram(surface, chart, offsetMinutes, activeIndexes) {
+  const hd = chart ? computeHumanDesignChart(chart, offsetMinutes) : null;
+  const timelineMarkup = chart
+    ? timelineSliderMarkup("PROFILE MOMENT", offsetMinutes)
+    : "";
+  const liveCount = GENE_KEYS_ALL_SPHERES.filter((sphere) => sphere.set).length;
+  const activeSphereCount = activeIndexes
+    ? activeIndexes.size
+    : GENE_KEYS_ALL_SPHERES.length;
+  const activeEdgeCount = GENE_KEYS_ALL_EDGES.filter(
+    (edge) =>
+      !activeIndexes ||
+      (activeIndexes.has(GENE_KEYS_SPHERE_INDEX_BY_ID.get(edge.a)) &&
+        activeIndexes.has(GENE_KEYS_SPHERE_INDEX_BY_ID.get(edge.b))),
+  ).length;
+  surface.innerHTML = `
+    <div class="system-layout">
+      <div class="system-visual gene-visual">
+        <div class="system-toolbar">
+          <span class="eyebrow">${activeSystemTab.toUpperCase()}</span>
+          <span class="sample-badge">${liveCount} LIVE · ${GENE_KEYS_ALL_SPHERES.length - liveCount} SAMPLE SPHERES</span>
+        </div>
+        <svg class="gene-all-paths" viewBox="0 0 780 620" role="img" aria-label="Gene Keys full profile: Activation, Venus, and Pearl sequences">
+          <g data-gene-edges>${geneKeysEdgesMarkup(activeIndexes)}</g>
+          <g data-gene-spheres>${geneKeysSpheresMarkup(hd, activeIndexes)}</g>
+        </svg>
+        ${timelineMarkup}
+      </div>
+      <aside class="system-info">
+        <span class="eyebrow">PROFILE READING</span>
+        <h3>${activeSystemTab}</h3>
+        <p>The full Gene Keys profile for ${chart?.name || "the selected chart"}: all ${GENE_KEYS_ALL_SPHERES.length} spheres across the Activation, Venus, and Pearl Sequences, each reading a real gate from the same Personality/Design chart Human Design uses.</p>
+        <div class="system-stat"><span>ACTIVE SPHERES</span><strong>${activeSphereCount} / ${GENE_KEYS_ALL_SPHERES.length}</strong></div>
+        <div class="system-stat"><span>ACTIVE PATHS</span><strong>${activeEdgeCount} / ${GENE_KEYS_ALL_EDGES.length}</strong></div>
+        <div class="system-stat"><span>LIVE GATES</span><strong>${liveCount} / ${GENE_KEYS_ALL_SPHERES.length}</strong></div>
+        <div class="system-note">Active spheres and paths are interactive (hover shows its id, click shows a toast); greyed-out ones aren't part of this sequence.${liveCount < GENE_KEYS_ALL_SPHERES.length ? ` Spheres still showing "—" don't have a planet/gate mapping wired up yet.` : ""}</div>
+      </aside>
+    </div>`;
+  bindGeneKeysAllPathsClicks(surface);
+  bindGeneKeysHoverDebug(surface.querySelector(".gene-all-paths"));
+  const timelineContainer = surface.querySelector(
+    ".gene-visual .timeline-control",
+  );
+  if (timelineContainer && chart) {
+    bindTimelineSlider(timelineContainer, {
+      originLabel: timelineOriginLabel(),
+      onChange: (offsetMinutes2) => {
+        updateTimelineReadout(timelineContainer, chart, offsetMinutes2);
+        const hd2 = computeHumanDesignChart(chart, offsetMinutes2);
+        const layer = surface.querySelector("[data-gene-spheres]");
+        if (layer) {
+          layer.innerHTML = geneKeysSpheresMarkup(hd2, activeIndexes);
+          bindGeneKeysAllPathsClicks(layer);
+        }
+      },
+    });
+  }
+}
+
 // The Activation Sequence's 4 Golden Path spheres are canonically the same
 // Sun/Earth, Personality/Design gates Human Design already computes for its
 // own bodygraph — not a separate calculation. Reusing computeHumanDesignChart
@@ -875,6 +1206,13 @@ function bindGeneSphereClicks(container) {
   );
 }
 function renderGeneKeys(surface, chart) {
+  if (Object.prototype.hasOwnProperty.call(GENE_KEYS_TAB_ACTIVE_INDEXES, activeSystemTab))
+    return renderGeneKeysDiagram(
+      surface,
+      chart,
+      0,
+      GENE_KEYS_TAB_ACTIVE_INDEXES[activeSystemTab],
+    );
   const hd = chart ? computeHumanDesignChart(chart, 0) : null;
   const timelineMarkup = chart
     ? timelineSliderMarkup("GENE KEYS MOMENT", 0)
