@@ -11,6 +11,7 @@ const SYSTEM_TABS = {
     "Star Pearl",
     "Codon Rings",
   ],
+  Astrocartography: ["ACG Travel", "ACG Local Space"],
 };
 let activeSystemTab = "Bodygraph";
 let activeSystemFilter = "Complete";
@@ -272,6 +273,8 @@ function systemChart() {
 }
 
 function renderSystemPanel(container, system, chart) {
+  if (system === "Astrocartography")
+    return renderAstrocartographyPanel(container, chart);
   const systemTabs = SYSTEM_TABS[system];
   const tabs = system === "Human Design" ? systemTabs.views : systemTabs;
   activeSystemTab = tabs[0];

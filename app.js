@@ -66,6 +66,13 @@ const LAST_NAMES = [
   'Quill',
   'Marlowe',
 ];
+const SAMPLE_CITIES = [
+  { location: 'Lisbon, Portugal', latitude: '38.7223', longitude: '-9.1393', timezone: 'Europe/Lisbon' },
+  { location: 'Oslo, Norway', latitude: '59.9139', longitude: '10.7522', timezone: 'Europe/Oslo' },
+  { location: 'Austin, USA', latitude: '30.2672', longitude: '-97.7431', timezone: 'America/Chicago' },
+  { location: 'Kyoto, Japan', latitude: '35.0116', longitude: '135.7681', timezone: 'Asia/Tokyo' },
+  { location: 'Cape Town, South Africa', latitude: '-33.9249', longitude: '18.4241', timezone: 'Africa/Johannesburg' },
+];
 let state = loadState();
 let selectedChartId = state.charts[0]?.id || null;
 let selectedRowIndex = 0;
@@ -362,15 +369,7 @@ function makeChart(index, overrides = {}) {
       ':' +
       String((index * 17) % 60).padStart(2, '0'),
     uncertainty: index === 4 ? 30 : 0,
-    location: [
-      'Lisbon, Portugal',
-      'Oslo, Norway',
-      'Austin, USA',
-      'Kyoto, Japan',
-      'Cape Town, South Africa',
-    ][index % 5],
-    latitude: (-30 + index * 11.7).toFixed(4),
-    longitude: (-120 + index * 23.4).toFixed(4),
+    ...SAMPLE_CITIES[index % SAMPLE_CITIES.length],
     tags: tagSets[index % tagSets.length],
     notes: index % 3 === 0 ? 2 : 0,
     positions: [],

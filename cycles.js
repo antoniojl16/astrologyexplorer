@@ -151,6 +151,7 @@ function switchCycleSystem(system) {
   if (!surface) return;
   document.querySelectorAll('[data-cycle-system]').forEach(item => item.classList.toggle('active', item.dataset.cycleSystem === system));
   if (system === 'Astrology') { surface.innerHTML = cycleAstrologyMarkup; renderCycleExplorer(); return; }
+  if (system === 'Astrocartography') { renderAstrocartographyPanel(surface, chartById(cycleChartId)); return; }
   surface.innerHTML = `<div class="system-visual" style="padding:40px"><p class="intro-copy">${system} cycle overlays (a composite bodygraph or dual Gene Keys reading at the cycle moment) are coming in a future iteration. For now, explore the Astrology cycle wheel.</p></div>`;
 }
 
