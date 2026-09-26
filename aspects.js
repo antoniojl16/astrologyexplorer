@@ -46,24 +46,43 @@ function aspectIntensity(orb, maxOrb) {
   return orb <= maxOrb * 0.6 ? 'normal' : 'weak';
 }
 
+const NON_ASPECT_BODIES = ['Earth', 'Lilith', 'Chiron', 'Vertex', 'Fortuna'];
+// Within one chart the Nodes are always exactly opposite each other — an axis, not an aspect.
+const isNodalAxis = (first, second) => [first.name, second.name].sort().join('|') === 'North Node|South Node';
+function aspectBodies(positions) {
+  return positions.filter(position => typeof position.angle === 'number' || position.sign).filter(position => NON_ASPECT_BODIES.indexOf(position.name) === -1);
+}
+function aspectLongitude(position) {
+  return position.angle ?? SIGNS.indexOf(position.sign) * 30 + position.degree;
+}
+// Every aspect (within its orb) between two bodies, as calculateAspects reports them.
+function aspectsBetween(first, second, includeAll) {
+  const distance = angularDistance(aspectLongitude(first), aspectLongitude(second));
+  return ASPECT_DEFINITIONS.flatMap(definition => {
+    const orb = Math.abs(distance - definition.angle);
+    if ((!includeAll && !MAIN_ASPECTS.has(definition.name)) || orb > definition.orb) return [];
+    return [{
+      ...definition, first: first.name, second: second.name, orb, maxOrb: definition.orb,
+      intensity: aspectIntensity(orb, definition.orb), color: ASPECT_COLORS[definition.name] || 'var(--line)'
+    }];
+  });
+}
 function calculateAspects(chart, includeAll = false) {
-  const nonAspectPlanets=['Earth', 'North Node', 'South Node', 'Ascendant', 'Midheaven', 'Lilith', 'Chiron', 'Vertex', 'Fortuna'];
-  const positions = chart.positions.filter(position => typeof position.angle === 'number' || position.sign).filter(position => nonAspectPlanets.indexOf(position.name) === -1);
+  const positions = aspectBodies(chart.positions);
   const aspects = [];
   positions.forEach((first, firstIndex) => positions.slice(firstIndex + 1).forEach(second => {
-    const firstAngle = first.angle ?? SIGNS.indexOf(first.sign) * 30 + first.degree;
-    const secondAngle = second.angle ?? SIGNS.indexOf(second.sign) * 30 + second.degree;
-    const distance = angularDistance(firstAngle, secondAngle);
-    ASPECT_DEFINITIONS.forEach(definition => {
-      const orb = Math.abs(distance - definition.angle);
-      if ((!includeAll && !MAIN_ASPECTS.has(definition.name)) || orb > definition.orb) return;
-      aspects.push({
-        ...definition, first: first.name, second: second.name, orb, maxOrb: definition.orb,
-        intensity: aspectIntensity(orb, definition.orb), color: ASPECT_COLORS[definition.name] || 'var(--line)'
-      });
-    });
+    if (isNodalAxis(first, second)) return;
+    aspects.push(...aspectsBetween(first, second, includeAll));
   }));
   return aspects.sort((first, second) => first.orb - second.orb);
+}
+// Synastry: only aspects between chart A's bodies (`first`) and chart B's (`second`),
+// never within one chart, so the same body name can appear on both sides.
+function calculateCrossAspects(positionsA, positionsB, includeAll = false) {
+  const bodiesB = aspectBodies(positionsB);
+  return aspectBodies(positionsA)
+    .flatMap(first => bodiesB.flatMap(second => aspectsBetween(first, second, includeAll)))
+    .sort((first, second) => first.orb - second.orb);
 }
 
 function renderCalculatedAspects(offsetMinutes = window.timelineOffsetMinutes || 0) {
@@ -106,6 +125,11 @@ function setChartView(mode) {
   else document.getElementById('aspectGrid')?.remove();
 }
 
+function setAspectMode(mode) {
+  aspectMode = mode;
+  document.querySelectorAll('[data-all-aspects]').forEach(input => { input.checked = mode === 'all'; });
+}
+
 function initAspectEngine() {
   const segmented = document.querySelector('.segmented');
   const bothButton = document.createElement('button');
@@ -113,12 +137,17 @@ function initAspectEngine() {
   bothButton.textContent = 'Both';
   segmented.appendChild(bothButton);
   segmented.querySelectorAll('button').forEach((button, index) => button.addEventListener('click', () => setChartView(['wheel', 'aspects', 'both'][index])));
-  document.querySelectorAll('.aspect-filters button').forEach((button, index) => button.addEventListener('click', () => {
-    aspectMode = index === 0 ? 'main' : 'all';
-    document.querySelectorAll('.aspect-filters button').forEach(item => item.classList.remove('active'));
-    button.classList.add('active');
-    renderCalculatedAspects();
-  }));
+  // "All aspects" checkbox: one shared aspectMode, so every [data-all-aspects] box
+  // (Chart Explorer and Pair Explorer alike) is kept in step.
+  document.querySelectorAll('#chartSystemSurface [data-all-aspects]').forEach(input => {
+    input.checked = aspectMode === 'all';
+    input.addEventListener('change', () => {
+      setAspectMode(input.checked ? 'all' : 'main');
+      const chart = currentExplorerChart();
+      if (chart) renderPreciseWheel(chart, window.timelineOffsetMinutes || 0);
+      renderCalculatedAspects();
+    });
+  });
   const originalRenderExplorer = renderExplorer;
   window.renderExplorer = function renderExplorerWithAspects() {
     originalRenderExplorer();

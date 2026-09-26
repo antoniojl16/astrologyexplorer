@@ -108,7 +108,9 @@ function acgMapMarkup() {
     </div>`;
 }
 
-function bindAcgMap(wrap) {
+// `onViewportChange` fires after this map pans or zooms, so paired maps (Pair
+// Explorer) can follow along via their own refresh().
+function bindAcgMap(wrap, { onViewportChange } = {}) {
   const svg = wrap.querySelector(".acg-map");
   const labelGroup = wrap.querySelector("[data-acg-labels]");
   const originMarker = wrap.querySelector("[data-acg-origin]");
@@ -153,7 +155,7 @@ function bindAcgMap(wrap) {
     const vw = W / acgViewport.zoom;
     return { vw, vh: (vw * h) / w };
   };
-  const apply = () => {
+  const apply = (notify = true) => {
     const screen = size();
     if (!screen.w || !screen.h) return;
     acgViewport.zoom = Math.max(1, Math.min(ACG_MAX_ZOOM, acgViewport.zoom));
@@ -162,6 +164,7 @@ function bindAcgMap(wrap) {
     acgViewport.cy = vh >= W ? W / 2 : Math.max(vh / 2, Math.min(W - vh / 2, acgViewport.cy));
     svg.setAttribute("viewBox", `${acgViewport.cx - vw / 2} ${acgViewport.cy - vh / 2} ${vw} ${vh}`);
     scheduleLabels();
+    if (notify !== false && onViewportChange) onViewportChange();
   };
   // Keeps the world point under (sx, sy) — screen px within the svg — fixed while zooming.
   const zoomAt = (factor, sx, sy) => {
@@ -313,6 +316,10 @@ function bindAcgMap(wrap) {
     viewCenter() {
       const [lon, lat] = acgUnproject(acgViewport.cx, acgViewport.cy);
       return { lat, lon };
+    },
+    // Re-reads the shared viewport (another map moved it) without notifying back.
+    refresh() {
+      apply(false);
     },
   };
 }
@@ -986,4 +993,84 @@ function renderAstrocartographyPanel(container, chart) {
   } else {
     showView();
   }
+}
+
+// ── Pair Explorer: two maps, one above the other ────────────────────────
+// Both maps share the view tab, filters and viewport (panning or zooming either
+// moves both), so the same part of the world is always compared. No timeline:
+// Pair Explorer compares the two birth moments as they are. Each map's Local
+// Space origin is that chart's own (saved per chart, still draggable here).
+function renderAstrocartographyPairPanel(container, entries) {
+  const views = SYSTEM_TABS.Astrocartography;
+  if (!views.includes(acgActiveView)) acgActiveView = views[0];
+  container.innerHTML = `
+    <div class="system-tabs">${views.map((view) => `<button type="button" class="${view === acgActiveView ? "active" : ""}" data-acg-view="${view}">${view}</button>`).join("")}</div>
+    <div class="system-surface">
+      <div class="acg-pair-layout">
+        <div class="acg-pair-maps">
+          ${entries.map((entry, index) => `
+            <div class="system-visual acg-visual" data-acg-pair-map="${index}">
+              <div class="system-toolbar"><span class="eyebrow">${entry.label}</span><span class="sample-badge" data-acg-badge></span></div>
+              ${acgMapMarkup()}
+            </div>`).join("")}
+        </div>
+        <div class="acg-filters" data-acg-filters>${acgFiltersMarkup()}</div>
+      </div>
+    </div>`;
+  // Move to center / Reset birthplace act on one chart, so they stay in the Chart
+  // Explorer; the Directions choice still applies to both maps here.
+  container.querySelectorAll("[data-acg-origin-center], [data-acg-origin-reset]").forEach((button) => (button.hidden = true));
+  const maps = [];
+  const cards = entries.map((_, index) => container.querySelector(`[data-acg-pair-map="${index}"]`));
+  cards.forEach((card, index) => {
+    maps[index] = bindAcgMap(card.querySelector(".acg-map-wrap"), {
+      onViewportChange: () => maps.forEach((map, other) => other !== index && map && map.refresh()),
+    });
+  });
+  const showView = () => {
+    const travel = acgActiveView === "ACG Travel";
+    container.querySelector("[data-acg-line-filters]").hidden = !travel;
+    container.querySelector("[data-acg-origin-actions]").hidden = travel;
+    entries.forEach(({ chart }, index) => {
+      const birthplace = acgBirthplace(chart);
+      const origin = chart.localSpaceOrigin || birthplace;
+      const directionsFrom = acgLocalSpaceDirections === "natal" ? birthplace : origin;
+      const lines = travel ? acgTravelLines(chart, 0) : acgLocalSpaceLines(chart, 0, origin, directionsFrom);
+      const visible = acgVisibleLines(lines);
+      cards[index].querySelector("[data-acg-overlay]").innerHTML = acgOverlayMarkup(visible);
+      cards[index].querySelector("[data-acg-badge]").textContent = `${acgActiveView.toUpperCase()} · ${visible.length} / ${lines.length} LINES`;
+      maps[index].setLabelLines(visible);
+      maps[index].setOrigin(
+        travel || !origin
+          ? null
+          : {
+              ...origin,
+              onMove: (moved) => {
+                chart.localSpaceOrigin = { lat: Number(moved.lat.toFixed(4)), lon: Number(moved.lon.toFixed(4)) };
+                acgSaveSoon();
+                showView();
+              },
+            },
+      );
+    });
+  };
+  container.querySelectorAll("[data-acg-view]").forEach((button) =>
+    button.addEventListener("click", () => {
+      acgActiveView = button.dataset.acgView;
+      container.querySelectorAll("[data-acg-view]").forEach((item) => item.classList.toggle("active", item === button));
+      showView();
+    }),
+  );
+  container.querySelector("[data-acg-filters]").addEventListener("change", (event) => {
+    const { acgBody, acgLine, acgDirections } = event.target.dataset;
+    if (acgDirections) acgLocalSpaceDirections = acgDirections;
+    else {
+      const set = acgBody ? acgFilters.bodies : acgLine ? acgFilters.lines : null;
+      if (!set) return;
+      if (event.target.checked) set.add(acgBody || acgLine);
+      else set.delete(acgBody || acgLine);
+    }
+    showView();
+  });
+  showView();
 }

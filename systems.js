@@ -239,7 +239,9 @@ function mandalaGlyphLayerMarkup(glyphMap) {
     if (!entry) return "";
     const angle =
       MANDALA_GATE25_ANGLE - index * MANDALA_GATE_STEP - MANDALA_GATE_STEP / 2;
-    const items = [
+    // An entry may carry ready-made items ({glyph, color, side}) — the Pair
+    // Explorer composite colors them by person instead of by side.
+    const items = entry.items || [
       ...entry.personality.map((glyph) => ({
         glyph,
         color: "var(--ink)",
@@ -314,6 +316,8 @@ function renderSystemPanel(container, system, chart) {
 // so it's hoisted out of renderBodygraph and shared with the tick-level
 // update, which needs to regenerate the same gate/center markup without
 // recomputing pixel geometry each time.
+// Center colors: brown for Root, Solar Plexus, Spleen and Throat; red for Sacral
+// and Heart; gold for G and Head (Crown); green for Ajna.
 const HD_BODYGRAPH_CENTERS = [
   {
     name: "Head",
@@ -321,7 +325,7 @@ const HD_BODYGRAPH_CENTERS = [
     x: 220,
     y: 62,
     shape: "up-triangle",
-    color: "#c9cbd0",
+    color: "#d6a63e",
   },
   {
     name: "Ajna",
@@ -329,7 +333,7 @@ const HD_BODYGRAPH_CENTERS = [
     x: 220,
     y: 137,
     shape: "down-triangle",
-    color: "#d1a05c",
+    color: "#5e8c5a",
   },
   {
     name: "Throat",
@@ -337,16 +341,16 @@ const HD_BODYGRAPH_CENTERS = [
     x: 220,
     y: 222,
     shape: "square",
-    color: "#b75e67",
+    color: "#8a6446",
   },
-  { name: "G", id: "g", x: 220, y: 315, shape: "diamond", color: "#d18d70" },
+  { name: "G", id: "g", x: 220, y: 315, shape: "diamond", color: "#d6a63e" },
   {
     name: "Heart",
     id: "heart",
     x: 284,
     y: 356,
     shape: "scalene",
-    color: "#bf7662",
+    color: "#b8453b",
   },
   {
     name: "Solar Plexus",
@@ -354,7 +358,7 @@ const HD_BODYGRAPH_CENTERS = [
     x: 342,
     y: 421,
     shape: "right-triangle",
-    color: "#c57466",
+    color: "#8a6446",
   },
   {
     name: "Spleen",
@@ -362,7 +366,7 @@ const HD_BODYGRAPH_CENTERS = [
     x: 98,
     y: 421,
     shape: "left-triangle",
-    color: "#76977f",
+    color: "#8a6446",
   },
   {
     name: "Sacral",
@@ -370,7 +374,7 @@ const HD_BODYGRAPH_CENTERS = [
     x: 220,
     y: 480,
     shape: "square",
-    color: "#bd645d",
+    color: "#b8453b",
   },
   {
     name: "Root",
@@ -378,7 +382,7 @@ const HD_BODYGRAPH_CENTERS = [
     x: 220,
     y: 575,
     shape: "square",
-    color: "#765f5b",
+    color: "#8a6446",
   },
 ];
 const HD_BODYGRAPH_CHANNEL_COORDS = [
@@ -389,7 +393,7 @@ const HD_BODYGRAPH_CHANNEL_COORDS = [
   [205, 455, 205, 340, 5, 15],
   [252, 470, 314, 420, 6, 59],
   [205, 295, 205, 247, 7, 31],
-  [235, 550, 235, 505, 9, 52],
+  [235, 505, 235, 550, 9, 52],
   [235, 165, 235, 200, 11, 56],
   [250, 228, 350, 405, 12, 22],
   [235, 295, 235, 247, 13, 33],
@@ -485,21 +489,30 @@ function offsetSegment(x1, y1, x2, y2, offset) {
     y2: y2 + ny * offset,
   };
 }
+// `side` is "personality", "design", "both", or (Pair Explorer composite) an array of
+// one or two fill classes such as ["person-a", "person-b"].
 function hdGateFillMarkup(g, side) {
-  if (side === "both") {
+  const sides = side === "both" ? ["personality", "design"] : Array.isArray(side) ? side : side ? [side] : [];
+  if (sides.length === 2) {
     const a = offsetSegment(g.x1, g.y1, g.x2, g.y2, -1.6);
     const b = offsetSegment(g.x1, g.y1, g.x2, g.y2, 1.6);
-    return `<line x1="${a.x1}" y1="${a.y1}" x2="${a.x2}" y2="${a.y2}" class="channel-fill hd-half-channel personality"/><line x1="${b.x1}" y1="${b.y1}" x2="${b.x2}" y2="${b.y2}" class="channel-fill hd-half-channel design"/>`;
+    return `<line x1="${a.x1}" y1="${a.y1}" x2="${a.x2}" y2="${a.y2}" class="channel-fill hd-half-channel ${sides[0]}"/><line x1="${b.x1}" y1="${b.y1}" x2="${b.x2}" y2="${b.y2}" class="channel-fill hd-half-channel ${sides[1]}"/>`;
   }
-  if (!side) return "";
-  return `<line x1="${g.x1}" y1="${g.y1}" x2="${g.x2}" y2="${g.y2}" class="channel-fill hd-half-channel ${side}"/>`;
+  if (!sides.length) return "";
+  return `<line x1="${g.x1}" y1="${g.y1}" x2="${g.x2}" y2="${g.y2}" class="channel-fill hd-half-channel ${sides[0]}"/>`;
 }
 function hdBodygraphGateMarkup(state) {
   return Object.values(HD_BODYGRAPH_GATE_POINTS)
     .map((g) => {
       const side = state ? state.gateSide(g.id) : null;
+      // Optional extras a state may provide (the Pair Explorer composite does): a
+      // halo under the gate, and a richer hover title.
+      const halo = state?.gateHalo?.(g.id)
+        ? `<line x1="${g.x1}" y1="${g.y1}" x2="${g.x2}" y2="${g.y2}" class="hd-channel-halo"/>`
+        : "";
+      const title = state?.gateTitle?.(g.id) || `Gate ${g.id}`;
       return `<g class="hd-gate-half" tabindex="0" id="gate-pipe-${g.id}" data-gate="${g.id}">
-    <title>Gate ${g.id}</title><line x1="${g.x1}" y1="${g.y1}" x2="${g.x2}" y2="${g.y2}" class="channel-track hd-half-channel"/>
+    <title>${title}</title>${halo}<line x1="${g.x1}" y1="${g.y1}" x2="${g.x2}" y2="${g.y2}" class="channel-track hd-half-channel"/>
     ${hdGateFillMarkup(g, side)}</g>
     <text x="${g.x1 + 7}" y="${g.y1}" class="hd-gate-label">${g.id}</text>`;
     })
@@ -534,7 +547,7 @@ function bindHdCenterClicks(container) {
 function hdChannelBadgeText(typology) {
   return `${typology ? typology.definedChannels.length : 0} / 36 CHANNELS DEFINED`;
 }
-function hdTypologyAsideMarkup(typology) {
+function hdTypologyAsideMarkup(typology, { showFilter = true } = {}) {
   if (!typology) return `<span class="eyebrow">CHART SNAPSHOT</span><h3>No chart</h3><p>Select a chart to see its Human Design typology.</p>`;
   const stat = (label, value) => `<div class="system-stat"><span>${label}</span><strong>${value}</strong></div>`;
   return `
@@ -553,8 +566,21 @@ function hdTypologyAsideMarkup(typology) {
     ${stat("QUADRANT", `${typology.quadrant.name} · ${typology.quadrant.theme}`)}
     ${stat("DEFINED CENTERS", `<span data-hd-defined-centers>${typology.definedCenters.size} / 9</span>`)}
     ${stat("DEFINED CHANNELS", `${typology.definedChannels.length} / 36`)}
-    ${stat("FILTER", activeSystemFilter)}
+    ${showFilter ? stat("FILTER", activeSystemFilter) : ""}
     <div class="system-note">Incarnation Cross gates read Personality Sun / Personality Earth / Design Sun / Design Earth.</div>`;
+}
+// One row per channel: gates, name, the two centers it joins, and an optional note
+// (the Pair Explorer uses it for who brings which gate).
+function hdChannelListMarkup(channels, note = () => "") {
+  if (!channels.length) return `<p class="hd-channel-empty">None</p>`;
+  return `<div class="hd-channel-list">${channels
+    .map((channel) => {
+      const gates = channel.gates || channel;
+      const info = hdChannelInfo(gates);
+      const extra = note(channel);
+      return `<div class="hd-channel-item"><b>${info.gates}</b><span>${info.name}</span><small>${info.centers}${extra ? ` · ${extra}` : ""}</small></div>`;
+    })
+    .join("")}</div>`;
 }
 function hdTypologyDetailsMarkup(typology) {
   if (!typology) return "";
@@ -562,6 +588,10 @@ function hdTypologyDetailsMarkup(typology) {
     <div class="hd-typology-row"><span>${label}</span><strong>${value}</strong><small>${detail}</small></div>`;
   const { variable, phs } = typology;
   return `
+    <div class="hd-channels">
+      <span class="eyebrow">DEFINED CHANNELS · ${typology.definedChannels.length} / 36</span>
+      ${hdChannelListMarkup(typology.definedChannels)}
+    </div>
     <div class="hd-typology">
       <div class="hd-typology-card">
         <h3>Variable <small>${variable.notation}</small></h3>
@@ -741,8 +771,10 @@ function updateHumanDesignInfluences(surface, chart, offsetMinutes) {
   updateHdTypology(surface, hd);
 }
 
-function renderHumanDesignMandala(surface, chart, offsetMinutes = 0) {
-  const state = chart ? computeBodygraphState(chart, offsetMinutes) : null;
+// The mandala SVG (gate/zodiac rings, gate sectors and planet glyphs, and the nested
+// bodygraph drawn from `state`). glyphMap fills the sector and glyph layers up front;
+// without it they start empty (the Chart Explorer's timeline slider fills them).
+function hdMandalaSvgMarkup(state, glyphMap = null) {
   const gate55Index = MANDALA_GATE_ORDER.indexOf(55);
   const gate55Angle = MANDALA_GATE25_ANGLE - gate55Index * MANDALA_GATE_STEP;
   const zodiacSigns = [
@@ -810,6 +842,29 @@ function renderHumanDesignMandala(surface, chart, offsetMinutes = 0) {
     const point = mandalaPolar(275, angle);
     return `<line x1="${MANDALA_CENTER}" y1="${MANDALA_CENTER}" x2="${point.x}" y2="${point.y}" class="mandala-ray"/>`;
   }).join("");
+  return `
+        <svg class="hd-mandala" viewBox="0 0 660 660" role="img" aria-label="Sample Human Design mandala with zodiac and gate rings">
+          ${MANDALA_GATE_SECTOR_GRADIENTS}
+          ${rays}
+          <circle cx="${MANDALA_CENTER}" cy="${MANDALA_CENTER}" r="318" class="mandala-outer"/>
+          <circle cx="${MANDALA_CENTER}" cy="${MANDALA_CENTER}" r="278" class="mandala-zodiac-ring"/>
+          <circle cx="${MANDALA_CENTER}" cy="${MANDALA_CENTER}" r="270" class="mandala-ring"/>
+          <circle cx="${MANDALA_CENTER}" cy="${MANDALA_CENTER}" r="218" class="mandala-ring"/>
+          <g data-mandala-sectors>${glyphMap ? mandalaGateSectorsMarkup(glyphMap) : ""}</g>
+          ${zodiacRing}
+          ${gateRing}
+          <g data-mandala-glyphs>${glyphMap ? mandalaGlyphLayerMarkup(glyphMap) : ""}</g>
+          <circle cx="${MANDALA_CENTER}" cy="${MANDALA_CENTER}" r="128" class="mandala-core"/>
+          <svg class="mandala-bodygraph" x="${MANDALA_CENTER - MANDALA_BODYGRAPH_WIDTH / 2}" y="${MANDALA_CENTER - MANDALA_BODYGRAPH_HEIGHT / 2}" width="${MANDALA_BODYGRAPH_WIDTH}" height="${MANDALA_BODYGRAPH_HEIGHT}" viewBox="0 0 440 640" role="img" aria-label="Bodygraph">
+            ${HD_BODYGRAPH_SILHOUETTE}
+            <g data-center-layer>${hdBodygraphCenterMarkup(state)}</g>
+            <g data-gate-layer>${hdBodygraphGateMarkup(state)}</g>
+          </svg>
+        </svg>`;
+}
+
+function renderHumanDesignMandala(surface, chart, offsetMinutes = 0) {
+  const state = chart ? computeBodygraphState(chart, offsetMinutes) : null;
   const hdTimelineMarkup = hdTimelineControlMarkup(chart, offsetMinutes);
   surface.innerHTML = `
     <div class="hd-mandala-layout">
@@ -818,24 +873,7 @@ function renderHumanDesignMandala(surface, chart, offsetMinutes = 0) {
           <span class="eyebrow">MANDALA / ${activeSystemTab.toUpperCase()}</span>
           <span class="sample-badge">SAMPLE DATA · GATE 25 LEFT</span>
         </div>
-        <svg class="hd-mandala" viewBox="0 0 660 660" role="img" aria-label="Sample Human Design mandala with zodiac and gate rings">
-          ${MANDALA_GATE_SECTOR_GRADIENTS}
-          ${rays}
-          <circle cx="${MANDALA_CENTER}" cy="${MANDALA_CENTER}" r="318" class="mandala-outer"/>
-          <circle cx="${MANDALA_CENTER}" cy="${MANDALA_CENTER}" r="278" class="mandala-zodiac-ring"/>
-          <circle cx="${MANDALA_CENTER}" cy="${MANDALA_CENTER}" r="270" class="mandala-ring"/>
-          <circle cx="${MANDALA_CENTER}" cy="${MANDALA_CENTER}" r="218" class="mandala-ring"/>
-          <g data-mandala-sectors></g>
-          ${zodiacRing}
-          ${gateRing}
-          <g data-mandala-glyphs></g>
-          <circle cx="${MANDALA_CENTER}" cy="${MANDALA_CENTER}" r="128" class="mandala-core"/>
-          <svg class="mandala-bodygraph" x="${MANDALA_CENTER - MANDALA_BODYGRAPH_WIDTH / 2}" y="${MANDALA_CENTER - MANDALA_BODYGRAPH_HEIGHT / 2}" width="${MANDALA_BODYGRAPH_WIDTH}" height="${MANDALA_BODYGRAPH_HEIGHT}" viewBox="0 0 440 640" role="img" aria-label="Bodygraph">
-            ${HD_BODYGRAPH_SILHOUETTE}
-            <g data-center-layer>${hdBodygraphCenterMarkup(state)}</g>
-            <g data-gate-layer>${hdBodygraphGateMarkup(state)}</g>
-          </svg>
-        </svg>
+        ${hdMandalaSvgMarkup(state)}
         ${hdTimelineMarkup}
       </div>
       <aside class="system-info">
@@ -1351,6 +1389,12 @@ function switchExplorerSystem(system) {
     surface.innerHTML = "";
     surface.appendChild(chartAstrologyNodes);
     chartAstrologyNodes = null;
+    // While detached, these controls missed any change made from the Pair Explorer
+    // (the settings are shared), so bring them back in step.
+    surface.querySelectorAll("[data-all-aspects]").forEach((input) => { input.checked = aspectMode === "all"; });
+    const fixZodiac = surface.querySelector("#fixZodiacToggleChart");
+    if (fixZodiac) fixZodiac.checked = astroWheelFixedToAries;
+    surface.querySelectorAll("[data-wheel-body]").forEach((input) => { input.checked = !wheelHiddenBodies.has(input.dataset.wheelBody); });
     if (typeof renderExplorer === "function") renderExplorer();
   } else {
     renderSystemPanel(surface, system, systemChart());
@@ -1383,3 +1427,41 @@ document
       switchExplorerSystem(button.dataset.explorerSystem),
     ),
   );
+
+// ── Pair Explorer: Gene Keys side by side ───────────────────────────────
+// The same path tabs as the Chart Explorer (Codon Rings aside, which has no
+// diagram yet), applied to both charts at once. No timeline in Pair Explorer.
+let geneKeysPairTab = "All Paths";
+function renderGeneKeysPair(container, entries) {
+  const tabs = Object.keys(GENE_KEYS_TAB_ACTIVE_INDEXES);
+  if (!tabs.includes(geneKeysPairTab)) geneKeysPairTab = tabs[0];
+  const activeIndexes = GENE_KEYS_TAB_ACTIVE_INDEXES[geneKeysPairTab];
+  container.innerHTML = `
+    <div class="system-tabs">${tabs.map((tab) => `<button type="button" class="${tab === geneKeysPairTab ? "active" : ""}" data-gk-pair-tab="${tab}">${tab}</button>`).join("")}</div>
+    <div class="system-surface">
+      <div class="gk-pair-layout">
+        ${entries
+          .map(
+            ({ chart, label }) => `
+          <div class="system-visual gene-visual">
+            <div class="system-toolbar"><span class="eyebrow">${label}</span><span class="sample-badge">${geneKeysPairTab.toUpperCase()}</span></div>
+            <svg class="gene-all-paths" viewBox="0 0 780 620" role="img" aria-label="Gene Keys profile for ${chart.name}">
+              <g data-gene-edges>${geneKeysEdgesMarkup(activeIndexes)}</g>
+              <g data-gene-spheres>${geneKeysSpheresMarkup(computeHumanDesignChart(chart, 0), activeIndexes)}</g>
+            </svg>
+          </div>`,
+          )
+          .join("")}
+      </div>
+    </div>`;
+  container.querySelectorAll(".gk-pair-layout .gene-visual").forEach((card) => {
+    bindGeneKeysAllPathsClicks(card);
+    bindGeneKeysHoverDebug(card.querySelector("svg"));
+  });
+  container.querySelectorAll("[data-gk-pair-tab]").forEach((button) =>
+    button.addEventListener("click", () => {
+      geneKeysPairTab = button.dataset.gkPairTab;
+      renderGeneKeysPair(container, entries);
+    }),
+  );
+}

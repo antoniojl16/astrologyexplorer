@@ -313,6 +313,70 @@ function bindWheelHover(svg) {
   return tooltip;
 }
 
+// Zodiac ring (inner..outer), rotated so zodiac degree d sits at wheel angle
+// wheelRotation - d. Degree ticks on the ring's inner side: long & bold at 10°/20° of
+// each sign, short & bold at 5°/15°/25°, short & thin at every other whole degree.
+function wheelZodiacMarkup(cx, cy, outer, inner, wheelRotation) {
+  const zodiacWidth = outer - inner;
+  let markup = '';
+  for (let degree = 0; degree < 360; degree += 1) {
+    const withinSign = degree % 30;
+    if (withinSign === 0) continue;
+    const long = withinSign % 10 === 0;
+    const bold = withinSign % 5 === 0;
+    const tickAngle = (wheelRotation - degree - 90) * Math.PI / 180;
+    const tickOuter = inner + zodiacWidth * (long ? 0.4 : 0.25);
+    markup += `<line x1="${cx + inner * Math.cos(tickAngle)}" y1="${cy + inner * Math.sin(tickAngle)}" x2="${cx + tickOuter * Math.cos(tickAngle)}" y2="${cy + tickOuter * Math.sin(tickAngle)}" class="zodiac-tick ${bold ? 'bold' : 'thin'}"/>`;
+  }
+  for (let index = 0; index < 12; index += 1) {
+    const zodiacAngle = (wheelRotation - index * 30 - 90) * Math.PI / 180;
+    const x1 = cx + inner * Math.cos(zodiacAngle), y1 = cy + inner * Math.sin(zodiacAngle);
+    const x2 = cx + outer * Math.cos(zodiacAngle), y2 = cy + outer * Math.sin(zodiacAngle);
+    // -PI/12 (not +): zodiacAngle is this sign's OWN starting cusp, and bearing
+    // decreases with index (signs sweep counterclockwise) — so centering the
+    // label within its own 30° wedge means going further in the decreasing
+    // direction. +PI/12 would land it in the previous sign's wedge instead.
+    const labelR = outer - zodiacWidth * 0.375;
+    const labelX = cx + labelR * Math.cos(zodiacAngle - Math.PI / 12);
+    const labelY = cy + labelR * Math.sin(zodiacAngle - Math.PI / 12);
+    markup += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="var(--line)"/><text x="${labelX}" y="${labelY}" text-anchor="middle" dominant-baseline="middle" class="wheel-sign ${SIGN_ELEMENTS[index]}">${SIGN_GLYPHS[index]}</text>`;
+  }
+  return markup;
+}
+// House cusps drawn from fromR out to toR. The numbers sit near fromR, just inside
+// each house's starting cusp (houses run in increasing zodiac degree, so "inside"
+// is +degrees).
+function wheelHousesMarkup(cx, cy, fromR, toR, cusps, wheelRotation) {
+  const houseLabelR = fromR + 9;
+  const houseLabelOffset = (10 / houseLabelR) * 180 / Math.PI;
+  return cusps.map((cusp, index) => {
+    const houseAngle = (wheelRotation - cusp - 90) * Math.PI / 180;
+    const x1 = cx + fromR * Math.cos(houseAngle), y1 = cy + fromR * Math.sin(houseAngle);
+    const x2 = cx + toR * Math.cos(houseAngle), y2 = cy + toR * Math.sin(houseAngle);
+    const labelAngle = (wheelRotation - cusp - houseLabelOffset - 90) * Math.PI / 180;
+    const labelX = cx + houseLabelR * Math.cos(labelAngle), labelY = cy + houseLabelR * Math.sin(labelAngle);
+    return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" class="house-cusp"/><text x="${labelX}" y="${labelY}" class="house-number" text-anchor="middle" dominant-baseline="middle">${index + 1}</text>`;
+  }).join('');
+}
+// Aspect lines on the circle of radius r, between the TRUE wheel angles anglesOf(aspect)
+// returns (traditional wheels never spread the lines with the glyphs), plus invisible,
+// wider twins (.aspect-hit, data-aspect = index) so even the thinnest line is easy to hover.
+function wheelAspectLinesMarkup(cx, cy, r, aspects, anglesOf) {
+  const point = angle => {
+    const rad = (angle - 90) * Math.PI / 180;
+    return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
+  };
+  const ends = aspects.map(aspect => anglesOf(aspect).map(point));
+  const lines = aspects.map((aspect, index) => {
+    const [p1, p2] = ends[index];
+    const strokeWidth = aspect.intensity === 'exact' ? 4 : aspect.intensity === 'normal' ? 1.1 : 0.8;
+    const dash = aspect.intensity === 'weak' ? ' stroke-dasharray="3 3"' : '';
+    return `<line x1="${p1.x}" y1="${p1.y}" x2="${p2.x}" y2="${p2.y}" stroke="${aspect.color}" stroke-width="${strokeWidth}" opacity=".7"${dash} class="aspect-line"/>`;
+  }).join('');
+  const hits = ends.map(([p1, p2], index) => `<line x1="${p1.x}" y1="${p1.y}" x2="${p2.x}" y2="${p2.y}" class="aspect-hit" data-aspect="${index}"/>`).join('');
+  return lines + hits;
+}
+
 function renderPreciseWheel(chart, offsetMinutes, targetId = 'chartWheel') {
   const svg = document.getElementById(targetId);
   // Rings, outside in: zodiac (inner..outer), planets + houses (aspectR..inner, about
@@ -332,46 +396,13 @@ function renderPreciseWheel(chart, offsetMinutes, targetId = 'chartWheel') {
   // so wheelRotation - 0 = 270.
   const wheelRotation = astroWheelFixedToAries ? 270 : (270 + ascendantAngle + 360) % 360;
   const houseCusps = houseCuspsAtTime(chart, offsetMinutes);
-  // Degree ticks on the inner side of the zodiac ring: long & bold at 10°/20° of each
-  // sign, short & bold at 5°/15°/25°, short & thin at every other whole degree.
-  for (let degree = 0; degree < 360; degree += 1) {
-    const withinSign = degree % 30;
-    if (withinSign === 0) continue;
-    const long = withinSign % 10 === 0;
-    const bold = withinSign % 5 === 0;
-    const tickAngle = (wheelRotation - degree - 90) * Math.PI / 180;
-    const tickOuter = inner + zodiacWidth * (long ? 0.4 : 0.25);
-    markup += `<line x1="${cx + inner * Math.cos(tickAngle)}" y1="${cy + inner * Math.sin(tickAngle)}" x2="${cx + tickOuter * Math.cos(tickAngle)}" y2="${cy + tickOuter * Math.sin(tickAngle)}" class="zodiac-tick ${bold ? 'bold' : 'thin'}"/>`;
-  }
-  for (let index = 0; index < 12; index += 1) {
-    const zodiacAngle = (wheelRotation - index * 30 - 90) * Math.PI / 180;
-    const x1 = cx + inner * Math.cos(zodiacAngle), y1 = cy + inner * Math.sin(zodiacAngle);
-    const x2 = cx + outer * Math.cos(zodiacAngle), y2 = cy + outer * Math.sin(zodiacAngle);
-    // -PI/12 (not +): zodiacAngle is this sign's OWN starting cusp, and bearing
-    // decreases with index (signs sweep counterclockwise) — so centering the
-    // label within its own 30° wedge means going further in the decreasing
-    // direction. +PI/12 would land it in the previous sign's wedge instead.
-    const labelX = cx + (outer - 18) * Math.cos(zodiacAngle - Math.PI / 12);
-    const labelY = cy + (outer - 18) * Math.sin(zodiacAngle - Math.PI / 12);
-    markup += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="var(--line)"/><text x="${labelX}" y="${labelY}" text-anchor="middle" dominant-baseline="middle" class="wheel-sign ${SIGN_ELEMENTS[index]}">${SIGN_GLYPHS[index]}</text>`;
-  }
-  // House numbers sit on the inner side of the planet ring, just inside each house's
-  // starting cusp (houses run in increasing zodiac degree, so "inside" is +degrees).
-  const houseLabelR = aspectR + 9;
-  const houseLabelOffset = (10 / houseLabelR) * 180 / Math.PI;
-  houseCusps.forEach((cusp, index) => {
-    const houseAngle = (wheelRotation - cusp - 90) * Math.PI / 180;
-    const x1 = cx + aspectR * Math.cos(houseAngle), y1 = cy + aspectR * Math.sin(houseAngle);
-    const x2 = cx + inner * Math.cos(houseAngle), y2 = cy + inner * Math.sin(houseAngle);
-    const labelAngle = (wheelRotation - cusp - houseLabelOffset - 90) * Math.PI / 180;
-    const labelX = cx + houseLabelR * Math.cos(labelAngle), labelY = cy + houseLabelR * Math.sin(labelAngle);
-    markup += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" class="house-cusp"/><text x="${labelX}" y="${labelY}" class="house-number" text-anchor="middle" dominant-baseline="middle">${index + 1}</text>`;
-  });
+  markup += wheelZodiacMarkup(cx, cy, outer, inner, wheelRotation);
+  markup += wheelHousesMarkup(cx, cy, aspectR, inner, houseCusps, wheelRotation);
   // Hidden bodies are dropped before clustering and aspects, so they neither push
   // neighbouring glyphs aside nor leave aspect lines behind.
   const markerPositions = chart.positions
     .filter(position => wheelBodyVisible(position.name))
-    .map(position => ({...position, angle: (wheelRotation - positionAngleAtTime(position, offsetMinutes) + 360) % 360, motion: wheelMotion(position, offsetMinutes)}));
+    .map(position => ({...position, color: 'var(--ink)', angle: (wheelRotation - positionAngleAtTime(position, offsetMinutes) + 360) % 360, motion: wheelMotion(position, offsetMinutes)}));
   spreadClusteredAngles(markerPositions);
   const longitudes = new Map(markerPositions.map(position => [position.name, positionAngleAtTime(position, offsetMinutes)]));
   let aspects = [];
@@ -381,24 +412,9 @@ function renderPreciseWheel(chart, offsetMinutes, targetId = 'chartWheel') {
   // than re-deriving the raw zodiac angle) gives the same aspect orbs calculateAspects
   // would compute from the unrotated positions.
   if (typeof calculateAspects === 'function') {
-    const aspectRadius = aspectR;
-    const wheelPoint = angle => {
-      const rad = (angle - 90) * Math.PI / 180;
-      return { x: cx + aspectRadius * Math.cos(rad), y: cy + aspectRadius * Math.sin(rad) };
-    };
     const angleByName = new Map(markerPositions.map(position => [position.name, position.angle]));
     aspects = calculateAspects({positions: markerPositions}, aspectMode === 'all');
-    markup += aspects.map(aspect => {
-      const p1 = wheelPoint(angleByName.get(aspect.first)), p2 = wheelPoint(angleByName.get(aspect.second));
-      const strokeWidth = aspect.intensity === 'exact' ? 4 : aspect.intensity === 'normal' ? 1.1 : 0.8;
-      const dash = aspect.intensity === 'weak' ? ' stroke-dasharray="3 3"' : '';
-      return `<line x1="${p1.x}" y1="${p1.y}" x2="${p2.x}" y2="${p2.y}" stroke="${aspect.color}" stroke-width="${strokeWidth}" opacity=".7"${dash} class="aspect-line"/>`;
-    }).join('');
-    // Invisible, wider twins of the aspect lines so even the thinnest one is easy to hover.
-    markup += aspects.map((aspect, index) => {
-      const p1 = wheelPoint(angleByName.get(aspect.first)), p2 = wheelPoint(angleByName.get(aspect.second));
-      return `<line x1="${p1.x}" y1="${p1.y}" x2="${p2.x}" y2="${p2.y}" class="aspect-hit" data-aspect="${index}"/>`;
-    }).join('');
+    markup += wheelAspectLinesMarkup(cx, cy, aspectR, aspects, aspect => [angleByName.get(aspect.first), angleByName.get(aspect.second)]);
   }
   markerPositions.forEach(position => { markup += planetMarkerMarkup(cx, cy, inner, position, planetRingWidth); });
   //markup += `<circle cx="${cx}" cy="${cy}" r="4" fill="var(--accent)"/>`;

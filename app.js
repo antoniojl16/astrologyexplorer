@@ -500,7 +500,9 @@ function planetMarkerMarkup(cx, cy, inner, position, ringWidth = 34) {
   const displayRad = ((position.displayAngle - 90) * Math.PI) / 180;
   const x = cx + (inner - 19) * Math.cos(displayRad),
     y = cy + (inner - 19) * Math.sin(displayRad);
-  const color = position.design ? 'var(--blue)' : 'var(--accent)';
+  // A caller-supplied color (e.g. the Pair Explorer's per-person colors) wins over
+  // the birth/design default.
+  const color = position.color || (position.design ? 'var(--blue)' : 'var(--accent)');
   const tick = `<line x1="${tickInnerX}" y1="${tickInnerY}" x2="${tickOuterX}" y2="${tickOuterY}" stroke="${color}" stroke-width="1.4" opacity=".85" class="planet-tick"/>`;
   const leader =
     Math.abs(position.displayAngle - position.angle) > 0.5
@@ -512,7 +514,7 @@ function planetMarkerMarkup(cx, cy, inner, position, ringWidth = 34) {
   const motion = motionMark ? `<text x="${x + 7}" y="${y + 9}" fill="${color}" class="planet-motion">${motionMark}</text>` : '';
   // The transparent circle gives the glyph a round hover/click area, rather than
   // only the thin strokes of the glyph itself.
-  return `${tick}${leader}<g class="planet-marker" data-planet="${position.name}" tabindex="0">
+  return `${tick}${leader}<g class="planet-marker" data-planet="${position.key || position.name}" tabindex="0">
   <circle cx="${x}" cy="${y}" r="10" fill="transparent"/>
   <text x="${x}" y="${y + 1}" text-anchor="middle" dominant-baseline="middle" fill="${color}" class="planet-glyph">${position.glyph}</text>${motion}</g>`;
 }
@@ -615,9 +617,12 @@ function setView(view) {
         ? 'CHART EXPLORER'
         : view === 'cycle'
           ? 'CYCLE EXPLORER'
-          : 'TIMELINE EXPLORER';
+          : view === 'pair'
+            ? 'PAIR EXPLORER'
+            : 'TIMELINE EXPLORER';
   if (view === 'library') renderRows();
   if (view === 'cycle' && typeof renderCycleExplorer === 'function') renderCycleExplorer();
+  if (view === 'pair' && typeof renderPairExplorer === 'function') renderPairExplorer();
   if (view === 'explorer' || view === 'timeline') {
     mountExplorerBody(view);
     // Refresh whichever system tab (Astrology/Human Design/Gene Keys) is currently

@@ -130,6 +130,27 @@ const HD_CHANNELS = [
   [47,64], [10,34], [10,20], [10,57], [20,34], [34,57]
 ];
 
+// Standard names of the 36 channels, keyed "lowerGate-higherGate".
+const HD_CHANNEL_NAMES = {
+  '1-8': 'Inspiration', '2-14': 'The Beat', '3-60': 'Mutation', '4-63': 'Logic', '5-15': 'Rhythm',
+  '6-59': 'Mating', '7-31': 'The Alpha', '9-52': 'Concentration', '10-20': 'Awakening', '10-34': 'Exploration',
+  '10-57': 'Perfected Form', '11-56': 'Curiosity', '12-22': 'Openness', '13-33': 'The Prodigal', '16-48': 'The Wavelength',
+  '17-62': 'Acceptance', '18-58': 'Judgment', '19-49': 'Synthesis', '20-34': 'Charisma', '20-57': 'The Brainwave',
+  '21-45': 'Money', '23-43': 'Structuring', '24-61': 'Awareness', '25-51': 'Initiation', '26-44': 'Surrender',
+  '27-50': 'Preservation', '28-38': 'Struggle', '29-46': 'Discovery', '30-41': 'Recognition', '32-54': 'Transformation',
+  '34-57': 'Power', '35-36': 'Transitoriness', '37-40': 'Community', '39-55': 'Emoting', '42-53': 'Maturation',
+  '47-64': 'Abstraction',
+};
+function hdChannelKey([first, second]) {
+  return `${Math.min(first, second)}-${Math.max(first, second)}`;
+}
+// "20–34", "Charisma", "Throat – Sacral" for a channel given as a gate pair.
+function hdChannelInfo(gates) {
+  const [first, second] = [...gates].sort((a, b) => a - b);
+  const centerName = gate => HD_CENTERS.find(center => center.id === HD_GATE_CENTER[gate])?.name;
+  return { gates: `${first}–${second}`, name: HD_CHANNEL_NAMES[hdChannelKey(gates)] || '', centers: `${centerName(first)} – ${centerName(second)}` };
+}
+
 // ── Bodygraph activation state ───────────────────────────────────────────
 // Turns the 13 personality + 13 design placements into per-gate activation
 // (which side lit it up) and per-center definition (does at least one fully
@@ -209,14 +230,10 @@ const HD_PERSPECTIVES = ['Survival', 'Possibility', 'Power', 'Wanting', 'Probabi
 const HD_TONE_SENSES = ['Smell', 'Taste', 'Outer Vision', 'Inner Vision', 'Feeling', 'Touch'];
 const HD_BASES = ['Movement', 'Evolution', 'Being', 'Design', 'Space'];
 
-function computeHumanDesignTypology(hd) {
-  if (!hd) return null;
-  const find = (side, planet) => hd[side].find(influence => influence.planet === planet);
-  const ps = find('personality', 'Sun'), pe = find('personality', 'Earth'), pn = find('personality', 'North Node');
-  const ds = find('design', 'Sun'), de = find('design', 'Earth'), dn = find('design', 'North Node');
-  if ([ps, pe, pn, ds, de, dn].some(influence => !influence || influence.gate == null)) return null;
-
-  const active = new Set([...hd.personality, ...hd.design].filter(influence => influence.gate != null).map(influence => influence.gate));
+// Channels, centers, definition islands, type and authority follow from the set of
+// activated gates alone (either side, any person) — shared by a single chart's
+// typology and the Pair Explorer's composite.
+function hdStructureFromGates(active) {
   const definedChannels = HD_CHANNELS.filter(([a, b]) => active.has(a) && active.has(b));
   const links = new Map();
   const link = (from, to) => {
@@ -255,6 +272,18 @@ function computeHumanDesignTypology(hd) {
     : definedCenters.has('g') ? 'Self-Projected'
     : type === 'Reflector' ? 'Lunar'
     : 'Mental (Environmental)';
+  return { definedChannels, definedCenters, islands, type, authority, definition: HD_DEFINITION_NAMES[Math.min(islands.length, 4)] };
+}
+
+function computeHumanDesignTypology(hd) {
+  if (!hd) return null;
+  const find = (side, planet) => hd[side].find(influence => influence.planet === planet);
+  const ps = find('personality', 'Sun'), pe = find('personality', 'Earth'), pn = find('personality', 'North Node');
+  const ds = find('design', 'Sun'), de = find('design', 'Earth'), dn = find('design', 'North Node');
+  if ([ps, pe, pn, ds, de, dn].some(influence => !influence || influence.gate == null)) return null;
+
+  const active = new Set([...hd.personality, ...hd.design].filter(influence => influence.gate != null).map(influence => influence.gate));
+  const { definedChannels, definedCenters, islands, type, authority } = hdStructureFromGates(active);
 
   const profile = `${ps.line}/${ds.line}`;
   const angle = ps.line === 4 && ds.line === 1 ? 'Juxtaposition' : ps.line >= 5 ? 'Left Angle' : 'Right Angle';
@@ -294,5 +323,52 @@ function computeHumanDesignTypology(hd) {
       { source: 'Personality Sun', tone: ps.tone, name: HD_TONE_SENSES[ps.tone - 1] },
       { source: 'Personality Node', tone: pn.tone, name: HD_TONE_SENSES[pn.tone - 1] },
     ],
+  };
+}
+
+// ── Pair composite ───────────────────────────────────────────────────────
+// Two charts' activations combined. Every channel complete in the composite is one
+// of the four classic connection kinds:
+//   electromagnetic — each person brings one gate; the channel exists only together
+//   companionship   — both people have the whole channel
+//   dominance       — one has the whole channel, the other neither gate
+//   compromise      — one has the whole channel, the other only one of its gates
+function hdActiveGates(chart) {
+  const hd = computeHumanDesignChart(chart, 0);
+  return new Set([...hd.personality, ...hd.design].filter(influence => influence.gate != null).map(influence => influence.gate));
+}
+function computeCompositeHumanDesign(chartA, chartB) {
+  const gatesA = hdActiveGates(chartA), gatesB = hdActiveGates(chartB);
+  const union = new Set([...gatesA, ...gatesB]);
+  const structure = hdStructureFromGates(union);
+  const own = [hdStructureFromGates(gatesA), hdStructureFromGates(gatesB)];
+  const connections = { electromagnetic: [], companionship: [], dominance: [], compromise: [] };
+  structure.definedChannels.forEach(([first, second]) => {
+    const fullA = gatesA.has(first) && gatesA.has(second), fullB = gatesB.has(first) && gatesB.has(second);
+    const channel = { gates: [first, second] };
+    if (fullA && fullB) connections.companionship.push(channel);
+    else if (fullA || fullB) {
+      const owner = fullA ? 'A' : 'B', other = fullA ? gatesB : gatesA;
+      const partial = [first, second].filter(gate => other.has(gate));
+      connections[partial.length ? 'compromise' : 'dominance'].push({ ...channel, owner, partial });
+    } else connections.electromagnetic.push({ ...channel, fromA: [first, second].find(gate => gatesA.has(gate)), fromB: [first, second].find(gate => gatesB.has(gate)) });
+  });
+  const electromagneticGates = new Set(connections.electromagnetic.flatMap(channel => channel.gates));
+  const newlyDefinedCenters = [...structure.definedCenters].filter(center => !own.some(single => single.definedCenters.has(center)));
+  return {
+    gatesA, gatesB, structure, connections, newlyDefinedCenters,
+    // Same shape as computeBodygraphState, so the bodygraph/mandala markup can draw it.
+    state: {
+      gateSide: gate => {
+        const sides = [gatesA.has(gate) && 'person-a', gatesB.has(gate) && 'person-b'].filter(Boolean);
+        return sides.length ? sides : null;
+      },
+      centerDefined: centerId => structure.definedCenters.has(centerId),
+      gateHalo: gate => electromagneticGates.has(gate),
+      gateTitle: gate => {
+        const who = [gatesA.has(gate) && 'Chart A', gatesB.has(gate) && 'Chart B'].filter(Boolean);
+        return `Gate ${gate}${who.length ? ` · ${who.join(' + ')}` : ''}${electromagneticGates.has(gate) ? ' · electromagnetic' : ''}`;
+      },
+    },
   };
 }
