@@ -530,6 +530,76 @@ function bindHdCenterClicks(container) {
     );
 }
 
+// ── Typology display (Chart Snapshot panel, Variable/PHS cards, Bases) ────
+function hdChannelBadgeText(typology) {
+  return `${typology ? typology.definedChannels.length : 0} / 36 CHANNELS DEFINED`;
+}
+function hdTypologyAsideMarkup(typology) {
+  if (!typology) return `<span class="eyebrow">CHART SNAPSHOT</span><h3>No chart</h3><p>Select a chart to see its Human Design typology.</p>`;
+  const stat = (label, value) => `<div class="system-stat"><span>${label}</span><strong>${value}</strong></div>`;
+  return `
+    <span class="eyebrow">CHART SNAPSHOT</span>
+    <h3>${typology.type} · ${typology.profile}</h3>
+    <p>${typology.profileNames} · ${typology.authority} authority</p>
+    ${stat("TYPE", typology.type)}
+    ${stat("AURA", typology.aura)}
+    ${stat("STRATEGY", typology.strategy)}
+    ${stat("NOT-SELF THEME", typology.notSelf)}
+    ${stat("SIGNATURE", typology.signature)}
+    ${stat("INNER AUTHORITY", typology.authority)}
+    ${stat("DEFINITION", typology.definition)}
+    ${stat("PROFILE", `${typology.profile} · ${typology.profileNames}`)}
+    ${stat("INCARNATION CROSS", `${typology.cross.angle} · ${typology.cross.gates}`)}
+    ${stat("QUADRANT", `${typology.quadrant.name} · ${typology.quadrant.theme}`)}
+    ${stat("DEFINED CENTERS", `<span data-hd-defined-centers>${typology.definedCenters.size} / 9</span>`)}
+    ${stat("DEFINED CHANNELS", `${typology.definedChannels.length} / 36`)}
+    ${stat("FILTER", activeSystemFilter)}
+    <div class="system-note">Incarnation Cross gates read Personality Sun / Personality Earth / Design Sun / Design Earth.</div>`;
+}
+function hdTypologyDetailsMarkup(typology) {
+  if (!typology) return "";
+  const row = (label, value, detail) => `
+    <div class="hd-typology-row"><span>${label}</span><strong>${value}</strong><small>${detail}</small></div>`;
+  const { variable, phs } = typology;
+  return `
+    <div class="hd-typology">
+      <div class="hd-typology-card">
+        <h3>Variable <small>${variable.notation}</small></h3>
+        ${row("Digestion", variable.digestion, "Design Sun tone · top left")}
+        ${row("Environment", variable.environment, "Design Node tone · bottom left")}
+        ${row("Motivation", variable.motivation, "Personality Sun tone · top right")}
+        ${row("Perspective", variable.perspective, "Personality Node tone · bottom right")}
+      </div>
+      <div class="hd-typology-card">
+        <h3>PHS</h3>
+        ${row("Digestion", `${phs.digestion.name} · ${phs.digestion.side}`, `Design Sun · color ${phs.digestion.color}`)}
+        ${row("Environment", `${phs.environment.name} · ${phs.environment.side}`, `Design Node · color ${phs.environment.color}`)}
+        ${row("Motivation", phs.motivation.name, `Personality Sun · color ${phs.motivation.color}`)}
+        ${row("Perspective", phs.perspective.name, `Personality Node · color ${phs.perspective.color}`)}
+      </div>
+      <div class="hd-typology-card">
+        <h3>Senses &amp; Cognitions</h3>
+        ${typology.senses.map((sense) => row("Sense", sense.name, `${sense.source} · tone ${sense.tone}`)).join("")}
+        ${typology.cognitions.map((cognition) => row("Cognition", cognition.name, `${cognition.source} · tone ${cognition.tone}`)).join("")}
+      </div>
+    </div>
+    <div class="hd-bases">
+      <span class="eyebrow">BASES</span>
+      <div class="hd-bases-list">${HD_BASES.map((base, index) => `<div class="hd-base"><b>${index + 1}</b><span>${base}</span></div>`).join("")}</div>
+      <p>The base is the finest division of every activation — the last number in G.L.C.T.B. It isn't assigned as a chart type, so it's listed here for reference.</p>
+    </div>`;
+}
+// Re-renders every typology-derived part of the bodygraph view for `hd`.
+function updateHdTypology(surface, hd) {
+  const typology = hd ? computeHumanDesignTypology(hd) : null;
+  const aside = surface.querySelector("[data-hd-typology]");
+  if (aside) aside.innerHTML = hdTypologyAsideMarkup(typology);
+  const details = surface.querySelector("[data-hd-typology-details]");
+  if (details) details.innerHTML = hdTypologyDetailsMarkup(typology);
+  const badge = surface.querySelector("[data-hd-channel-badge]");
+  if (badge) badge.textContent = hdChannelBadgeText(typology);
+}
+
 function renderBodygraph(surface, chart) {
   if (activeSystemTab === "Mandala")
     return renderHumanDesignMandala(surface, chart);
@@ -594,7 +664,7 @@ function renderBodygraph(surface, chart) {
       <div class="system-visual hd-visual">
         <div class="system-toolbar">
           <span class="eyebrow">BODYGRAPH / ${activeSystemTab.toUpperCase()} / ${activeSystemFilter.toUpperCase()}</span>
-          <span class="sample-badge">SAMPLE DATA · ${HD_BODYGRAPH_CHANNEL_COORDS.length} / 36 CHANNELS</span>
+          <span class="sample-badge" data-hd-channel-badge></span>
         </div>
         <svg class="bodygraph hd-bodygraph" viewBox="0 0 440 640" role="img" aria-label="Sample Human Design bodygraph">
           ${HD_BODYGRAPH_SILHOUETTE}
@@ -608,21 +678,13 @@ function renderBodygraph(surface, chart) {
         ${columnData("personality", "var(--ink)")}
       </div>
     </div>
-    <aside class="system-info hd-info">
-      <span class="eyebrow">CHART SNAPSHOT</span>
-      <h3>Generator · 4/6</h3>
-      <p>Responding authority with a profile shaped by experimentation and perspective.</p>
-      <div class="system-stat"><span>FILTER</span><strong>${activeSystemFilter}</strong></div>
-      <div class="system-stat"><span>DEFINED CENTERS</span><strong data-hd-defined-centers>0 / 9</strong></div>
-      <div class="system-stat"><span>ACTIVE CHANNELS</span><strong>${HD_BODYGRAPH_CHANNEL_COORDS.length} / 36 sample channels</strong></div>
-      <div class="system-stat"><span>GATES</span><strong>64 / 64 represented</strong></div>
-      <div class="system-note">Each channel is divided into two independently inspectable gate halves. Empty tracks are transparent; colored halves represent live planetary influence.</div>
-    </aside>
-    ${influencesMarkup}`;
+    <aside class="system-info hd-info" data-hd-typology></aside>
+    ${influencesMarkup}
+    <div data-hd-typology-details></div>`;
   bindBodygraphHoverDebug(surface.querySelector(".hd-bodygraph"));
   bindHdCenterClicks(surface);
   bindHdGateClicks(surface);
-  updateHdDefinedCentersStat(surface, state);
+  updateHdTypology(surface, hd);
   const timelineContainer = surface.querySelector(
     ".hd-visual .timeline-control",
   );
@@ -676,7 +738,7 @@ function updateHumanDesignInfluences(surface, chart, offsetMinutes) {
     centerLayer.innerHTML = hdBodygraphCenterMarkup(state);
     bindHdCenterClicks(centerLayer);
   }
-  updateHdDefinedCentersStat(surface, state);
+  updateHdTypology(surface, hd);
 }
 
 function renderHumanDesignMandala(surface, chart, offsetMinutes = 0) {
@@ -721,17 +783,13 @@ function renderHumanDesignMandala(surface, chart, offsetMinutes = 0) {
   const zodiacRing = zodiacSigns
     .map((sign, index) => {
       // gate55Angle is where gate 55 STARTS in this mandala's coordinates, and
-      // gate 55 itself starts at 0deg Pisces (330deg tropical) per
-      // computeGateLineColorToneBase in human-design.js — not 0deg Aries. Angle
-      // decreases as real ecliptic degree increases (same convention gateRing
-      // uses just above), so sign `index`'s boundary (at real degree index*30)
-      // sits (index*30 - 330) degrees of real-motion AFTER gate55's own anchor,
-      // i.e. gate55Angle - ((index*30 - 330 + 360) % 360) = gate55Angle -
-      // ((index + 1) * 30) % 360. Confirmed empirically across 7 different real
-      // Sun angles spanning the whole circle — this formula (not a plain
-      // index*30 shift, which is one sign short) is the one that actually
-      // matches a planet glyph's rendered position to its real sign every time.
-      const startAngle = gate55Angle - (((index + 1) * 30) % 360);
+      // gate 55 itself starts at 0°07'30" Pisces (HD_GATE55_START = 330.125°
+      // tropical, human-design.js). Angle decreases as real ecliptic degree
+      // increases (same convention gateRing uses just above), so sign `index`'s
+      // boundary (at real degree index*30) sits (index*30 - HD_GATE55_START)
+      // degrees of real motion past gate 55's start, wrapped to [0, 360) — which
+      // puts the Pisces cusp 1/8° before gate 55 rather than on it.
+      const startAngle = gate55Angle - ((((index * 30 - HD_GATE55_START) % 360) + 360) % 360);
       const labelAngle = startAngle - 15;
       const point = mandalaPolar(298, labelAngle);
       const innerBoundary = mandalaPolar(278, startAngle);
@@ -783,10 +841,10 @@ function renderHumanDesignMandala(surface, chart, offsetMinutes = 0) {
       <aside class="system-info">
         <span class="eyebrow">MANDALA KEY</span>
         <h3>Gate wheel · 64 gates</h3>
-        <p>Gate 25 begins at the leftmost cusp and the sequence advances counterclockwise. Gate 55 is aligned to the Pisces cusp.</p>
+        <p>Gate 25 begins at the leftmost cusp and the sequence advances counterclockwise. Gate 55 opens at 0°07′30″ Pisces, 1/8° past the Pisces cusp.</p>
         <div class="system-stat"><span>GATE CUSPS</span><strong>64 / 64</strong></div>
         <div class="system-stat"><span>ZODIAC CUSPS</span><strong>12 / 12</strong></div>
-        <div class="system-stat"><span>GATE 55</span><strong>Pisces cusp</strong></div>
+        <div class="system-stat"><span>GATE 55</span><strong>0°07′30″ Pisces</strong></div>
         <div class="system-stat"><span>DEFINED CENTERS</span><strong data-hd-defined-centers>0 / 9</strong></div>
         <div class="system-note">Personality influences appear in ink; design influences appear in the accent color, matching the bodygraph.</div>
       </aside>

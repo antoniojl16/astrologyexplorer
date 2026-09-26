@@ -167,13 +167,13 @@ const MEAN_YEAR_DAYS = 365.2425; // Gregorian mean year — self-correcting eith
 function designTimeFor(chart) {
   const sun = chart.positions.find(position => position.name === 'Sun');
   const birthMoment = chartBirthMomentUTC(chart).getTime();
-  // Guard: designTimeFor runs during app.js's own synchronous bootstrap (building
-  // the 10 sample charts for a brand-new user, before timeline.js — which defines
-  // positionAngleAtTime — has even loaded). Falls back to the old flat approximation
-  // for that one moment; normalizePositionModel (editing.js) unconditionally
-  // recomputes every chart's designTime once the full app is loaded, so this
-  // placeholder never survives past the very first paint.
-  if (!sun || typeof positionAngleAtTime !== 'function') return new Date(birthMoment - 88 * 86400000).toISOString();
+  // Guard: designTimeFor also runs during app.js's own synchronous bootstrap
+  // (building the 10 sample charts for a brand-new user), before timeline.js —
+  // which defines positionAngleAtTime — has loaded. Rather than store an
+  // approximation, it leaves the design time empty (null); normalizePositionModel
+  // (editing.js) fills it in with the real 88°-arc solve later on that same load,
+  // and it's saved from then on.
+  if (!sun || typeof positionAngleAtTime !== 'function') return null;
 
   const sunDegreesAt = time => positionAngleAtTime(sun, (time - birthMoment) / 60000);
   const targetSunDegrees = ((sunDegreesAt(birthMoment) - DESIGN_OFFSET_DEGREES) % 360 + 360) % 360;
@@ -326,7 +326,7 @@ function makePositions(chart) {
     },
     {
       name: 'Fortuna',
-      glyph: '⊕',
+      glyph: '⊗',
       sign: 'Libra',
       degree: 4.8,
       house: 7,
@@ -485,11 +485,13 @@ function spreadClusteredAngles(items, minSeparation = 6) {
     });
   });
 }
-function planetMarkerMarkup(cx, cy, inner, position) {
+// `ringWidth` is the width of the planet ring inside `inner`; the position tick sits
+// just inside that ring's inner edge.
+function planetMarkerMarkup(cx, cy, inner, position, ringWidth = 34) {
   const trueRad = ((position.angle - 90) * Math.PI) / 180;
   const tx = cx + (inner - 4) * Math.cos(trueRad),
     ty = cy + (inner - 4) * Math.sin(trueRad);
-  const tickOuterR = inner - 34,
+  const tickOuterR = inner - ringWidth,
     tickInnerR = tickOuterR - 6;
   const tickOuterX = cx + tickOuterR * Math.cos(trueRad),
     tickOuterY = cy + tickOuterR * Math.sin(trueRad);
@@ -505,8 +507,14 @@ function planetMarkerMarkup(cx, cy, inner, position) {
       ? `<line x1="${tx}" y1="${ty}" x2="${x}" y2="${y}" stroke="${color}" stroke-width=".6" opacity=".4" stroke-dasharray="1 2"/>`
       : '';
   //<circle cx="${x}" cy="${y}" r="${position.name.length > 8 ? 13 : 12}" fill="var(--panel)" stroke="${color}" stroke-width="2"/>
+  // Small subscript after the glyph when the caller marked the body retrograde/stationary.
+  const motionMark = position.motion === 'retrograde' ? '℞' : position.motion === 'stationary' ? 'ST' : '';
+  const motion = motionMark ? `<text x="${x + 7}" y="${y + 9}" fill="${color}" class="planet-motion">${motionMark}</text>` : '';
+  // The transparent circle gives the glyph a round hover/click area, rather than
+  // only the thin strokes of the glyph itself.
   return `${tick}${leader}<g class="planet-marker" data-planet="${position.name}" tabindex="0">
-  <text x="${x}" y="${y + 1}" text-anchor="middle" dominant-baseline="middle" fill="${color}" class="planet-glyph">${position.glyph}</text></g>`;
+  <circle cx="${x}" cy="${y}" r="10" fill="transparent"/>
+  <text x="${x}" y="${y + 1}" text-anchor="middle" dominant-baseline="middle" fill="${color}" class="planet-glyph">${position.glyph}</text>${motion}</g>`;
 }
 // Debug aid: hovering the bodygraph shows which SVG element is under the pointer and
 // the x,y coordinates of the SVG.

@@ -211,11 +211,118 @@ function bindTimelineSlider(container, { onChange, originLabel = 'Birth moment',
   return slider;
 }
 
+// Planet filters for the astrology wheel, grouped like the Astrocartography ones.
+// Ascendant and Midheaven aren't listed: they're the chart's angles (the wheel is
+// oriented by the Ascendant), so they always show. Remembered for the session.
+const WHEEL_FILTER_BODIES = [
+  { key: 'Sun', glyph: '☉', group: 'Primary' },
+  { key: 'Moon', glyph: '☽', group: 'Primary' },
+  { key: 'Mercury', glyph: '☿', group: 'Primary' },
+  { key: 'Venus', glyph: '♀', group: 'Primary' },
+  { key: 'Mars', glyph: '♂', group: 'Primary' },
+  { key: 'Jupiter', glyph: '♃', group: 'Primary' },
+  { key: 'Saturn', glyph: '♄', group: 'Primary' },
+  { key: 'Uranus', glyph: '♅', group: 'Primary' },
+  { key: 'Neptune', glyph: '♆', group: 'Primary' },
+  { key: 'Pluto', glyph: '♇', group: 'Primary' },
+  { key: 'Chiron', glyph: '⚷', group: 'Secondary' },
+  { key: 'Lunar Nodes', glyph: '☊', group: 'Secondary', members: ['North Node', 'South Node'] },
+  { key: 'Earth', glyph: '⊕', group: 'Secondary' },
+  { key: 'Vertex', glyph: 'Vx', group: 'Secondary' },
+  { key: 'Fortuna', glyph: '⊗', group: 'Secondary' },
+  { key: 'Lilith', glyph: '⚸', group: 'Secondary' },
+];
+const wheelHiddenBodies = new Set();
+function wheelBodyVisible(name) {
+  const body = WHEEL_FILTER_BODIES.find(item => (item.members || [item.key]).includes(name));
+  return !body || !wheelHiddenBodies.has(body.key);
+}
+function wheelFiltersMarkup() {
+  const option = body => `<label class="acg-filter"><input type="checkbox" data-wheel-body="${body.key}" ${wheelHiddenBodies.has(body.key) ? '' : 'checked'}><span>${body.glyph} ${body.key}</span></label>`;
+  const group = name => `<div class="acg-filter-group"><span class="acg-filter-subhead">${name}</span>${WHEEL_FILTER_BODIES.filter(body => body.group === name).map(option).join('')}</div>`;
+  return `<span class="eyebrow">PLANETS</span>${group('Primary')}${group('Secondary')}`;
+}
+
+// ── Wheel hover tooltips ────────────────────────────────────────────────
+// \uFE0E asks for the text (not emoji) form of the sign glyph.
+function wheelSignText(longitude) {
+  const index = Math.floor((((longitude % 360) + 360) % 360) / 30);
+  return { glyph: `${SIGN_GLYPHS[index]}\uFE0E`, degree: longitude - index * 30 };
+}
+function wheelHouseOf(longitude, cusps) {
+  for (let index = 0; index < cusps.length; index += 1) {
+    const start = cusps[index], end = cusps[(index + 1) % cusps.length];
+    const span = (((end - start) % 360) + 360) % 360;
+    if ((((longitude - start) % 360) + 360) % 360 < span) return index + 1;
+  }
+  return null;
+}
+// Retrograde / stationary, for the bodies where either is meaningful (not the Sun,
+// Moon or Earth, which never go retrograde; not the chart angles; not the lunar
+// nodes, whose normal motion is backwards). Stationary = daily motion below
+// WHEEL_STATION_FRACTION of the body's mean daily motion — about ±1 day around a
+// Mercury station, ±3 days for Venus/Mars, ±5 days for the outer planets.
+const WHEEL_MEAN_DAILY_MOTION = { Mercury: 0.9856, Venus: 0.9856, Mars: 0.524, Jupiter: 0.0831, Saturn: 0.0335, Uranus: 0.0117, Neptune: 0.006, Pluto: 0.004, Chiron: 0.0195 };
+const WHEEL_STATION_FRACTION = 0.1;
+function wheelMotion(position, offsetMinutes) {
+  const meanMotion = WHEEL_MEAN_DAILY_MOTION[position.name];
+  if (!meanMotion) return null;
+  const dailyMotion = ((positionAngleAtTime(position, offsetMinutes + 720) - positionAngleAtTime(position, offsetMinutes - 720) + 540) % 360) - 180;
+  if (Math.abs(dailyMotion) < meanMotion * WHEEL_STATION_FRACTION) return 'stationary';
+  return dailyMotion < 0 ? 'retrograde' : null;
+}
+const WHEEL_MOTION_MARKS = { retrograde: '℞', stationary: 'ST' };
+// "Jupiter ♍5.64° ℞", then the house.
+function wheelPlanetTooltip(position, longitude, cusps) {
+  const { glyph, degree } = wheelSignText(longitude);
+  const mark = WHEEL_MOTION_MARKS[position.motion];
+  const house = wheelHouseOf(longitude, cusps);
+  return `<div class="wheel-tooltip-main">${position.name} ${glyph}${degree.toFixed(2)}°${mark ? ` ${mark}` : ''}</div>${house ? `<div class="wheel-tooltip-sub">House ${house}</div>` : ''}`;
+}
+// "Venus♏ Trine Neptune♓", then the orb and whether it's tightening (applying)
+// or widening (separating) over the next hour.
+function wheelAspectTooltip(aspect, positionsByName, longitudes, offsetMinutes) {
+  const first = wheelSignText(longitudes.get(aspect.first)), second = wheelSignText(longitudes.get(aspect.second));
+  const later = name => positionAngleAtTime(positionsByName.get(name), offsetMinutes + 60);
+  const separation = (a, b) => { const d = Math.abs(a - b) % 360; return Math.min(d, 360 - d); };
+  const orbLater = Math.abs(separation(later(aspect.first), later(aspect.second)) - aspect.angle);
+  return `<div class="wheel-tooltip-main">${aspect.first}${first.glyph} ${aspect.name} ${aspect.second}${second.glyph}</div><div class="wheel-tooltip-sub">Orb ${aspect.orb.toFixed(1)}° · ${orbLater < aspect.orb ? 'applying' : 'separating'}</div>`;
+}
+// One tooltip per wheel, driven by whatever the latest render stored in svg._wheelHover.
+function bindWheelHover(svg) {
+  if (svg._wheelTooltip) return svg._wheelTooltip;
+  const tooltip = document.createElement('div');
+  tooltip.className = 'wheel-tooltip';
+  tooltip.hidden = true;
+  document.body.appendChild(tooltip);
+  svg._wheelTooltip = tooltip;
+  svg.addEventListener('mousemove', event => {
+    const data = svg._wheelHover;
+    const planet = event.target.closest('.planet-marker'), aspect = event.target.closest('.aspect-hit');
+    const build = !data ? null : planet ? data.planet(planet.dataset.planet) : aspect ? data.aspect(Number(aspect.dataset.aspect)) : null;
+    const html = build && build();
+    if (!html) { tooltip.hidden = true; return; }
+    tooltip.innerHTML = html;
+    tooltip.hidden = false;
+    const x = event.clientX + 14 + tooltip.offsetWidth > window.innerWidth ? event.clientX - 14 - tooltip.offsetWidth : event.clientX + 14;
+    const y = event.clientY + 14 + tooltip.offsetHeight > window.innerHeight ? event.clientY - 14 - tooltip.offsetHeight : event.clientY + 14;
+    tooltip.style.left = `${x}px`;
+    tooltip.style.top = `${y}px`;
+  });
+  svg.addEventListener('mouseleave', () => { tooltip.hidden = true; });
+  return tooltip;
+}
+
 function renderPreciseWheel(chart, offsetMinutes, targetId = 'chartWheel') {
   const svg = document.getElementById(targetId);
+  // Rings, outside in: zodiac (inner..outer), planets + houses (aspectR..inner, about
+  // 10% wider than the zodiac ring), then the aspect lines inside aspectR.
   const cx = 300, cy = 300, outer = 250, inner = 202;
+  const zodiacWidth = outer - inner;
+  const planetRingWidth = Math.round(zodiacWidth * 1.1);
+  const aspectR = inner - planetRingWidth;
   if (!svg) return;
-  let markup = `<circle cx="${cx}" cy="${cy}" r="${outer}" fill="none" stroke="var(--line)" stroke-width="1"/><circle cx="${cx}" cy="${cy}" r="${inner}" fill="none" stroke="var(--line)" stroke-width="1"/><circle cx="${cx}" cy="${cy}" r="${inner - 34}" fill="none" stroke="var(--line)" stroke-width="1" opacity=".8"/>`;
+  let markup = `<circle cx="${cx}" cy="${cy}" r="${outer}" fill="none" stroke="var(--line)" stroke-width="1"/><circle cx="${cx}" cy="${cy}" r="${inner}" fill="none" stroke="var(--line)" stroke-width="1"/><circle cx="${cx}" cy="${cy}" r="${aspectR}" fill="none" stroke="var(--line)" stroke-width="1" opacity=".8"/>`;
   const ascendant = chart.positions.find(position => position.name === 'Ascendant');
   const ascendantAngle = ascendant ? positionAngleAtTime(ascendant, offsetMinutes) : 0;
   // Fixed: the Aries cusp (0°) occupies the same leftmost point the Ascendant
@@ -225,6 +332,17 @@ function renderPreciseWheel(chart, offsetMinutes, targetId = 'chartWheel') {
   // so wheelRotation - 0 = 270.
   const wheelRotation = astroWheelFixedToAries ? 270 : (270 + ascendantAngle + 360) % 360;
   const houseCusps = houseCuspsAtTime(chart, offsetMinutes);
+  // Degree ticks on the inner side of the zodiac ring: long & bold at 10°/20° of each
+  // sign, short & bold at 5°/15°/25°, short & thin at every other whole degree.
+  for (let degree = 0; degree < 360; degree += 1) {
+    const withinSign = degree % 30;
+    if (withinSign === 0) continue;
+    const long = withinSign % 10 === 0;
+    const bold = withinSign % 5 === 0;
+    const tickAngle = (wheelRotation - degree - 90) * Math.PI / 180;
+    const tickOuter = inner + zodiacWidth * (long ? 0.4 : 0.25);
+    markup += `<line x1="${cx + inner * Math.cos(tickAngle)}" y1="${cy + inner * Math.sin(tickAngle)}" x2="${cx + tickOuter * Math.cos(tickAngle)}" y2="${cy + tickOuter * Math.sin(tickAngle)}" class="zodiac-tick ${bold ? 'bold' : 'thin'}"/>`;
+  }
   for (let index = 0; index < 12; index += 1) {
     const zodiacAngle = (wheelRotation - index * 30 - 90) * Math.PI / 180;
     const x1 = cx + inner * Math.cos(zodiacAngle), y1 = cy + inner * Math.sin(zodiacAngle);
@@ -237,40 +355,63 @@ function renderPreciseWheel(chart, offsetMinutes, targetId = 'chartWheel') {
     const labelY = cy + (outer - 18) * Math.sin(zodiacAngle - Math.PI / 12);
     markup += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="var(--line)"/><text x="${labelX}" y="${labelY}" text-anchor="middle" dominant-baseline="middle" class="wheel-sign ${SIGN_ELEMENTS[index]}">${SIGN_GLYPHS[index]}</text>`;
   }
+  // House numbers sit on the inner side of the planet ring, just inside each house's
+  // starting cusp (houses run in increasing zodiac degree, so "inside" is +degrees).
+  const houseLabelR = aspectR + 9;
+  const houseLabelOffset = (10 / houseLabelR) * 180 / Math.PI;
   houseCusps.forEach((cusp, index) => {
     const houseAngle = (wheelRotation - cusp - 90) * Math.PI / 180;
-    const x1 = cx + (inner - 34) * Math.cos(houseAngle), y1 = cy + (inner - 34) * Math.sin(houseAngle);
+    const x1 = cx + aspectR * Math.cos(houseAngle), y1 = cy + aspectR * Math.sin(houseAngle);
     const x2 = cx + inner * Math.cos(houseAngle), y2 = cy + inner * Math.sin(houseAngle);
-    const labelAngle = (wheelRotation - cusp - 15 - 90) * Math.PI / 180;
-    const labelX = cx + (inner - 50) * Math.cos(labelAngle), labelY = cy + (inner - 50) * Math.sin(labelAngle);
+    const labelAngle = (wheelRotation - cusp - houseLabelOffset - 90) * Math.PI / 180;
+    const labelX = cx + houseLabelR * Math.cos(labelAngle), labelY = cy + houseLabelR * Math.sin(labelAngle);
     markup += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" class="house-cusp"/><text x="${labelX}" y="${labelY}" class="house-number" text-anchor="middle" dominant-baseline="middle">${index + 1}</text>`;
   });
-  const markerPositions = chart.positions.map(position => ({...position, angle: (wheelRotation - positionAngleAtTime(position, offsetMinutes) + 360) % 360}));
+  // Hidden bodies are dropped before clustering and aspects, so they neither push
+  // neighbouring glyphs aside nor leave aspect lines behind.
+  const markerPositions = chart.positions
+    .filter(position => wheelBodyVisible(position.name))
+    .map(position => ({...position, angle: (wheelRotation - positionAngleAtTime(position, offsetMinutes) + 360) % 360, motion: wheelMotion(position, offsetMinutes)}));
   spreadClusteredAngles(markerPositions);
+  const longitudes = new Map(markerPositions.map(position => [position.name, positionAngleAtTime(position, offsetMinutes)]));
+  let aspects = [];
   // Aspect lines connect planets' TRUE positions (position.angle), not the spread-out
   // display markers — traditional wheels never spread the lines themselves. Distances
   // between angles are rotation-invariant, so reusing this wheel-space `angle` (rather
   // than re-deriving the raw zodiac angle) gives the same aspect orbs calculateAspects
   // would compute from the unrotated positions.
   if (typeof calculateAspects === 'function') {
-    const aspectRadius = inner - 34;
+    const aspectRadius = aspectR;
     const wheelPoint = angle => {
       const rad = (angle - 90) * Math.PI / 180;
       return { x: cx + aspectRadius * Math.cos(rad), y: cy + aspectRadius * Math.sin(rad) };
     };
     const angleByName = new Map(markerPositions.map(position => [position.name, position.angle]));
-    const aspects = calculateAspects({positions: markerPositions}, aspectMode === 'all');
+    aspects = calculateAspects({positions: markerPositions}, aspectMode === 'all');
     markup += aspects.map(aspect => {
       const p1 = wheelPoint(angleByName.get(aspect.first)), p2 = wheelPoint(angleByName.get(aspect.second));
       const strokeWidth = aspect.intensity === 'exact' ? 4 : aspect.intensity === 'normal' ? 1.1 : 0.8;
       const dash = aspect.intensity === 'weak' ? ' stroke-dasharray="3 3"' : '';
       return `<line x1="${p1.x}" y1="${p1.y}" x2="${p2.x}" y2="${p2.y}" stroke="${aspect.color}" stroke-width="${strokeWidth}" opacity=".7"${dash} class="aspect-line"/>`;
     }).join('');
+    // Invisible, wider twins of the aspect lines so even the thinnest one is easy to hover.
+    markup += aspects.map((aspect, index) => {
+      const p1 = wheelPoint(angleByName.get(aspect.first)), p2 = wheelPoint(angleByName.get(aspect.second));
+      return `<line x1="${p1.x}" y1="${p1.y}" x2="${p2.x}" y2="${p2.y}" class="aspect-hit" data-aspect="${index}"/>`;
+    }).join('');
   }
-  markerPositions.forEach(position => { markup += planetMarkerMarkup(cx, cy, inner, position); });
+  markerPositions.forEach(position => { markup += planetMarkerMarkup(cx, cy, inner, position, planetRingWidth); });
   //markup += `<circle cx="${cx}" cy="${cy}" r="4" fill="var(--accent)"/>`;
   svg.innerHTML = markup;
   svg.querySelectorAll('.planet-marker').forEach(node => node.addEventListener('click', () => showToast(`${node.dataset.planet} · click for placement details`)));
+  const positionsByName = new Map(markerPositions.map(position => [position.name, position]));
+  // Built on demand when hovered, so redrawing the wheel (every timeline tick) stays cheap.
+  svg._wheelHover = {
+    planet: name => positionsByName.has(name) && (() => wheelPlanetTooltip(positionsByName.get(name), longitudes.get(name), houseCusps)),
+    aspect: index => aspects[index] && (() => wheelAspectTooltip(aspects[index], positionsByName, longitudes, offsetMinutes)),
+  };
+  // The wheel under the pointer just changed (timeline, filter, zodiac mode…): drop the stale tooltip.
+  bindWheelHover(svg).hidden = true;
 }
 
 function initPreciseTimeline() {
@@ -306,6 +447,18 @@ function initPreciseTimeline() {
       houseControl.textContent = `⌂ ${houseSystem}`;
       const chart = currentExplorerChart();
       if (chart) renderPreciseWheel(chart, Number(slider.value));
+    });
+  }
+  const wheelFilters = document.querySelector('[data-wheel-filters]');
+  if (wheelFilters) {
+    wheelFilters.innerHTML = wheelFiltersMarkup();
+    wheelFilters.addEventListener('change', event => {
+      const key = event.target.dataset.wheelBody;
+      if (!key) return;
+      if (event.target.checked) wheelHiddenBodies.delete(key);
+      else wheelHiddenBodies.add(key);
+      const chart = currentExplorerChart();
+      if (chart) renderPreciseWheel(chart, window.timelineOffsetMinutes || 0);
     });
   }
   const fixZodiacToggle = document.getElementById('fixZodiacToggleChart');

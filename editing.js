@@ -1,3 +1,14 @@
+// Older versions stored sample charts' design time as exactly 88 days before
+// birth. Timezones were assigned to those charts afterwards, so today the gap is
+// 88 days give or take a whole-number UTC offset. A real 88°-arc solve essentially
+// never lands exactly on 88 days plus a multiple of 15 minutes, so that pattern
+// (within ±14 h) identifies the placeholder.
+function isFlatDesignPlaceholder(chart) {
+  const gap = chartBirthMomentUTC(chart).getTime() - new Date(chart.designTime).getTime();
+  const offset = gap - 88 * 86400000;
+  return Math.abs(offset) <= 14 * 3600000 && offset % (15 * 60000) === 0;
+}
+
 function normalizePositionModel() {
   state.charts.forEach(chart => {
     // Also repairs a stale/hand-typed value Intl no longer accepts (from
@@ -25,6 +36,8 @@ function normalizePositionModel() {
     // computation (realAscendantMidheaven in ephemeris.js) — without these,
     // it can't run and Ascendant/Midheaven silently stay on the synthetic path.
     chart.positions.forEach(position => {
+      // Fortuna was saved with Earth's ⊕ before it got its own ⊗.
+      if (position.name === 'Fortuna') position.glyph = '⊗';
       position.birthMoment = position.birthMoment || birthMoment;
       if (position.latitude == null) position.latitude = chart.latitude;
       if (position.longitude == null) position.longitude = chart.longitude;
@@ -32,14 +45,11 @@ function normalizePositionModel() {
     // designTimeFor's iterative solve only needs to run once, at chart
     // creation — it's stored from then on and never recomputed just because
     // the app reloaded (only saveEditedChart regenerates it, and only when
-    // birth data that actually changes the answer was edited). `||` backfills
-    // it for genuinely old charts with no designTime at all; it does NOT
-    // upgrade a chart that already has one, even the rough placeholder
-    // designTimeFor's own guard can produce if this ever runs before
-    // positionAngleAtTime exists (app.js's own synchronous bootstrap, for the
-    // very first sample charts a brand-new install generates) — that's an
-    // accepted trade-off for "compute once," not a bug to work around here.
-    chart.designTime = chart.designTime || designTimeFor(chart);
+    // birth data that actually changes the answer was edited). This fills it in
+    // for charts that don't have one yet (sample charts built during app.js's
+    // bootstrap, before the Sun lookup existed), and replaces the flat
+    // "88 days before birth" placeholder older versions stored for those charts.
+    if (!chart.designTime || isFlatDesignPlaceholder(chart)) chart.designTime = designTimeFor(chart);
   });
 }
 

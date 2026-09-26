@@ -100,6 +100,7 @@ function acgMapMarkup() {
         <g class="acg-origin" data-acg-origin visibility="hidden"><title>Drag to move the Local Space origin</title><circle class="acg-origin-hit" r="12"/><text class="acg-origin-glyph" text-anchor="middle" dominant-baseline="central">◉</text></g>
         <text class="acg-label" data-acg-measure visibility="hidden"></text>
       </svg>
+      <div class="acg-tooltip" data-acg-tooltip hidden></div>
       <div class="acg-zoom">
         <button type="button" data-acg-zoom-in aria-label="Zoom in" title="Zoom in">＋</button>
         <button type="button" data-acg-zoom-out aria-label="Zoom out" title="Zoom out">−</button>
@@ -192,10 +193,53 @@ function bindAcgMap(wrap) {
     if (event.button !== 0) return;
     drag = { x: event.clientX, y: event.clientY };
     svg.setPointerCapture(event.pointerId);
-    svg.classList.add("dragging");
   });
+  // Hover: the 4 lines nearest the point under the cursor (hidden while panning).
+  const tooltip = wrap.querySelector("[data-acg-tooltip]");
+  let hover = null;
+  let intersections = { lines: null, points: [] };
+  const hideTooltip = () => {
+    tooltip.hidden = true;
+  };
+  const showNearest = () => {
+    const { clientX, clientY } = hover;
+    hover.frame = 0;
+    const screen = size();
+    const rect = svg.getBoundingClientRect();
+    const sx = clientX - rect.left, sy = clientY - rect.top;
+    if (!labelLines.length || sx < 0 || sy < 0 || sx > screen.w || sy > screen.h) return hideTooltip();
+    const view = currentView(screen);
+    const [lon, lat] = acgUnproject(view.left + (sx * view.vw) / screen.w, view.top + (sy * view.vh) / screen.h);
+    // Only Travel lines have a line type; Local Space lines all cross at the origin
+    // and its antipode, so intersections are Travel-only.
+    let nearestCrossings = null;
+    if (labelLines[0].lineKey) {
+      if (intersections.lines !== labelLines) intersections = { lines: labelLines, points: acgLineIntersections(labelLines) };
+      nearestCrossings = acgNearestIntersections(intersections.points, lat, lon);
+    }
+    tooltip.innerHTML = acgNearestLinesMarkup(acgNearestLines(labelLines, lat, lon), nearestCrossings);
+    tooltip.hidden = false;
+    // Beside the cursor, flipped to the other side near the right/bottom edges.
+    const x = sx + 14 + tooltip.offsetWidth > screen.w ? sx - 14 - tooltip.offsetWidth : sx + 14;
+    const y = sy + 14 + tooltip.offsetHeight > screen.h ? sy - 14 - tooltip.offsetHeight : sy + 14;
+    tooltip.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
+  };
+  svg.addEventListener("pointermove", (event) => {
+    if (drag) return;
+    hover = hover || { frame: 0 };
+    hover.clientX = event.clientX;
+    hover.clientY = event.clientY;
+    if (!hover.frame) hover.frame = requestAnimationFrame(showNearest);
+  });
+  svg.addEventListener("pointerleave", () => {
+    if (hover?.frame) cancelAnimationFrame(hover.frame);
+    hover = null;
+    hideTooltip();
+  });
+
   svg.addEventListener("pointermove", (event) => {
     if (!drag) return;
+    hideTooltip();
     const screen = size();
     const { vw, vh } = viewBoxSize(screen);
     acgViewport.cx -= ((event.clientX - drag.x) * vw) / screen.w;
@@ -205,7 +249,6 @@ function bindAcgMap(wrap) {
   });
   const endDrag = () => {
     drag = null;
-    svg.classList.remove("dragging");
   };
   svg.addEventListener("pointerup", endDrag);
   svg.addEventListener("pointercancel", endDrag);
@@ -224,7 +267,6 @@ function bindAcgMap(wrap) {
     if (event.button !== 0 || !origin) return;
     event.stopPropagation();
     originMarker.setPointerCapture(event.pointerId);
-    originMarker.classList.add("dragging");
     originDrag = { frame: 0, x: event.clientX, y: event.clientY };
   });
   originMarker.addEventListener("pointermove", (event) => {
@@ -244,7 +286,6 @@ function bindAcgMap(wrap) {
     cancelAnimationFrame(originDrag.frame);
     moveOriginTo(event.clientX, event.clientY);
     originDrag = null;
-    originMarker.classList.remove("dragging");
   };
   originMarker.addEventListener("pointerup", endOriginDrag);
   originMarker.addEventListener("pointercancel", endOriginDrag);
@@ -262,6 +303,8 @@ function bindAcgMap(wrap) {
     setLabelLines(lines) {
       labelLines = lines;
       scheduleLabels();
+      // Lines changed under a resting pointer (view switch, filter, timeline): refresh the tooltip.
+      if (hover && !hover.frame) hover.frame = requestAnimationFrame(showNearest);
     },
     setOrigin(value) {
       origin = value;
@@ -362,14 +405,138 @@ function acgHorizonCurve(mcLongitude, declination, side) {
 // A line segment in world units: points [x, y, facing] plus its bounding box, so
 // label layout can skip segments nowhere near the view. `facing` is only
 // meaningful for Local Space (true on the half of the great circle that points
-// toward the planet); Travel lines are facing everywhere.
+// toward the planet); Travel lines are facing everywhere. `vectors` are the same
+// points as unit vectors on the globe, for the hover tooltip's distances.
 function acgSegment(lonLatPoints, facing = () => true) {
   const points = lonLatPoints.map((point) => {
     const [x, y] = acgProject(point[0], point[1]);
     return [x, y, facing(point)];
   });
   const xs = points.map((point) => point[0]), ys = points.map((point) => point[1]);
-  return { points, bounds: { minX: Math.min(...xs), maxX: Math.max(...xs), minY: Math.min(...ys), maxY: Math.max(...ys) } };
+  const vectors = lonLatPoints.map((point) => acgUnitVector(point[0], point[1]));
+  return { points, vectors, lonLat: lonLatPoints, bounds: { minX: Math.min(...xs), maxX: Math.max(...xs), minY: Math.min(...ys), maxY: Math.max(...ys) } };
+}
+
+// ── Distances on the globe ──────────────────────────────────────────────
+// Every line is stored as a chain of short great-circle arcs (0.5–1° apart on the
+// curves; MC/IC are single meridian arcs, and Local Space arcs lie exactly on their
+// great circle), so the true surface distance from a point to a line is the
+// minimum over its arcs of the exact point-to-arc distance.
+const ACG_EARTH_RADIUS_KM = 6371;
+function acgUnitVector(lon, lat) {
+  const lonR = (lon * Math.PI) / 180, latR = (lat * Math.PI) / 180;
+  return [Math.cos(latR) * Math.cos(lonR), Math.cos(latR) * Math.sin(lonR), Math.sin(latR)];
+}
+const acgDot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+const acgCross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+const acgNorm = (a) => Math.hypot(a[0], a[1], a[2]);
+// Angle (radians) between two unit vectors; atan2 stays accurate at tiny angles.
+const acgAngle = (a, b) => Math.atan2(acgNorm(acgCross(a, b)), acgDot(a, b));
+// Angle from p to the shorter great-circle arc a→b: the perpendicular distance to
+// the arc's great circle when the foot of that perpendicular lands between a and b,
+// otherwise the distance to the nearer endpoint.
+function acgAngleToArc(p, a, b) {
+  const normal = acgCross(a, b);
+  const length = acgNorm(normal);
+  const toEnds = () => Math.min(acgAngle(p, a), acgAngle(p, b));
+  if (length < 1e-12) return toEnds();
+  const n = [normal[0] / length, normal[1] / length, normal[2] / length];
+  const offPlane = acgDot(p, n);
+  const foot = [p[0] - offPlane * n[0], p[1] - offPlane * n[1], p[2] - offPlane * n[2]];
+  if (acgNorm(foot) < 1e-12) return toEnds();
+  if (acgDot(acgCross(a, foot), n) >= 0 && acgDot(acgCross(foot, b), n) >= 0) return Math.asin(Math.min(1, Math.abs(offPlane)));
+  return toEnds();
+}
+function acgDistanceToLineKm(point, line) {
+  let best = Infinity;
+  line.segments.forEach(({ vectors }) => {
+    for (let i = 1; i < vectors.length; i += 1) best = Math.min(best, acgAngleToArc(point, vectors[i - 1], vectors[i]));
+  });
+  return best * ACG_EARTH_RADIUS_KM;
+}
+// The `count` lines nearest to (lat, lon), closest first: [{line, km}].
+function acgNearestLines(lines, lat, lon, count = 4) {
+  const point = acgUnitVector(lon, lat);
+  return lines
+    .map((line) => ({ line, km: acgDistanceToLineKm(point, line) }))
+    .sort((a, b) => a.km - b.km)
+    .slice(0, count);
+}
+// ── Travel line intersections ───────────────────────────────────────────
+// Every Travel line is single-valued in latitude (MC/IC are constant-longitude;
+// an AS/DS curve's latitude runs monotonically with hour angle from one critical
+// latitude to the other), so two lines cross wherever lonA(lat) − lonB(lat),
+// wrapped to ±180°, changes sign. Walking the union of both lines' own sample
+// latitudes makes both lines linear within each step, so each crossing is solved
+// exactly for the lines as drawn. A body's own lines are skipped (its AS/DS meet
+// its MC/IC at the critical latitudes by construction), and so are the two nodes
+// against each other (North Node DS is South Node AS, etc. — coincident, not crossing).
+function acgLatitudeProfile(line) {
+  return line.segments[0].lonLat.map(([lon, lat]) => [lat, lon]).sort((a, b) => a[0] - b[0]);
+}
+function acgLonAtLatitude(profile, lat) {
+  let lo = 0, hi = profile.length - 1;
+  if (lat < profile[lo][0] || lat > profile[hi][0]) return null;
+  while (hi - lo > 1) {
+    const mid = (lo + hi) >> 1;
+    if (profile[mid][0] <= lat) lo = mid;
+    else hi = mid;
+  }
+  const [lat0, lon0] = profile[lo], [lat1, lon1] = profile[hi];
+  return lat1 === lat0 ? lon0 : lon0 + ((lat - lat0) / (lat1 - lat0)) * (lon1 - lon0);
+}
+function acgLineIntersections(lines) {
+  const profiles = lines.map(acgLatitudeProfile);
+  const wrap = (degrees) => ((((degrees + 180) % 360) + 360) % 360) - 180;
+  const found = [];
+  for (let i = 0; i < lines.length; i += 1) {
+    for (let j = i + 1; j < lines.length; j += 1) {
+      if (lines[i].bodyKey === lines[j].bodyKey) continue;
+      const a = profiles[i], b = profiles[j];
+      const from = Math.max(a[0][0], b[0][0]), to = Math.min(a[a.length - 1][0], b[b.length - 1][0]);
+      if (from >= to) continue;
+      const lats = [...new Set([from, to, ...a.map((p) => p[0]), ...b.map((p) => p[0])])].filter((lat) => lat >= from && lat <= to).sort((x, y) => x - y);
+      let previous = null;
+      lats.forEach((lat) => {
+        const lonA = acgLonAtLatitude(a, lat);
+        const gap = wrap(lonA - acgLonAtLatitude(b, lat));
+        // A sign change near zero is a crossing; one near ±180° is just the wrap.
+        const crosses = previous && Math.abs(previous.gap) < 90 && Math.abs(gap) < 90 && ((previous.gap < 0 && gap >= 0) || (previous.gap > 0 && gap <= 0));
+        if (crosses) {
+          const t = previous.gap / (previous.gap - gap);
+          const crossLat = previous.lat + t * (lat - previous.lat);
+          found.push({ lat: crossLat, lon: wrap(acgLonAtLatitude(a, crossLat)), a: lines[i], b: lines[j] });
+        }
+        previous = { lat, gap };
+      });
+    }
+  }
+  return found;
+}
+function acgNearestIntersections(intersections, lat, lon, count = 4) {
+  const point = acgUnitVector(lon, lat);
+  return intersections
+    .map((crossing) => ({ crossing, km: acgAngle(point, acgUnitVector(crossing.lon, crossing.lat)) * ACG_EARTH_RADIUS_KM }))
+    .sort((x, y) => x.km - y.km)
+    .slice(0, count);
+}
+
+function acgNearestLinesMarkup(nearest, nearestCrossings) {
+  const km = (value) => `${value < 10 ? value.toFixed(1) : Math.round(value).toLocaleString("en-US")} km`;
+  const lines = `<div class="acg-tooltip-title">Nearest Lines:</div>${nearest
+    .map(({ line, km: distance }) => `<div class="acg-tooltip-row"><span style="color:${line.color}">–</span> ${line.hoverName} (${km(distance)})</div>`)
+    .join("")}`;
+  if (!nearestCrossings) return lines;
+  return `${lines}<div class="acg-tooltip-title acg-tooltip-section">Nearest Intersections:</div>${
+    nearestCrossings.length
+      ? nearestCrossings
+          .map(
+            ({ crossing, km: distance }) =>
+              `<div class="acg-tooltip-row"><span style="color:${crossing.a.color}">–</span><span style="color:${crossing.b.color}">–</span> ${crossing.a.hoverName} × ${crossing.b.hoverName} (${km(distance)})</div>`,
+          )
+          .join("")
+      : `<div class="acg-tooltip-row">None among the shown lines</div>`
+  }`;
 }
 function acgSegmentsPath(segments) {
   return segments
@@ -405,10 +572,13 @@ function acgTravelLines(chart, offsetMinutes) {
       if (points.length < 2) return;
       const short = ACG_LINE_TYPES.find((line) => line.key === lineKey).short;
       const segments = [acgSegment(points)];
-      lines.push({ bodyKey: body.key, lineKey, color: body.color, label: `${member.glyph} ${short}`, segments, d: acgSegmentsPath(segments) });
+      lines.push({ bodyKey: body.key, lineKey, color: body.color, label: `${member.glyph} ${short}`, hoverName: `${member.name} ${short}`, segments, d: acgSegmentsPath(segments) });
     };
-    add("MC", [[mc, -ACG_MAX_LAT], [mc, ACG_MAX_LAT]]);
-    add("IC", [[mc + 180, -ACG_MAX_LAT], [mc + 180, ACG_MAX_LAT]]);
+    // Pole to pole: the drawing is clipped at the map's edge anyway (acgProject
+    // clamps latitude), but hover distances need the whole meridian. The equator
+    // point splits it into two arcs, since pole-to-pole alone would be ambiguous.
+    add("MC", [[mc, -90], [mc, 0], [mc, 90]]);
+    add("IC", [[mc + 180, -90], [mc + 180, 0], [mc + 180, 90]]);
     add("ASC", acgHorizonCurve(mc, declination, -1));
     add("DSC", acgHorizonCurve(mc, declination, 1));
   });
@@ -468,7 +638,7 @@ function acgLocalSpaceLines(chart, offsetMinutes, origin, directionsFrom = origi
     const azimuth = Astronomy.Horizon(date, observer, rightAscension / 15, declination, null).azimuth;
     const segments = acgGreatCircleSegments(lat0, lon0, azimuth).map((points) => acgSegment(points, (point) => point[2] <= 180));
     if (!segments.length) return;
-    lines.push({ bodyKey: body.key, color: body.color, label: member.glyph, segments, d: acgSegmentsPath(segments), azimuth });
+    lines.push({ bodyKey: body.key, color: body.color, label: member.glyph, hoverName: member.name, segments, d: acgSegmentsPath(segments), azimuth });
   });
   return lines;
 }
