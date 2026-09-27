@@ -1197,7 +1197,7 @@ function renderHumanDesignMandala(surface, chart, offsetMinutes = 0) {
 const GK_BLUE = "#577891";
 const GK_RED = "#a4433c";
 const GK_GREEN = "#4f8f6a";
-const GK_NAVY = "#2c3a86"; // the Star Pearl spheres
+const GK_NAVY = "#2c3a86"; // the Star Pearl spheres outside the Pearl Path
 const GK_STAR_BLUE = "#3f74d4"; // the Star Pearl paths
 // Every sphere below has a set/planet mapping (personality/design × one of the 10
 // bodies computeHumanDesignChart already derives), so all 11 read real, live gates —
@@ -1581,13 +1581,16 @@ const GENE_KEYS_STAR_PEARL_EDGES = (() => {
     [id, ring[(index + 2) % 6]], // star triangle
   ]);
 })();
+// The four Star Pearl spheres that are also the Pearl Path's keep its lighter blue
+// (Brand is Life's Work's sphere); the other three are navy.
+const GENE_KEYS_STAR_PEARL_PATH_SPHERES = new Set(["pearl", "brand", "culture", "vocation"]);
 function geneKeysStarPearlSpheresMarkup(hd, cycleHd = null) {
   const r = GENE_KEYS_STAR_PEARL.sphereRadius;
   return GENE_KEYS_STAR_PEARL_SPHERES.map((sphere) => {
     const label = geneKeysGateLabel(sphere, hd);
     return `
       <g class="gk-sphere" tabindex="0" id="gk-sphere-${sphere.id}" data-sphere="${sphere.name}" data-gate="${label}">
-        <circle cx="${sphere.x}" cy="${sphere.y}" r="${r}" fill="${GK_NAVY}"/>
+        <circle cx="${sphere.x}" cy="${sphere.y}" r="${r}" fill="${GENE_KEYS_STAR_PEARL_PATH_SPHERES.has(sphere.id) ? GK_BLUE : GK_NAVY}"/>
         <text x="${sphere.x}" y="${sphere.y - 9}" text-anchor="middle" class="gk-sphere-name">${sphere.name}</text>
         <text x="${sphere.x}" y="${sphere.y + 17}" text-anchor="middle" class="gk-sphere-gate">${label}</text>
         ${geneKeysCycleLabelMarkup(sphere, r, cycleHd)}

@@ -44,6 +44,7 @@ function placesLoaded() {
     };
   });
   placeWaiting.forEach((input) => input.dispatchEvent(new Event("input")));
+  window.dispatchEvent(new Event("orbital-places-loaded"));
   placeWaiting.clear();
 }
 

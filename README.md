@@ -11,8 +11,8 @@ reserved — see [LICENSE](LICENSE).
 
 Open `index.html` in a modern browser. There's no build step and no server: it works
 straight from disk (`file://`) or from any static host, and makes no network requests —
-the fonts, map, place list and time zone history are included (the map and place list
-load the first time they're needed).
+the fonts, map and relief imagery, place list and time zone history are included (the
+map, its image tiles and the place list load as they're needed).
 
 Charts are stored in the browser's local storage, on that device only. Use **Export
 workspace** to keep a JSON backup, and **Import workspace** to bring charts back.
@@ -23,7 +23,8 @@ workspace** to keep a JSON backup, and **Import workspace** to bring charts back
   chart and its key facts (Sun and Rising; Type, Authority, Profile, Definition).
 - **Chart explorer** — the astrology wheel with aspects, filters and a timeline; the
   Human Design bodygraph and mandala with typology, Variable and PHS; the Gene Keys
-  profile and Star Pearl; Astrocartography travel and local-space maps.
+  profile and Star Pearl; Astrocartography travel and local-space maps on a shaded-relief
+  world map with city names.
 - **Timeline explorer** — the same views for the current moment.
 - **Pair explorer** — synastry wheel and cross-aspects, the Human Design composite with
   connection channels, side-by-side Gene Keys and paired maps.
@@ -52,7 +53,7 @@ Earth, GeoNames, the IANA Time Zone Database, NASA JPL Horizons, and the bundled
 Manrope and Playfair Display fonts) and trademark notices. Place data © GeoNames,
 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
 
-The generated data files (`world-map.js`, `places.js`, `tz-history.js`) are rebuilt with
+The generated data files (`world-map.js`, `tiles/`, `places.js`, `tz-history.js`) are rebuilt with
 the scripts in [`tools/`](tools/). Orbital Study is an independent
 project, not affiliated with Jovian Archive or Gene Keys Publishing, and is meant for
 study and self-reflection rather than professional advice.

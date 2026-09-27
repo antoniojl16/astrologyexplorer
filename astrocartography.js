@@ -135,6 +135,7 @@ function acgMapMarkup() {
           <g id="${overlayId}" class="acg-overlay" data-acg-overlay></g>
         </defs>
         <rect x="${-W}" y="0" width="${3 * W}" height="${W}" class="acg-ocean"/>
+        <g class="acg-tiles" data-acg-tiles></g>
         ${tiles(worldId, [-W, 0, W])}
         ${tiles(overlayId, [-2 * W, -W, 0, W, 2 * W])}
       </svg>
@@ -151,6 +152,83 @@ function acgMapMarkup() {
     </div>`;
 }
 
+// ── Map styles: image tiles under the lines ─────────────────────────────
+// "Relief" (the default) draws Natural Earth II — land colored by climate, with shaded
+// relief — under the vector map; "Plain" is the vector map alone. The picture is cut
+// into 256-pixel Web Mercator tiles (tools/build-map-tiles.py): tiles/<style>/<z>/<x>/<y>.webp,
+// level z being 256·2^z pixels across the world (5 levels, ~3.3 MB in all). Only the
+// tiles in view are requested, at the level that matches the zoom, over a level two
+// steps coarser as a backdrop while they load. The choice is remembered per browser.
+const ACG_MAP_STYLES = {
+  relief: { label: "Relief", maxZoom: 5 },
+  plain: { label: "Plain" },
+};
+const ACG_TILE_SIZE = 256;
+const acgStoredSetting = (key, fallback) => { try { return localStorage.getItem(key) ?? fallback; } catch { return fallback; } };
+const acgStoreSetting = (key, value) => { try { localStorage.setItem(key, value); } catch { /* private mode */ } };
+let acgMapStyle = ACG_MAP_STYLES[acgStoredSetting("orbital-study-map-style", "relief")] ? acgStoredSetting("orbital-study-map-style", "relief") : "relief";
+let acgShowCities = acgStoredSetting("orbital-study-map-cities", "on") === "on";
+
+// The tile images for `view`: [{key, href, x, y, size}] in world units, the backdrop
+// level first. Columns outside 0..2^z-1 are copies of the world beside it.
+function acgTilesFor(view, screen) {
+  const style = ACG_MAP_STYLES[acgMapStyle];
+  if (!style.maxZoom) return [];
+  const worldPixels = (ACG_WORLD_SIZE * screen.w * Math.min(2, window.devicePixelRatio || 1)) / view.vw;
+  const level = Math.max(0, Math.min(style.maxZoom, Math.ceil(Math.log2(worldPixels / ACG_TILE_SIZE))));
+  const tiles = [];
+  [...new Set([Math.max(0, level - 2), level])].forEach((zoom) => {
+    const count = 2 ** zoom, size = ACG_WORLD_SIZE / count;
+    const y0 = Math.max(0, Math.floor(view.top / size)), y1 = Math.min(count - 1, Math.floor((view.top + view.vh) / size));
+    for (let column = Math.floor(view.left / size); column <= Math.floor((view.left + view.vw) / size); column++) {
+      const x = ((column % count) + count) % count;
+      for (let row = y0; row <= y1; row++) {
+        tiles.push({ key: `${zoom}/${column}/${row}`, href: `tiles/${acgMapStyle}/${zoom}/${x}/${row}.webp`, x: column * size, y: row * size, size });
+      }
+    }
+  });
+  return tiles;
+}
+
+// City labels, in screen space above the map: the most populous places in view first
+// (places.js is sorted by population), each kept only if its name fits without
+// touching a planet label or another city — so zooming in reveals smaller places.
+const ACG_CITY_LIMIT = 60;
+let acgCityMeasure = null;
+function acgCityLabels(view, screen, blocked) {
+  if (!acgShowCities) return "";
+  if (typeof placeIndex === "undefined" || !placeIndex) {
+    if (typeof loadPlaces === "function") loadPlaces();
+    return "";
+  }
+  if (!acgCityMeasure) {
+    acgCityMeasure = document.createElement("canvas").getContext("2d");
+    acgCityMeasure.font = "600 10px Manrope, sans-serif";
+  }
+  const taken = [...blocked];
+  const overlaps = (box) => taken.some((other) => box.x < other.x + other.w && other.x < box.x + box.w && box.y < other.y + other.h && other.y < box.y + box.h);
+  const centre = view.left + view.vw / 2;
+  let markup = "", placed = 0;
+  for (let i = 0; i < placeIndex.length && i < 6000 && placed < ACG_CITY_LIMIT; i++) {
+    const place = placeIndex[i];
+    const [worldX, worldY] = acgProject(Number(place.lon), Number(place.lat));
+    const x = worldX + Math.round((centre - worldX) / ACG_WORLD_SIZE) * ACG_WORLD_SIZE;
+    const sx = ((x - view.left) * screen.w) / view.vw, sy = ((worldY - view.top) * screen.h) / view.vh;
+    if (sx < 4 || sy < 4 || sx > screen.w - 4 || sy > screen.h - 4) continue;
+    const width = acgCityMeasure.measureText(place.name).width;
+    const dot = { x: sx - 3, y: sy - 3, w: 6, h: 6 };
+    const right = { x: sx + 5, y: sy - 7, w: width + 4, h: 14 };
+    const left = { x: sx - 9 - width, y: sy - 7, w: width + 4, h: 14 };
+    if (overlaps(dot)) continue;
+    const box = [right, left].find((candidate) => candidate.x > 0 && candidate.x + candidate.w < screen.w && !overlaps(candidate));
+    if (!box) continue;
+    taken.push(dot, { x: box.x - 3, y: box.y - 2, w: box.w + 6, h: box.h + 4 });
+    placed++;
+    markup += `<g class="acg-city"><circle cx="${sx.toFixed(1)}" cy="${sy.toFixed(1)}" r="2.2"/><text x="${(box === right ? box.x : box.x + box.w - 2).toFixed(1)}" y="${sy.toFixed(1)}" text-anchor="${box === right ? "start" : "end"}" dominant-baseline="central">${escapeHtml(place.name)}</text></g>`;
+  }
+  return markup;
+}
+
 // `onViewportChange` fires after this map pans or zooms, so paired maps (Pair
 // Explorer) can follow along via their own refresh().
 function bindAcgMap(wrap, { onViewportChange } = {}) {
@@ -164,6 +242,34 @@ function bindAcgMap(wrap, { onViewportChange } = {}) {
   let labelFrame = 0;
   // Draggable Local Space origin: {lat, lon, onMove} while shown, null otherwise.
   let origin = null;
+  wrap.dataset.mapStyle = acgMapStyle;
+  const tileGroup = svg.querySelector("[data-acg-tiles]");
+  const tileNodes = new Map();
+  // Keeps exactly the tiles acgTilesFor asks for, reusing the ones already there.
+  const updateTiles = (view, screen) => {
+    wrap.dataset.mapStyle = acgMapStyle;
+    const wanted = acgTilesFor(view, screen);
+    const keys = new Set(wanted.map((tile) => tile.key + acgMapStyle));
+    tileNodes.forEach((node, key) => { if (!keys.has(key)) { node.remove(); tileNodes.delete(key); } });
+    wanted.forEach((tile) => {
+      const key = tile.key + acgMapStyle;
+      if (tileNodes.has(key)) return;
+      const image = document.createElementNS("http://www.w3.org/2000/svg", "image");
+      image.setAttribute("href", tile.href);
+      // A hair of overlap hides seams between neighbouring tiles.
+      image.setAttribute("x", tile.x - 0.05);
+      image.setAttribute("y", tile.y - 0.05);
+      image.setAttribute("width", tile.size + 0.1);
+      image.setAttribute("height", tile.size + 0.1);
+      image.setAttribute("preserveAspectRatio", "none");
+      tileGroup.appendChild(image);
+      tileNodes.set(key, image);
+    });
+    // Backdrop level first, sharper level on top.
+    [...tileNodes.entries()].sort(([a], [b]) => Number(a.split("/")[0]) - Number(b.split("/")[0])).forEach(([, node]) => tileGroup.appendChild(node));
+  };
+  // City names arrive with places.js.
+  window.addEventListener("orbital-places-loaded", () => scheduleLabels());
   const currentView = (screen) => {
     const { vw, vh } = viewBoxSize(screen);
     return { left: acgViewport.cx - vw / 2, top: acgViewport.cy - vh / 2, vw, vh };
@@ -187,7 +293,10 @@ function bindAcgMap(wrap, { onViewportChange } = {}) {
     } else {
       originMarker.setAttribute("visibility", "hidden");
     }
-    labelGroup.innerHTML = acgLabelsMarkup(acgPlaceLabels(labelLines, view, screen, (text) => acgMeasureLabel(measureText, text), blocked));
+    updateTiles(view, screen);
+    const placements = acgPlaceLabels(labelLines, view, screen, (text) => acgMeasureLabel(measureText, text), blocked);
+    const cities = acgCityLabels(view, screen, [...blocked, ...placements.map((placement) => placement.box)]);
+    labelGroup.innerHTML = cities + acgLabelsMarkup(placements);
   };
   // Coalesces bursts (every pointermove while dragging) into one layout per frame.
   const scheduleLabels = () => {
@@ -920,6 +1029,8 @@ function acgGroupToggle(kind, group, label = group) {
 function syncAcgFilterInputs(root = document) {
   root.querySelectorAll("[data-acg-body]").forEach((input) => { input.checked = acgFilters.bodies.has(input.dataset.acgBody); });
   root.querySelectorAll("[data-acg-line]").forEach((input) => { input.checked = acgFilters.lines.has(input.dataset.acgLine); });
+  root.querySelectorAll("[data-acg-style]").forEach((input) => { input.checked = input.dataset.acgStyle === acgMapStyle; });
+  root.querySelectorAll("[data-acg-cities]").forEach((input) => { input.checked = acgShowCities; });
   root.querySelectorAll("[data-acg-group]").forEach((input) => {
     const [kind, group] = input.dataset.acgGroup.split(":");
     const members = acgFilterMembers(kind, group);
@@ -931,7 +1042,19 @@ function syncAcgFilterInputs(root = document) {
 // Applies a planet / line / section checkbox change and re-syncs every ACG filter panel
 // on the page (they share acgFilters). Returns false for anything else.
 function applyAcgFilterChange(input) {
-  const { acgBody, acgLine, acgGroup } = input.dataset;
+  const { acgBody, acgLine, acgGroup, acgStyle, acgCities } = input.dataset;
+  if (acgStyle) {
+    acgMapStyle = acgStyle;
+    acgStoreSetting("orbital-study-map-style", acgStyle);
+    syncAcgFilterInputs(document);
+    return true;
+  }
+  if (acgCities != null) {
+    acgShowCities = input.checked;
+    acgStoreSetting("orbital-study-map-cities", acgShowCities ? "on" : "off");
+    syncAcgFilterInputs(document);
+    return true;
+  }
   let set, keys;
   if (acgBody) [set, keys] = [acgFilters.bodies, [acgBody]];
   else if (acgLine) [set, keys] = [acgFilters.lines, [acgLine]];
@@ -969,6 +1092,11 @@ function acgFiltersMarkup() {
       <span class="acg-filter-subhead">Directions</span>
       <label class="acg-filter"><input type="radio" name="acg-directions" data-acg-directions="relocated" ${acgLocalSpaceDirections === "relocated" ? "checked" : ""}><span>Relocated</span></label>
       <label class="acg-filter"><input type="radio" name="acg-directions" data-acg-directions="natal" ${acgLocalSpaceDirections === "natal" ? "checked" : ""}><span>Natal</span></label>
+    </div>
+    <span class="eyebrow">MAP</span>
+    <div class="acg-filter-group">
+      ${Object.entries(ACG_MAP_STYLES).map(([key, style]) => `<label class="acg-filter"><input type="radio" name="acg-map-style" data-acg-style="${key}" ${acgMapStyle === key ? "checked" : ""}><span>${style.label}</span></label>`).join("")}
+      <label class="acg-filter"><input type="checkbox" data-acg-cities ${acgShowCities ? "checked" : ""}><span>City names</span></label>
     </div>`;
 }
 
