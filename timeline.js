@@ -175,7 +175,7 @@ function timelineTicksMarkup(spanMinutes) {
     .join('');
 }
 function timelineSliderInnerMarkup(labelText, value = 0) {
-  return `<div class="timeline-label"><span>${labelText}</span><strong data-timeline-date></strong></div><div class="timeline-exact" data-timeline-exact></div><div class="timeline-zoom" data-timeline-zoom><button type="button" class="timeline-center" data-timeline-center title="Reset to center">Center</button><button type="button" data-timeline-zoom-out aria-label="Expand timeline" title="Expand timeline">−</button><span>ZOOM</span><button type="button" data-timeline-zoom-in aria-label="Shrink timeline" title="Shrink timeline">＋</button></div><input data-timeline-slider type="range" aria-label="${labelText.charAt(0) + labelText.slice(1).toLowerCase()}" min="-1440" max="1440" step="1" value="${value}"><div class="timeline-ticks" data-timeline-ticks></div><div class="timeline-ends" data-timeline-ends><span data-timeline-origin></span></div>`;
+  return `<div class="timeline-label"><span>${labelText}</span><strong data-timeline-date></strong></div><div class="timeline-exact" data-timeline-exact></div><div class="timeline-zoom" data-timeline-zoom><button type="button" class="timeline-center" data-timeline-center title="Reset to center">Center</button><button type="button" data-timeline-zoom-out aria-label="Expand timeline" title="Expand timeline">−</button><span>ZOOM</span><button type="button" data-timeline-zoom-in aria-label="Shrink timeline" title="Shrink timeline">＋</button></div><input data-timeline-slider type="range" aria-label="${labelText.charAt(0) + labelText.slice(1).toLowerCase()}" min="-1440" max="1440" step="1" value="${value}"><div class="timeline-markers" data-timeline-markers hidden></div><div class="timeline-ticks" data-timeline-ticks></div><div class="timeline-ends" data-timeline-ends><span data-timeline-origin></span></div>`;
 }
 function timelineSliderMarkup(labelText, value = 0) {
   return `<div class="timeline-control">${timelineSliderInnerMarkup(labelText, value)}</div>`;
@@ -190,7 +190,10 @@ function updateTimelineReadout(container, chart, offsetMinutes) {
 // owns the slider's own mechanics (zoom span, dblclick reset, firing onChange), and
 // fires onChange once immediately so callers don't need to separately compute the
 // slider's initial state.
-function bindTimelineSlider(container, { onChange, originLabel = 'Birth moment', initialSpan = 1440 }) {
+// `markers()` (optional) lists moments to show along the slider — [{from, to, label,
+// color, current}], minutes from its origin (to > from for a period) — redrawn on zoom;
+// clicking one moves the slider there.
+function bindTimelineSlider(container, { onChange, originLabel = 'Birth moment', initialSpan = 1440, markers = null }) {
   const slider = container.querySelector('[data-timeline-slider]');
   const zoom = container.querySelector('[data-timeline-zoom]');
   const originEl = container.querySelector('[data-timeline-origin]');
@@ -203,7 +206,27 @@ function bindTimelineSlider(container, { onChange, originLabel = 'Birth moment',
     slider.value = String(Math.max(-span, Math.min(span, Number(slider.value))));
     if (originEl) originEl.textContent = originLabel;
     if (tickList) tickList.innerHTML = timelineTicksMarkup(span);
+    drawMarkers();
   };
+  const markerList = container.querySelector('[data-timeline-markers]');
+  const drawMarkers = () => {
+    if (!markerList || !markers) return;
+    const percent = value => ((value + span) / (2 * span)) * 100;
+    const shown = markers().filter(marker => marker.to >= -span && marker.from <= span);
+    markerList.hidden = !shown.length;
+    markerList.innerHTML = shown.map(marker => {
+      const from = percent(Math.max(-span, marker.from)), to = percent(Math.min(span, marker.to));
+      const band = to - from > 0.8;
+      const target = Math.max(-span, Math.min(span, Math.round(band ? (marker.from + marker.to) / 2 : marker.from)));
+      return `<button type="button" class="timeline-marker${band ? ' band' : ''}${marker.current ? ' current' : ''}" style="left:${band ? from : (from + to) / 2}%;${band ? `width:${to - from}%;` : ''}--marker-color:${marker.color || 'var(--accent)'}" data-marker-offset="${target}" title="${escapeHtml(marker.label)}" aria-label="Move the slider to ${escapeHtml(marker.label)}"></button>`;
+    }).join('');
+  };
+  markerList?.addEventListener('click', event => {
+    const marker = event.target.closest('[data-marker-offset]');
+    if (!marker) return;
+    slider.value = marker.dataset.markerOffset;
+    slider.dispatchEvent(new Event('input'));
+  });
   if (zoom) {
     zoom.querySelector('[data-timeline-zoom-out]')?.addEventListener('click', () => { span = Math.min(5256000000, span * 2); updateRange(); });
     zoom.querySelector('[data-timeline-zoom-in]')?.addEventListener('click', () => { span = Math.max(5, Math.round(span / 2)); updateRange(); });

@@ -49,6 +49,8 @@ function routeOption(options, slug, trim = "") {
 }
 
 const ROUTE_SYSTEMS = ["Astrology", "Human Design", "Gene Keys", "Astrocartography"];
+// The Chart Explorer also has Life Events (#/chart/<chart>/life-events).
+const ROUTE_EXPLORER_SYSTEMS = [...ROUTE_SYSTEMS, "Life Events"];
 const ROUTE_CHART_VIEWS = { wheel: "wheel", aspects: "aspects", both: "both" };
 const ROUTE_PAIR_SUBJECTS = { synastry: "synastry", composite: "composite", A: "chart-a", B: "chart-b" };
 const ROUTE_PAIR_ASTRO_VIEWS = { wheel: "wheel", grid: "aspect-grid", both: "both" };
@@ -97,7 +99,8 @@ function routeClick(root, attribute, value) {
 }
 // Chart / Timeline Explorer: the system tab, then its view (and filter).
 function applyExplorerSystem(systemSlug, view, filter) {
-  const system = routeOption(ROUTE_SYSTEMS, systemSlug) || "Astrology";
+  let system = routeOption(ROUTE_EXPLORER_SYSTEMS, systemSlug) || "Astrology";
+  if (system === "Life Events" && explorerMode !== "chart") system = "Astrology";
   if (activeSystemPanelTab !== system) switchExplorerSystem(system);
   const surface = document.getElementById("chartSystemSurface");
   if (system === "Astrology") {

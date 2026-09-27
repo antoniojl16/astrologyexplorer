@@ -494,10 +494,11 @@ function sanitizeChart(raw, { fromFile = false } = {}) {
   const origin = raw.localSpaceOrigin;
   if (origin && number(origin.lat, -90, 90) != null && number(origin.lon, -180, 180) != null) chart.localSpaceOrigin = { lat: Number(origin.lat), lon: Number(origin.lon) };
   else delete chart.localSpaceOrigin;
-  // Saved map locations (Astrocartography): up to 20 valid lat/lon pairs.
+  // Saved map locations from before life events: valid lat/lon pairs, kept only until
+  // migrateChartLocations turns them into place records in the chart's workspace.
   const locations = (Array.isArray(raw.acgLocations) ? raw.acgLocations : [])
     .filter((location) => location && number(location.lat, -90, 90) != null && number(location.lon, -180, 180) != null)
-    .slice(0, 20).map((location) => ({ lat: Number(location.lat), lon: Number(location.lon) }));
+    .slice(0, 200).map((location) => ({ lat: Number(location.lat), lon: Number(location.lon) }));
   if (locations.length) chart.acgLocations = locations;
   else delete chart.acgLocations;
   if (typeof chart.designTime !== 'string' || Number.isNaN(new Date(chart.designTime).getTime())) chart.designTime = null;
@@ -513,6 +514,86 @@ function sanitizeChart(raw, { fromFile = false } = {}) {
   }
   return chart;
 }
+// ── Life events (records) ──────────────────────────────────────────────────
+// A record is a moment, a period, a place, or a dated event at a place, belonging to
+// one workspace (workspace.events) and linked to one or more of its charts:
+//   { id, title, kind, start?: {date, time}, end?: {date, time}, zone,
+//     place?: {name, lat, lon}, tags: [], notes, people: [{chartId, name, role}],
+//     createdAt, updatedAt }
+// Dates are "YYYY", "YYYY-MM" or "YYYY-MM-DD" (their length is the precision); a time
+// ("HH:MM", local to `zone`) only goes with a full date. A person whose chart isn't in
+// the workspace keeps just a name (chartId null), shown as an unnamed/unlinked person.
+// Like sanitizeChart, this runs during loadState, so it declares what it needs itself.
+function sanitizeEvent(raw, chartIds, chartNames = new Map()) {
+  if (!raw || typeof raw !== 'object') return null;
+  const SAFE_ID = /^[A-Za-z0-9._-]{1,80}$/;
+  const text = (value, max = 120) => (typeof value === 'string' ? value : value == null ? '' : String(value)).replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, max);
+  const number = (value, min, max) => {
+    const parsed = typeof value === 'number' ? value : typeof value === 'string' && value.trim() !== '' ? Number(value) : NaN;
+    return Number.isFinite(parsed) && parsed >= min && parsed <= max ? parsed : null;
+  };
+  const moment = (value) => {
+    if (!value || typeof value !== 'object') return null;
+    const date = text(value.date, 10);
+    const match = /^(\d{4})(?:-(\d{2})(?:-(\d{2}))?)?$/.exec(date);
+    if (!match) return null;
+    const [, year, month, day] = match.map((part) => (part === undefined ? undefined : Number(part)));
+    if (year < 1000 || year > 2999 || (month !== undefined && (month < 1 || month > 12))) return null;
+    if (day !== undefined && (day < 1 || day > new Date(Date.UTC(year, month, 0)).getUTCDate())) return null;
+    const time = text(value.time, 5);
+    return { date, time: day !== undefined && /^([01]\d|2[0-3]):[0-5]\d$/.test(time) ? time : '' };
+  };
+  const start = moment(raw.start);
+  let end = start ? moment(raw.end) : null;
+  // A period ends after it starts (compared as text: "1990" < "1990-05" < "1990-05-12").
+  if (end && `${end.date}T${end.time}` < `${start.date}T${start.time}`) end = null;
+  const place = raw.place && number(raw.place.lat, -90, 90) != null && number(raw.place.lon, -180, 180) != null
+    ? { name: text(raw.place.name, 160), lat: Number(raw.place.lat), lon: Number(raw.place.lon) } : null;
+  if (!start && !place) return null;
+  const seen = new Set();
+  const people = (Array.isArray(raw.people) ? raw.people : []).slice(0, 50).map((person) => {
+    if (!person || typeof person !== 'object') return null;
+    const linked = typeof person.chartId === 'string' && chartIds.has(person.chartId) ? person.chartId : null;
+    const name = text(person.name) || (person.chartId && chartNames.get(person.chartId)) || '';
+    if (linked ? seen.has(linked) : !name) return null;
+    if (linked) seen.add(linked);
+    return { chartId: linked, name: linked ? '' : name, role: text(person.role, 40) };
+  }).filter(Boolean);
+  const tags = [...new Set((Array.isArray(raw.tags) ? raw.tags : []).map((tag) => text(tag, 40).toLowerCase()).filter(Boolean))].slice(0, 30);
+  const event = {
+    id: raw.id != null && SAFE_ID.test(String(raw.id)) ? String(raw.id) : `event-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    title: text(raw.title),
+    kind: /^[a-z-]{1,40}$/.test(String(raw.kind)) ? String(raw.kind) : '',
+    zone: text(raw.zone, 64),
+    tags,
+    // Notes keep their line breaks (and tabs); other control characters are dropped.
+    notes: (typeof raw.notes === 'string' ? raw.notes : '').replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, '').slice(0, 5000),
+    people,
+    createdAt: number(raw.createdAt, 0, 8.64e15) || Date.now(),
+    updatedAt: number(raw.updatedAt, 0, 8.64e15) || Date.now(),
+  };
+  if (start) event.start = start;
+  if (end) event.end = end;
+  if (place) event.place = place;
+  return event;
+}
+// Turns a chart's old saved map locations (chart.acgLocations) into place records in
+// `workspace`, linked to the chart, and removes them from the chart.
+function migrateChartLocations(chart, workspace) {
+  if (!chart.acgLocations) return;
+  workspace.events = workspace.events || [];
+  chart.acgLocations.forEach((location, index) => {
+    workspace.events.push({
+      id: `event-${Date.now()}-${index}-${Math.random().toString(36).slice(2)}`,
+      title: '', kind: 'place', zone: '', tags: [], notes: '',
+      place: { name: '', lat: location.lat, lon: location.lon },
+      people: [{ chartId: chart.id, name: '', role: '' }],
+      createdAt: Date.now() + index, updatedAt: Date.now() + index,
+    });
+  });
+  delete chart.acgLocations;
+}
+
 // The whole saved state: every chart cleaned (unusable ones dropped), workspace names as
 // plain text, and workspace chart lists pointing only at charts that exist.
 function sanitizeState(saved) {
@@ -530,6 +611,16 @@ function sanitizeState(saved) {
       chartIds: (Array.isArray(workspace?.chartIds) ? workspace.chartIds : []).map((id) => renamed.get(id) || id).filter((id) => ids.has(id)),
     }));
   if (!workspaces.length) workspaces.push({ name: 'Personal', chartIds: [...ids] });
+  // Each workspace's records link only to its own charts; old saved map locations
+  // become place records in the (first) workspace holding their chart.
+  const chartNames = new Map(charts.map((chart) => [chart.id, chart.name]));
+  const chartsById = new Map(charts.map((chart) => [chart.id, chart]));
+  workspaces.forEach((workspace) => {
+    const members = new Set(workspace.chartIds);
+    const renamedPeople = (event) => ({ ...event, people: (Array.isArray(event?.people) ? event.people : []).map((person) => ({ ...person, chartId: renamed.get(person?.chartId) || person?.chartId })) });
+    workspace.events = (Array.isArray(workspace.events) ? workspace.events : []).map((event) => sanitizeEvent(renamedPeople(event), members, chartNames)).filter(Boolean);
+    workspace.chartIds.forEach((id) => migrateChartLocations(chartsById.get(id), workspace));
+  });
   const activeWorkspace = workspaces.some((workspace) => workspace.name === saved.activeWorkspace) ? saved.activeWorkspace : workspaces[0].name;
   return { ...saved, charts, workspaces, activeWorkspace };
 }
@@ -779,6 +870,10 @@ function setView(view) {
   if (view === 'pair' && typeof renderPairExplorer === 'function') renderPairExplorer();
   if (view === 'explorer' || view === 'timeline') {
     mountExplorerBody(view);
+    // Life Events belong to a chart, so the Timeline Explorer (the current sky) has none.
+    const lifeTab = document.querySelector('[data-explorer-system="Life Events"]');
+    if (lifeTab) lifeTab.hidden = view === 'timeline';
+    if (view === 'timeline' && typeof activeSystemPanelTab !== 'undefined' && activeSystemPanelTab === 'Life Events') switchExplorerSystem('Astrology');
     renderExplorerHeader();
     // Refresh whichever system tab (Astrology/Human Design/Gene Keys) is currently
     // active, not just Astrology — renderExplorer() alone assumes Astrology-only
@@ -852,11 +947,14 @@ function renderWorkspaces() {
   );
 }
 function exportWorkspace() {
+  const workspace = state.workspaces.find((item) => item.name === state.activeWorkspace);
+  const events = workspace?.events || [];
   const data = {
-    version: 1,
+    version: 2,
     exportedAt: new Date().toISOString(),
     workspace: state.activeWorkspace,
     charts: activeCharts(),
+    events,
   };
   const link = document.createElement('a');
   link.href = URL.createObjectURL(
@@ -865,7 +963,9 @@ function exportWorkspace() {
   link.download = `orbital-study-${state.activeWorkspace.toLowerCase().replace(/\s+/g, '-')}.json`;
   link.click();
   URL.revokeObjectURL(link.href);
-  showToast('Workspace exported as JSON');
+  // People without a chart in this workspace travel as names only (unlinked).
+  const unlinked = events.filter((event) => event.people.some((person) => !person.chartId)).length;
+  showToast(`Workspace exported as JSON${unlinked ? ` · ${unlinked} event${unlinked === 1 ? ' includes' : 's include'} people without a chart here (kept as names only)` : ''}`);
 }
 function importWorkspace(event) {
   const file = event.target.files[0];
@@ -878,19 +978,45 @@ function importWorkspace(event) {
       const workspace = state.workspaces.find((item) => item.name === state.activeWorkspace);
       // Everything from a file is cleaned first (see sanitizeChart); charts without a
       // usable birth date are skipped.
-      const charts = imported.charts.map((raw) => sanitizeChart(raw, { fromFile: true })).filter(Boolean);
-      charts.forEach((chart) => {
+      // File chart ids → the ids they end up with here (new ones when they'd collide).
+      const idMap = new Map();
+      const names = new Map();
+      const charts = imported.charts.map((raw) => {
+        const chart = sanitizeChart(raw, { fromFile: true });
+        if (!chart) return null;
         if (state.charts.some((existing) => existing.id === chart.id))
           chart.id = `chart-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        if (raw && raw.id != null) idMap.set(String(raw.id), chart.id);
+        names.set(String(raw?.id), chart.name);
+        return chart;
+      }).filter(Boolean);
+      charts.forEach((chart) => {
         chart.designTime = designTimeFor(chart);
         state.charts.push(chart);
         workspace.chartIds.push(chart.id);
+        migrateChartLocations(chart, workspace);
+      });
+      // Events: links follow the charts' new ids; people whose chart isn't in the
+      // file keep their name, unlinked. Event ids that already exist here get new ones.
+      workspace.events = workspace.events || [];
+      const members = new Set(workspace.chartIds);
+      const existingIds = new Set(workspace.events.map((event) => event.id));
+      let events = 0, unlinked = 0;
+      (Array.isArray(imported.events) ? imported.events : []).forEach((raw) => {
+        const remapped = { ...raw, people: (Array.isArray(raw?.people) ? raw.people : []).filter(Boolean).map((person) => ({ ...person, chartId: idMap.get(String(person?.chartId)) || null, name: person?.name || names.get(String(person?.chartId)) || 'Unnamed person' })) };
+        const event = sanitizeEvent(remapped, members);
+        if (!event) return;
+        if (existingIds.has(event.id)) event.id = `event-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        existingIds.add(event.id);
+        if (event.people.some((person) => !person.chartId)) unlinked += 1;
+        workspace.events.push(event);
+        events += 1;
       });
       saveState();
       renderRows();
       const skipped = imported.charts.length - charts.length;
       showToast(
-        `${charts.length} chart${charts.length === 1 ? '' : 's'} imported${skipped ? ` · ${skipped} skipped (no valid birth date)` : ''}`,
+        `${charts.length} chart${charts.length === 1 ? '' : 's'}${events ? ` and ${events} event${events === 1 ? '' : 's'}` : ''} imported${skipped ? ` · ${skipped} skipped (no valid birth date)` : ''}${unlinked ? ` · ${unlinked} event${unlinked === 1 ? ' includes' : 's include'} people without a chart here (kept as names only)` : ''}`,
       );
     } catch (error) {
       showToast('Could not read that workspace file');

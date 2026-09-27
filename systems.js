@@ -306,6 +306,7 @@ function systemChart() {
 function renderSystemPanel(container, system, chart) {
   if (system === "Astrocartography")
     return renderAstrocartographyPanel(container, chart);
+  if (system === "Life Events") return renderLifeEventsPanel(container, chart);
   const systemTabs = SYSTEM_TABS[system];
   const tabs = system === "Human Design" ? systemTabs.views : systemTabs;
   activeSystemTab = tabs[0];

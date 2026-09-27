@@ -46,10 +46,15 @@ function openWorkspaceTransfer(action) {
   dialog.showModal();
 }
 
+// Charts and their life events move or copy together. Workspaces never link to each
+// other's charts, so anyone in a copied or moved event whose chart isn't in the
+// destination (or, after a move, no longer in the source) stays in it by name only.
 function transferSelectedCharts(action, destinationName) {
   const source = state.workspaces.find(workspace => workspace.name === state.activeWorkspace);
   const destination = state.workspaces.find(workspace => workspace.name === destinationName);
   const charts = selectedCharts();
+  // Old chart id → its id in the destination (a new one for copies).
+  const idMap = new Map();
   charts.forEach(chart => {
     if (action === 'copy') {
       const copy = JSON.parse(JSON.stringify(chart));
@@ -57,14 +62,50 @@ function transferSelectedCharts(action, destinationName) {
       copy.name = `${copy.name} (copy)`;
       state.charts.push(copy);
       destination.chartIds.push(copy.id);
+      idMap.set(chart.id, copy.id);
     } else {
       source.chartIds = source.chartIds.filter(id => id !== chart.id);
       destination.chartIds.push(chart.id);
+      idMap.set(chart.id, chart.id);
     }
   });
+  const unlinked = transferChartEvents(action, source, destination, idMap);
   selectedChartIds.clear();
   saveState(); renderRows(); renderSelectionBar();
-  showToast(`${charts.length} chart${charts.length === 1 ? '' : 's'} ${action === 'copy' ? 'copied to' : 'moved to'} ${destinationName}`);
+  showToast(`${charts.length} chart${charts.length === 1 ? '' : 's'} ${action === 'copy' ? 'copied to' : 'moved to'} ${destinationName}${unlinked ? ` · ${unlinked} event${unlinked === 1 ? ' now includes' : 's now include'} people by name only` : ''}`);
+}
+// Returns how many events (in either workspace) gained a name-only person.
+function transferChartEvents(action, source, destination, idMap) {
+  source.events = source.events || [];
+  destination.events = destination.events || [];
+  const nameOf = id => chartById(id)?.name || 'Unnamed person';
+  const involved = source.events.filter(event => event.people.some(person => idMap.has(person.chartId)));
+  const touched = new Set();
+  const inDestination = new Set(destination.chartIds);
+  const inSource = new Set(source.chartIds);
+  involved.forEach(event => {
+    const copy = JSON.parse(JSON.stringify(event));
+    copy.people = copy.people.map(person => {
+      const mapped = idMap.get(person.chartId);
+      if (mapped && inDestination.has(mapped)) return {...person, chartId: mapped, name: ''};
+      if (person.chartId) touched.add(copy);
+      return {...person, chartId: null, name: person.name || nameOf(person.chartId)};
+    });
+    if (action === 'copy' || destination.events.some(item => item.id === copy.id)) copy.id = `event-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    copy.updatedAt = Date.now();
+    destination.events.push(copy);
+  });
+  if (action === 'move') {
+    // In the source, events left with no chart there go with the charts; the others keep
+    // the moved people by name.
+    source.events = source.events.filter(event => {
+      if (!involved.includes(event)) return true;
+      if (!event.people.some(person => person.chartId && inSource.has(person.chartId))) return false;
+      event.people = event.people.map(person => (person.chartId && !inSource.has(person.chartId) ? (touched.add(event), {...person, chartId: null, name: nameOf(person.chartId)}) : person));
+      return true;
+    });
+  }
+  return touched.size;
 }
 
 function openWorkspaceNameDialog() {

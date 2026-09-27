@@ -158,3 +158,82 @@ body:not(.developer-mode) #ephemerisDebugBar,body:not(.developer-mode) #mandalaH
 .hd-tip-stat,.hd-tip-value{cursor:help}.hd-tip-stat:hover strong,.hd-tip-value:hover{text-decoration:underline dotted var(--muted);text-underline-offset:3px}.hd-tip-stat:focus-visible,.hd-tip-value:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .hd-channel-list{align-items:start}details.hd-channel-item{display:block;padding:0}.hd-channel-item summary{display:grid;grid-template-columns:auto 1fr auto;column-gap:10px;align-items:baseline;padding:8px 12px;cursor:pointer;list-style:none}.hd-channel-item summary::-webkit-details-marker{display:none}.hd-channel-item summary::after{content:'+';grid-column:3;grid-row:1;font:11px 'DM Mono',monospace;color:var(--muted)}.hd-channel-item[open] summary::after{content:'−'}.hd-channel-item summary:hover span{text-decoration:underline dotted var(--muted);text-underline-offset:3px}.hd-channel-item summary small{grid-column:1/-1;font:9px 'DM Mono',monospace;color:var(--muted);margin-top:3px}.hd-channel-item p{margin:0;padding:0 12px 10px;font-size:11px;line-height:1.55;color:var(--ink)}
 .acg-search{position:relative;padding:12px 16px}.acg-search input{width:100%;border:1px solid var(--line);background:var(--paper);color:var(--ink);padding:9px 11px;font:12px Manrope,sans-serif;outline-color:var(--accent);border-radius:0}.acg-search .place-results{left:16px;right:16px;z-index:30}.acg-pair-search .acg-search{padding:14px 16px}
+/* Life Events (life-events.js) */
+.life-events{margin-top:24px;border:1px solid var(--line);background:var(--panel);box-shadow:var(--shadow);padding:18px 20px 8px}
+.life-toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.life-search{flex:1;min-width:220px;border:1px solid var(--line);background:var(--paper);color:var(--ink);padding:9px 11px;font:12px Manrope,sans-serif;outline-color:var(--accent)}
+.life-tag-filter{border:1px solid var(--line);background:var(--paper);color:var(--ink);padding:8px;font:11px Manrope,sans-serif}
+.life-toolbar-actions{display:flex;gap:8px;margin-left:auto}
+.life-count{font:10px 'DM Mono',monospace;color:var(--muted);margin:14px 0 4px;min-height:12px}
+.life-list{list-style:none;margin:0;padding:0}
+.life-item{display:grid;grid-template-columns:150px 1fr auto;gap:18px;border-top:1px solid var(--line);padding:14px 0}
+.life-when strong{display:block;font:600 12px 'DM Mono',monospace;color:var(--ink)}
+.life-when small{display:block;font:10px 'DM Mono',monospace;color:var(--muted);margin-top:3px}
+.life-item.place-only .life-when strong{color:var(--muted)}
+.life-title{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.life-title strong{font-size:14px}
+.life-kind{font:9px 'DM Mono',monospace;letter-spacing:.6px;text-transform:uppercase;border:1px solid var(--line);padding:1px 6px;color:var(--muted)}
+.life-meta{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:var(--muted);margin-top:4px}
+.life-meta small{font-size:11px}
+.life-tags{margin-top:6px}
+.life-notes{white-space:pre-wrap;font-size:12px;line-height:1.55;margin:8px 0 0;color:var(--ink)}
+.life-actions{display:flex;gap:6px;align-items:flex-start}
+.life-empty{list-style:none;color:var(--muted);font-size:12px;line-height:1.6;padding:12px 0 14px;margin:0}
+.life-dialog{width:min(720px,calc(100% - 40px));max-height:calc(100vh - 40px);overflow:hidden}
+/* One scrolling area: the fields. The heading and the Save / Cancel buttons stay put. */
+.life-dialog[open]{display:flex}
+.life-dialog form{display:flex;flex-direction:column;flex:1;min-height:0;max-height:calc(100vh - 42px)}
+.life-dialog .form-grid{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;margin-top:18px;padding:4px 4px 8px}
+.life-dialog .dialog-actions{margin-top:12px}
+.form-grid select{border:1px solid var(--line);background:var(--paper);padding:9px;font-size:11px;color:var(--ink);outline-color:var(--accent)}
+.life-moment{border:0;padding:0;margin:0 0 10px;display:grid;grid-template-columns:1.2fr 1fr .8fr 1fr;gap:10px}
+.life-moment[hidden]{display:none}
+.life-moment legend{font:10px 'DM Mono',monospace;color:var(--ink);padding:0;margin-bottom:6px}
+.life-hint{display:block;font-size:10px!important;line-height:1.5}
+.life-field-label{display:block;font:10px 'DM Mono',monospace;color:var(--muted);margin-bottom:6px}
+.life-person{display:grid;grid-template-columns:1fr 170px 26px;gap:10px;align-items:center;padding:3px 0;font-size:12px}
+.form-grid .life-person label{display:flex;gap:7px;align-items:center;font:12px Manrope,sans-serif;color:var(--ink)}
+.life-person input[data-life-role]{padding:6px 8px}
+.life-person input[data-life-role]:disabled{opacity:.4}
+.life-person.unlinked span small{color:var(--muted);font-size:10px;margin-left:4px}
+.form-grid label.life-inline{display:flex;gap:8px;align-items:center;margin-top:8px}
+.life-inline input{flex:1}
+.life-inline button{padding:8px 12px}
+[data-life-tags]{display:flex;flex-wrap:wrap;gap:5px}
+.form-grid label.life-tag-choice{position:relative;display:inline-flex;gap:0;align-items:center;cursor:pointer}
+.life-tag-choice input{position:absolute;inset:0;margin:0;opacity:0;pointer-events:none}
+.life-tag-choice span{border:1px solid var(--line);border-radius:999px;padding:3px 9px;font:10px 'DM Mono',monospace;color:var(--muted)}
+.life-tag-choice input:checked+span{background:var(--accent-soft);border-color:var(--accent);color:var(--ink)}
+.life-tag-choice input:focus-visible+span{outline:2px solid var(--accent);outline-offset:1px}
+.acg-location-when{font:10px 'DM Mono',monospace;color:var(--accent);font-weight:400;margin-left:8px}
+.acg-location-remove-placeholder{flex:none;width:26px}
+@media(max-width:1100px){.life-item{grid-template-columns:1fr}.life-actions{justify-content:flex-start}}
+/* Cycle Explorer: Life Timeline (cycles.js) */
+.cycle-life{margin-top:18px;border:1px solid var(--line);background:var(--panel);box-shadow:var(--shadow)}
+.cycle-life>summary{display:flex;align-items:baseline;gap:12px;padding:13px 18px;cursor:pointer;list-style:none}
+.cycle-life>summary::-webkit-details-marker{display:none}
+.cycle-life>summary::after{content:'+';margin-left:auto;font:12px 'DM Mono',monospace;color:var(--muted)}
+.cycle-life[open]>summary::after{content:'−'}
+.cycle-life>summary small{font:10px 'DM Mono',monospace;color:var(--muted)}
+.cycle-life-filters{display:flex;gap:16px;padding:0 18px 8px}
+.cycle-life-list{list-style:none;margin:0;padding:0 0 6px;max-height:300px;overflow-y:auto;border-top:1px solid var(--line)}
+.cycle-life-item{display:grid;grid-template-columns:110px 64px 1fr auto;gap:12px;align-items:center;padding:7px 18px;border-bottom:1px solid var(--line);font-size:12px}
+.cycle-life-item.current{background:var(--paper-deep)}
+.cycle-life-date{font:11px 'DM Mono',monospace;color:var(--ink)}
+.cycle-life-item small{font:10px 'DM Mono',monospace;color:var(--muted)}
+.cycle-life-title{min-width:0}
+.cycle-life-item.event .cycle-life-title{font-weight:700}
+.cycle-life-item.cycle .cycle-life-title{color:var(--muted)}
+.cycle-life-item.birth .cycle-life-title{font-weight:700;color:var(--accent)}
+.cycle-life-period{display:block;font-weight:400}
+.cycle-life-buttons{display:flex;gap:6px}
+.acg-origin-button.current{border-color:var(--ink);background:var(--ink);color:var(--paper)}
+.cycle-life-now{list-style:none;padding:3px 18px;font:9px 'DM Mono',monospace;letter-spacing:.8px;text-transform:uppercase;color:var(--accent);border-bottom:1px solid var(--accent)}
+/* Moments along a timeline slider (bindTimelineSlider's markers) */
+.timeline-markers{position:relative;height:12px;margin:-4px 0 4px}
+.timeline-markers[hidden]{display:none}
+.timeline-marker{position:absolute;top:2px;width:9px;height:9px;margin-left:-4.5px;padding:0;border:1.5px solid var(--panel);border-radius:50%;background:var(--marker-color);cursor:pointer;opacity:.75}
+.timeline-marker.band{margin-left:0;top:3px;height:6px;border:0;border-radius:3px;min-width:4px}
+.timeline-marker.current{opacity:1;box-shadow:0 0 0 2px var(--marker-color)}
+.timeline-marker:hover,.timeline-marker:focus-visible{opacity:1}
+.life-person{position:relative}.life-person .life-role-results{left:auto;right:36px;width:170px;max-height:220px}

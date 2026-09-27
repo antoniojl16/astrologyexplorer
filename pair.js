@@ -367,8 +367,9 @@ function renderPairWheel(svg, people) {
   markup += wheelZodiacMarkup(cx, cy, outer, zodiacInner, wheelRotation);
   // A's house cusps run across both planet rings, so B's planets read as falling in A's houses.
   markup += wheelHousesMarkup(cx, cy, aspectR, zodiacInner, houseCusps, wheelRotation);
+  // `person.omit` (optional): bodies left out of that ring (an imprecise moment's angles).
   const ringPositions = (person) => person.chart.positions
-    .filter((position) => wheelBodyVisible(position.name))
+    .filter((position) => wheelBodyVisible(position.name) && !person.omit?.has(position.name))
     .map((position) => {
       const offset = person.offset || 0;
       const longitude = positionAngleAtTime(position, offset);
