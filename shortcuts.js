@@ -10,11 +10,12 @@
 // Plain keys:
 //   Z   Fix Zodiac on the astrology wheel
 //   P / D / X   Human Design: Personality / Design / Incarnation Cross only (again: all)
+//   D   ACG Local Space: Relocated ↔ Natal directions
 //   M   Human Design: Mandala ↔ Bodygraph; Astrocartography: Relief ↔ Plain map
 //   T   Astrocartography: ACG Travel ↔ ACG Local Space
 //   0   Center the timeline slider
 //   ← / →, Shift+← / →   On a timeline slider: step by the zoom's units (timelineKeySteps, timeline.js)
-//   R   ACG Local Space: Relocated ↔ Natal directions; elsewhere in the Pair Explorer: swap the two charts
+//   R   Pair Explorer: swap the two charts
 //   E   Chart Explorer: edit the chart
 //   1 / 2 / 3   Pair and Cycle Explorers: first chart / second chart / both together
 
@@ -66,6 +67,8 @@ document.addEventListener("keydown", (event) => {
     const filter = SHORTCUT_HD_FILTERS[key];
     const current = shortcutTarget(`[data-panel-filter="${filter}"]`);
     handled = current ? shortcutPress(`[data-panel-filter="${current.classList.contains("active") ? "Complete" : filter}"]`) : false;
+    // D outside Human Design: ACG Local Space Relocated ↔ Natal directions (the radios only show there).
+    if (!current && key === "d") handled = shortcutPress("[data-acg-directions]:not(:checked)");
   } else if (key === "m") {
     const mandala = shortcutTarget('[data-panel-tab="Mandala"], [data-pair-view] [data-value="mandala"], [data-cycle-hd-view] [data-value="mandala"]');
     if (mandala) {
@@ -85,9 +88,7 @@ document.addEventListener("keydown", (event) => {
   } else if (key === "e") {
     handled = currentView === "explorer" && shortcutPress("#editChartButton");
   } else if (key === "r") {
-    // ACG Local Space: Relocated ↔ Natal directions (the radios only show there);
-    // otherwise, in the Pair Explorer, swap the two charts.
-    handled = shortcutPress("[data-acg-directions]:not(:checked)") || (currentView === "pair" && shortcutPress("[data-pair-swap]"));
+    handled = currentView === "pair" && shortcutPress("[data-pair-swap]");
   } else if (key === "1" || key === "2") {
     handled = shortcutPress(`[data-pair-subject] [data-value="${key === "1" ? "A" : "B"}"]`);
   } else if (key === "3") {
