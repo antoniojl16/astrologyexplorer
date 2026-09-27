@@ -22,10 +22,16 @@ own licenses; the notice above does not apply to them.
   MIT License; the full text is at the top of the file.
   https://github.com/cosinekitty/astronomy
 
-- world-countries.js — country outlines derived from world-atlas,
-  Copyright 2013-2019 Michael Bostock, ISC License (full text at the top of the
-  file), built on Natural Earth map data (public domain).
-  https://github.com/topojson/world-atlas · https://www.naturalearthdata.com
+- world-map.js — the Astrocartography base map, from Natural Earth data (public
+  domain): 1:110m land and lakes, 1:50m state/province lines. https://www.naturalearthdata.com
+
+- places.js — place names, coordinates and time zones from GeoNames
+  (https://www.geonames.org), licensed under the Creative Commons Attribution 4.0
+  International License (https://creativecommons.org/licenses/by/4.0/). The data
+  was reduced to places of 5,000+ people and reformatted (tools/build-places.py).
+
+- tz-history.js — pre-1970 time zone history from the IANA Time Zone Database
+  (public domain). https://www.iana.org/time-zones
 
 - Chiron starting states (CHIRON_STARTS in ephemeris.js) — from the NASA JPL
   Horizons system, Solar System Dynamics Group, Jet Propulsion Laboratory

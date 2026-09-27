@@ -33,27 +33,69 @@ function acgUnproject(x, y) {
   return [lon, lat];
 }
 
-let acgCountryPathsCache = null;
-function acgCountryPathsMarkup() {
-  if (acgCountryPathsCache) return acgCountryPathsCache;
-  acgCountryPathsCache = WORLD_COUNTRIES.map((country) => {
-    const d = country.rings
-      .map((ring) => {
-        let path = "";
-        let previous = "";
-        for (let i = 0; i < ring.length; i += 2) {
-          const [x, y] = acgProject(ring[i], ring[i + 1]);
-          const point = `${x.toFixed(1)},${y.toFixed(1)}`;
-          if (point === previous) continue;
-          path += (path ? " " : "M") + point;
-          previous = point;
-        }
-        return `${path}Z`;
-      })
-      .join("");
-    return `<path class="acg-country" d="${d}"/>`;
-  }).join("");
-  return acgCountryPathsCache;
+// ── Base map (world-map.js) ──────────────────────────────────────────────
+// Natural Earth 1:110m land and major lakes, and 1:50m state/province lines of the
+// largest countries (~180 KB), loaded on demand the first time a map is shown. Until
+// it arrives the maps show the ocean, graticule and planetary lines; then every
+// map's world layer fills in.
+let acgWorldMarkupCache = null;
+let acgWorldMapRequested = false;
+function acgLoadWorldMap() {
+  if (acgWorldMapRequested) return;
+  acgWorldMapRequested = true;
+  const script = document.createElement("script");
+  script.src = "world-map.js";
+  script.onerror = () => { acgWorldMapRequested = false; };
+  document.head.appendChild(script);
+}
+// Called by world-map.js once it has run.
+function acgWorldMapLoaded() {
+  document.querySelectorAll("[data-acg-world]").forEach((group) => { group.innerHTML = acgWorldMarkup(); });
+}
+// A ring or line from world-map.js: delta-encoded 0.01° integers → [[lon, lat], ...].
+function decodeWorldRing(encoded) {
+  const points = [];
+  let x = 0, y = 0;
+  for (let i = 0; i < encoded.length; i += 2) {
+    x += encoded[i];
+    y += encoded[i + 1];
+    points.push([x / 100, y / 100]);
+  }
+  return points;
+}
+function acgWorldPath(points, closed, skipEdge) {
+  let path = "", previous = "", open = false;
+  points.forEach(([lon, lat], index) => {
+    const [x, y] = acgProject(lon, lat);
+    const point = `${x.toFixed(1)},${y.toFixed(1)}`;
+    if (point === previous) return;
+    const draw = open && !(skipEdge && skipEdge(points[index - 1], points[index]));
+    path += `${draw ? "L" : "M"}${point}`;
+    open = true;
+    previous = point;
+  });
+  return closed ? `${path}Z` : path;
+}
+// Borders and coasts are stroked separately from the land fill, so the edges Natural
+// Earth adds where it cuts a country at the antimeridian (Russia, Fiji) or closes
+// Antarctica along the pole aren't drawn as if they were real borders.
+const acgArtificialEdge = ([lon1, lat1], [lon2, lat2]) => (Math.abs(lon1) === 180 && lon1 === lon2) || (lat1 <= -89.99 && lat2 <= -89.99);
+function acgWorldMarkup() {
+  if (typeof WORLD_MAP === "undefined") {
+    acgLoadWorldMap();
+    return "";
+  }
+  if (!acgWorldMarkupCache) {
+    const land = WORLD_MAP.land.map(decodeWorldRing);
+    const lakes = WORLD_MAP.lakes.map(decodeWorldRing);
+    const states = WORLD_MAP.states.map(decodeWorldRing);
+    acgWorldMarkupCache =
+      `<path class="acg-land" d="${land.map((ring) => acgWorldPath(ring, true)).join("")}"/>` +
+      `<path class="acg-lake" d="${lakes.map((ring) => acgWorldPath(ring, true)).join("")}"/>` +
+      `<path class="acg-state" d="${states.map((line) => acgWorldPath(line, false)).join("")}"/>` +
+      `<path class="acg-border" d="${[...land, ...lakes].map((ring) => acgWorldPath([...ring, ring[0]], false, acgArtificialEdge)).join("")}"/>`;
+  }
+  return acgWorldMarkupCache;
 }
 
 function acgGraticuleMarkup() {
@@ -89,7 +131,7 @@ function acgMapMarkup() {
     <div class="acg-map-wrap">
       <svg class="acg-map" role="img" aria-label="World map, Mercator projection">
         <defs>
-          <g id="${worldId}">${acgCountryPathsMarkup()}${acgGraticuleMarkup()}</g>
+          <g id="${worldId}"><g data-acg-world>${acgWorldMarkup()}</g>${acgGraticuleMarkup()}</g>
           <g id="${overlayId}" class="acg-overlay" data-acg-overlay></g>
         </defs>
         <rect x="${-W}" y="0" width="${3 * W}" height="${W}" class="acg-ocean"/>
@@ -145,8 +187,7 @@ function bindAcgMap(wrap, { onViewportChange } = {}) {
     } else {
       originMarker.setAttribute("visibility", "hidden");
     }
-    const zenith = acgZenithMarkup(labelLines, view, screen);
-    labelGroup.innerHTML = zenith.markup + acgLabelsMarkup(acgPlaceLabels(labelLines, view, screen, (text) => acgMeasureLabel(measureText, text), [...blocked, ...zenith.boxes]));
+    labelGroup.innerHTML = acgLabelsMarkup(acgPlaceLabels(labelLines, view, screen, (text) => acgMeasureLabel(measureText, text), blocked));
   };
   // Coalesces bursts (every pointermove while dragging) into one layout per frame.
   const scheduleLabels = () => {
@@ -222,7 +263,7 @@ function bindAcgMap(wrap, { onViewportChange } = {}) {
       if (intersections.lines !== labelLines) intersections = { lines: labelLines, points: acgLineIntersections(labelLines) };
       nearestCrossings = acgNearestIntersections(intersections.points, lat, lon);
     }
-    tooltip.innerHTML = acgNearestLinesMarkup(acgNearestLines(labelLines, lat, lon), nearestCrossings);
+    tooltip.innerHTML = acgNearestLinesMarkup(acgNearestLines(labelLines, lat, lon), nearestCrossings, acgZenithZonesAt(labelLines, lat, lon));
     tooltip.hidden = false;
     // Beside the cursor, flipped to the other side near the right/bottom edges.
     const x = sx + 14 + tooltip.offsetWidth > screen.w ? sx - 14 - tooltip.offsetWidth : sx + 14;
@@ -531,9 +572,14 @@ function acgNearestIntersections(intersections, lat, lon, count = 4) {
     .slice(0, count);
 }
 
-function acgNearestLinesMarkup(nearest, nearestCrossings) {
+function acgNearestLinesMarkup(nearest, nearestCrossings, zenithZones = []) {
   const km = (value) => `${value < 10 ? value.toFixed(1) : Math.round(value).toLocaleString("en-US")} km`;
-  const lines = `<div class="acg-tooltip-title">Nearest Lines:</div>${nearest
+  const zones = zenithZones.length
+    ? `<div class="acg-tooltip-title">Zenith Zones:</div>${zenithZones
+        .map(({ line, km: distance }) => `<div class="acg-tooltip-row"><span style="color:${line.color}">◯</span> ${escapeHtml(line.zenith.name)} zenith (${km(distance)} from centre)</div>`)
+        .join("")}<div class="acg-tooltip-section"></div>`
+    : "";
+  const lines = `${zones}<div class="acg-tooltip-title">Nearest Lines:</div>${nearest
     .map(({ line, km: distance }) => `<div class="acg-tooltip-row"><span style="color:${line.color}">–</span> ${line.hoverName} (${km(distance)})</div>`)
     .join("")}`;
   if (!nearestCrossings) return lines;
@@ -552,6 +598,34 @@ function acgSegmentsPath(segments) {
   return segments
     .map((segment) => segment.points.map(([x, y], index) => `${index ? "L" : "M"}${x.toFixed(1)},${y.toFixed(1)}`).join(""))
     .join("");
+}
+
+// Zenith zone: every point within ACG_ZENITH_RADIUS_KM of the zenith point on the
+// ground — a true circle on the globe, so on the Mercator map it grows and turns
+// slightly egg-shaped away from the equator. Traced by compass bearing from the
+// centre (the destination-point formula), longitudes kept continuous around it.
+const ACG_ZENITH_RADIUS_KM = 250;
+function acgZenithPath(lon0, lat0) {
+  const rad = Math.PI / 180, arc = ACG_ZENITH_RADIUS_KM / ACG_EARTH_RADIUS_KM;
+  const sinLat0 = Math.sin(lat0 * rad), cosLat0 = Math.cos(lat0 * rad);
+  const points = [];
+  for (let bearing = 0; bearing < 360; bearing += 4) {
+    const b = bearing * rad;
+    const lat = Math.asin(sinLat0 * Math.cos(arc) + cosLat0 * Math.sin(arc) * Math.cos(b));
+    const lon = lon0 + Math.atan2(Math.sin(b) * Math.sin(arc) * cosLat0, Math.cos(arc) - sinLat0 * Math.sin(lat)) / rad;
+    const [x, y] = acgProject(lon, lat / rad);
+    points.push(`${points.length ? "L" : "M"}${x.toFixed(1)},${y.toFixed(1)}`);
+  }
+  return points.join("") + "Z";
+}
+// Zenith zones containing (lat, lon), nearest centre first: [{line, km}].
+function acgZenithZonesAt(lines, lat, lon) {
+  const point = acgUnitVector(lon, lat);
+  return lines
+    .filter((line) => line.zenith)
+    .map((line) => ({ line, km: acgAngle(point, acgUnitVector(line.zenith.lon, line.zenith.lat)) * ACG_EARTH_RADIUS_KM }))
+    .filter(({ km }) => km <= ACG_ZENITH_RADIUS_KM)
+    .sort((x, y) => x.km - y.km);
 }
 
 // The chart's birth moment shifted by the timeline slider's offset.
@@ -588,8 +662,8 @@ function acgTravelLines(chart, offsetMinutes) {
     // clamps latitude), but hover distances need the whole meridian. The equator
     // point splits it into two arcs, since pole-to-pole alone would be ambiguous.
     // The zenith point — where the body stood exactly overhead — lies on its MC line
-    // at the latitude equal to its declination; drawn as a small ring (acgZenithMarkup).
-    add("MC", [[mc, -90], [mc, 0], [mc, 90]], { zenith: { lon: mc, lat: declination, name: member.name } });
+    // at the latitude equal to its declination; its zone (acgZenithPath) is drawn with the MC line.
+    add("MC", [[mc, -90], [mc, 0], [mc, 90]], { zenith: { lon: mc, lat: declination, name: member.name, glyph: member.glyph, d: acgZenithPath(mc, declination) } });
     add("IC", [[mc + 180, -90], [mc + 180, 0], [mc + 180, 90]]);
     add("ASC", acgHorizonCurve(mc, declination, -1));
     add("DSC", acgHorizonCurve(mc, declination, 1));
@@ -681,7 +755,7 @@ function acgOverlayMarkup(lines) {
   return lines
     .map(
       (line) =>
-        `<g class="acg-line-group" data-body="${line.bodyKey}"${line.lineKey ? ` data-line="${line.lineKey}"` : ""} style="--acg-line-color:${line.color}"><path class="acg-line" d="${line.d}"/></g>`,
+        `<g class="acg-line-group" data-body="${line.bodyKey}"${line.lineKey ? ` data-line="${line.lineKey}"` : ""} style="--acg-line-color:${line.color}">${line.zenith ? `<path class="acg-zenith" d="${line.zenith.d}"/>` : ""}<path class="acg-line" d="${line.d}"/></g>`,
     )
     .join("");
 }
@@ -813,31 +887,6 @@ function acgPlaceLabels(lines, view, screen, measure, blocked) {
     placed.push(choice.box);
     return { line, ...choice };
   });
-}
-
-// Zenith rings: a fixed-size circle (screen px, so it stays the same size at every
-// zoom) centred on each shown MC line at the body's zenith, on every tiled copy of
-// the world in view. Returns the markup and the rings' boxes, which labels avoid.
-const ACG_ZENITH_RADIUS = 6;
-function acgZenithMarkup(lines, view, screen) {
-  const boxes = [];
-  const markup = lines
-    .filter((line) => line.zenith)
-    .map((line) => {
-      const [x, y] = acgProject(line.zenith.lon, line.zenith.lat);
-      const sy = ((y - view.top) * screen.h) / view.vh;
-      if (sy < -ACG_ZENITH_RADIUS || sy > screen.h + ACG_ZENITH_RADIUS) return "";
-      let rings = "";
-      for (let copy = Math.floor((view.left - x) / ACG_WORLD_SIZE); x + copy * ACG_WORLD_SIZE <= view.left + view.vw; copy++) {
-        const sx = ((x + copy * ACG_WORLD_SIZE - view.left) * screen.w) / view.vw;
-        if (sx < -ACG_ZENITH_RADIUS || sx > screen.w + ACG_ZENITH_RADIUS) continue;
-        boxes.push({ x: sx - ACG_ZENITH_RADIUS, y: sy - ACG_ZENITH_RADIUS, w: 2 * ACG_ZENITH_RADIUS, h: 2 * ACG_ZENITH_RADIUS });
-        rings += `<circle class="acg-zenith" cx="${sx.toFixed(1)}" cy="${sy.toFixed(1)}" r="${ACG_ZENITH_RADIUS}"/>`;
-      }
-      return rings && `<g class="acg-zenith-group" data-body="${line.bodyKey}" data-zenith="${escapeHtml(line.zenith.name)}" style="--acg-line-color:${line.color}">${rings}</g>`;
-    })
-    .join("");
-  return { markup, boxes };
 }
 
 function acgLabelsMarkup(placements) {

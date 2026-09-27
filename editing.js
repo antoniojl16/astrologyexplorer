@@ -39,7 +39,12 @@ function normalizePositionModel() {
     chart.positions.forEach(position => {
       // Fortuna was saved with Earth's ⊕ before it got its own ⊗.
       if (position.name === 'Fortuna') position.glyph = '⊗';
-      position.birthMoment = position.birthMoment || birthMoment;
+      // Also refreshed when the stored moment no longer matches its birth data —
+      // e.g. a pre-1970 birth, after tz-history.js corrected its time zone.
+      if (position.birthMoment !== birthMoment) {
+        if (position.birthMoment) chart.birthMomentChanged = true;
+        position.birthMoment = birthMoment;
+      }
       if (position.latitude == null) position.latitude = chart.latitude;
       if (position.longitude == null) position.longitude = chart.longitude;
     });
@@ -50,7 +55,8 @@ function normalizePositionModel() {
     // for charts that don't have one yet (sample charts built during app.js's
     // bootstrap, before the Sun lookup existed), and replaces the flat
     // "88 days before birth" placeholder older versions stored for those charts.
-    if (!chart.designTime || isFlatDesignPlaceholder(chart)) chart.designTime = designTimeFor(chart);
+    if (!chart.designTime || isFlatDesignPlaceholder(chart) || chart.birthMomentChanged) chart.designTime = designTimeFor(chart);
+    delete chart.birthMomentChanged;
   });
 }
 

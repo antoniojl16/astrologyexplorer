@@ -130,16 +130,44 @@ function chartBirthMomentUTC(chart) {
   // keeps one bad chart from being able to break the whole page.
   const timeZone = chart.timezone && isValidTimeZone(chart.timezone) ? chart.timezone : 'UTC';
   const wallClockAsUTC = new Date(`${chart.birthDate}T${chart.birthTime || '12:00'}:00Z`).getTime();
+  const format = new Intl.DateTimeFormat('en-US', {
+    timeZone, year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23'
+  });
+  // UTC offset (ms) in force at a UTC instant: the pre-1970 corrections where they
+  // apply (historicalOffsetSeconds), otherwise the browser's own time zone data.
+  const offsetAt = (utc) => {
+    const historical = historicalOffsetSeconds(timeZone, utc / 1000, Number(chart.longitude));
+    if (historical != null) return historical * 1000;
+    const parts = format.formatToParts(new Date(utc)).reduce((acc, part) => { acc[part.type] = part.value; return acc; }, {});
+    const year = Number(parts.year);
+    return Date.UTC(year, Number(parts.month) - 1, Number(parts.day), Number(parts.hour), Number(parts.minute), Number(parts.second)) - utc;
+  };
   let guess = wallClockAsUTC;
-  for (let i = 0; i < 3; i++) {
-    const parts = new Intl.DateTimeFormat('en-US', {
-      timeZone, year: 'numeric', month: '2-digit', day: '2-digit',
-      hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23'
-    }).formatToParts(new Date(guess)).reduce((acc, part) => { acc[part.type] = part.value; return acc; }, {});
-    const shownAsUTC = new Date(`${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:${parts.second}Z`).getTime();
-    guess = wallClockAsUTC - (shownAsUTC - guess);
-  }
+  for (let i = 0; i < 4; i++) guess = wallClockAsUTC - offsetAt(guess);
   return new Date(guess);
+}
+
+// ── Pre-1970 time zones ────────────────────────────────────────────────────
+// The browser's time zone data is exact from 1970 on but not before (see
+// tools/build-tz-history.py): it gives some places another city's history, and it
+// uses the main city's local mean time (LMT) for every place in the zone. For a
+// birth before 1970 this returns the UTC offset in seconds from tz-history.js:
+//   - before standard time was adopted there, the birthplace's own local mean
+//     time, from its longitude (4 minutes per degree east of Greenwich);
+//   - in zones with a separate pre-1970 history, that history;
+// or null to use the browser's data.
+function historicalOffsetSeconds(timeZone, utcSeconds, longitude) {
+  if (typeof TZ_HISTORY === 'undefined' || !(utcSeconds < 0)) return null;
+  const localMeanTime = Number.isFinite(longitude) && Math.abs(longitude) <= 180 ? Math.round(longitude * 240) : null;
+  const periods = TZ_HISTORY.zones[timeZone];
+  if (periods) {
+    const period = periods.find(([until]) => utcSeconds < until);
+    if (period) return period[1] ?? localMeanTime;
+    return null;
+  }
+  const lmtUntil = TZ_HISTORY.lmtUntil[timeZone];
+  return lmtUntil != null && utcSeconds < lmtUntil ? localMeanTime : null;
 }
 
 // Full IANA zone list, read from Intl itself at runtime rather than

@@ -77,8 +77,8 @@
 <p class="about-lead">A workspace for studying birth charts through four lenses — Astrology, Human Design, Gene Keys and Astrocartography — on their own, over time, between two people and across life cycles.</p>
 <div class="about-section"><span class="eyebrow">CREATED BY</span><p><strong>Antonio Juarez</strong> <span class="muted-text">(@antoniojl16)</span></p><p class="about-links"><a href="https://github.com/antoniojl16" target="_blank" rel="noopener">GitHub · antoniojl16</a><a href="https://www.facebook.com/antoniojl16/" target="_blank" rel="noopener">Facebook · antoniojl16</a></p><p class="about-fine">© 2026 Antonio Juarez. All rights reserved.</p></div>
 <div class="about-section"><span class="eyebrow">YOUR DATA</span><p>Charts are stored only in this browser, on this device; nothing is sent to a server. Use <em>Export workspace</em> to keep a backup or move your charts elsewhere.</p></div>
-<div class="about-section"><span class="eyebrow">ACCURACY</span><p>Positions come from Astronomy Engine. Checked against the Swiss Ephemeris, the Sun, Moon and planets agree to within about 20 seconds of arc (0.005°), the lunar nodes and mean Lilith to within half a minute, and cycle dates to within hours. Chiron is simulated from NASA JPL orbit data and agrees with JPL to within a few seconds of arc from 1800 to 2200.</p></div>
-<div class="about-section"><span class="eyebrow">BUILT WITH</span><ul class="about-credits"><li><a href="https://github.com/cosinekitty/astronomy" target="_blank" rel="noopener">Astronomy Engine</a> — © Don Cross, MIT License</li><li><a href="https://github.com/topojson/world-atlas" target="_blank" rel="noopener">world-atlas</a> — © Michael Bostock, ISC License · map data from <a href="https://www.naturalearthdata.com" target="_blank" rel="noopener">Natural Earth</a> (public domain)</li><li>Chiron orbit data — <a href="https://ssd.jpl.nasa.gov/horizons/" target="_blank" rel="noopener">NASA JPL Horizons</a>, Solar System Dynamics Group</li><li>DM Mono, Manrope and Playfair Display fonts — SIL Open Font License, included with the app</li></ul></div>
+<div class="about-section"><span class="eyebrow">ACCURACY</span><p>Positions come from Astronomy Engine. Checked against the Swiss Ephemeris, the Sun, Moon and planets agree to within about 20 seconds of arc (0.005°), the lunar nodes and mean Lilith to within half a minute, and cycle dates to within hours. Chiron is simulated from NASA JPL orbit data and agrees with JPL to within a few seconds of arc from 1800 to 2200.</p><p>Birth times are converted with the IANA time zone database, daylight saving included; for births before 1970 it adds the historical time zones browsers leave out, and before standard time was adopted it uses the birthplace’s own local mean time.</p></div>
+<div class="about-section"><span class="eyebrow">BUILT WITH</span><ul class="about-credits"><li><a href="https://github.com/cosinekitty/astronomy" target="_blank" rel="noopener">Astronomy Engine</a> — © Don Cross, MIT License</li><li>Map data — <a href="https://www.naturalearthdata.com" target="_blank" rel="noopener">Natural Earth</a> (public domain)</li><li>Place names, coordinates and time zones — <a href="https://www.geonames.org" target="_blank" rel="noopener">GeoNames</a>, <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a></li><li>Historical time zones — <a href="https://www.iana.org/time-zones" target="_blank" rel="noopener">IANA Time Zone Database</a> (public domain)</li><li>Chiron orbit data — <a href="https://ssd.jpl.nasa.gov/horizons/" target="_blank" rel="noopener">NASA JPL Horizons</a>, Solar System Dynamics Group</li><li>DM Mono, Manrope and Playfair Display fonts — SIL Open Font License, included with the app</li></ul></div>
 <div class="about-section"><span class="eyebrow">DEVELOPER</span><label class="about-toggle"><input type="checkbox" id="developerModeToggle"><span>Developer mode<small>Shows the ephemeris engine banner, and each chart element’s SVG id and x,y position when hovering the diagrams.</small></span></label></div>
 <div class="about-section"><span class="eyebrow">NOTICES</span><p>“Human Design” and the Rave Mandala, and “Gene Keys”, are trademarks of their respective owners (Jovian Archive and Gene Keys Publishing). Orbital Study is an independent project, not affiliated with or endorsed by them. Descriptions in the app are original summaries.</p><p>Orbital Study is for study and self-reflection; it isn’t a substitute for professional advice.</p></div>
 </div></dialog>
@@ -86,6 +86,7 @@
   <div class="toast" id="toast" role="status"></div>
   <script src="astronomy-engine.js"></script>
   <script src="ephemeris.js"></script>
+  <script src="tz-history.js"></script>
   <script src="app.js"></script>
   <script src="zodiac-data.js"></script>
   <script src="timeline.js"></script>
@@ -96,11 +97,11 @@
   <script src="gene-keys-data.js"></script>
   <script src="systems.js"></script>
   <script src="library.js"></script>
-  <script src="world-countries.js"></script>
   <script src="astrocartography.js"></script>
   <script src="cycles.js"></script>
   <script src="pair.js"></script>
   <script src="router.js"></script>
   <script src="shortcuts.js"></script>
+  <script src="place-search.js"></script>
 </body>
 </html>
