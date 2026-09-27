@@ -1139,7 +1139,6 @@ function renderHumanDesignMandala(surface, chart, offsetMinutes = 0) {
       <div class="system-visual hd-mandala-visual">
         <div class="system-toolbar">
           <span class="eyebrow">MANDALA / ${activeSystemTab.toUpperCase()}</span>
-          <span class="sample-badge">SAMPLE DATA · GATE 25 LEFT</span>
         </div>
         ${hdMandalaSvgMarkup(state)}
         ${hdTimelineMarkup}
@@ -1840,7 +1839,7 @@ function renderGeneKeysPair(container, entries) {
             ({ chart, label }) => `
           <div class="system-visual gene-visual">
             <div class="system-toolbar"><span class="eyebrow">${label}</span><span class="sample-badge">${geneKeysPairTab.toUpperCase()}</span></div>
-            ${geneKeysDiagramSvg(computeHumanDesignChart(chart, 0), geneKeysPairTab, `Gene Keys ${geneKeysPairTab} for ${chart.name}`)}
+            ${geneKeysDiagramSvg(computeHumanDesignChart(chart, 0), geneKeysPairTab, `Gene Keys ${geneKeysPairTab} for ${escapeHtml(chart.name)}`)}
           </div>`,
           )
           .join("")}

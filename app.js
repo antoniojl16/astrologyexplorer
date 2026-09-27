@@ -355,8 +355,9 @@ function makeChart(index, overrides = {}) {
   if (overrides.birthDate) {
     iso = overrides.birthDate;
   } else {
-    const date = new Date(1982, 1, 1);
-    date.setDate(date.getDate() + index * 617);
+    // In UTC, so the sample birth dates don't shift by a day with the browser's time zone.
+    const date = new Date(Date.UTC(1982, 1, 1));
+    date.setUTCDate(date.getUTCDate() + index * 617);
     iso = date.toISOString().slice(0, 10);
   }
   const tagSets = [['personal', 'creative'], ['study'], ['family'], ['work'], ['uncertain']];
@@ -382,18 +383,136 @@ function makeChart(index, overrides = {}) {
   chart.designTime = designTimeFor(chart);
   return chart;
 }
+// A new library starts empty; "Add 3 sample charts" (shown while it's empty) fills it in.
 function initialState() {
   return {
     theme: 'light',
     activeWorkspace: 'Personal',
     workspaces: [{ name: 'Personal', chartIds: [] }],
-    charts: Array.from({ length: 10 }, (_, i) => makeChart(i)),
+    charts: [],
+    samplesRemoved: true,
   };
 }
+// One-time clean-up for libraries saved before samples became optional: removes the ten
+// built-in sample charts from every workspace, and records that it's done so samples
+// added later (Add 3 sample charts) are kept. Runs during loadState, so it declares
+// what it needs itself.
+function removeBuiltInSamples(saved) {
+  if (saved.samplesRemoved) return saved;
+  // The built-in samples' ids ("chart-<index>-<timestamp>", from makeChart). Charts people
+  // create ("chart-<timestamp>") or import ("chart-<timestamp>-<random>") never match.
+  const SAMPLE_CHART_ID = /^chart-\d{1,2}-\d{13}$/;
+  const samples = new Set(saved.charts.filter((chart) => SAMPLE_CHART_ID.test(chart.id)).map((chart) => chart.id));
+  return {
+    ...saved,
+    charts: saved.charts.filter((chart) => !samples.has(chart.id)),
+    workspaces: saved.workspaces.map((workspace) => ({ ...workspace, chartIds: workspace.chartIds.filter((id) => !samples.has(id)) })),
+    samplesRemoved: true,
+  };
+}
+function addSampleCharts() {
+  const workspace = state.workspaces.find((item) => item.name === state.activeWorkspace);
+  const samples = [0, 1, 2].map((index) => makeChart(index));
+  samples.forEach((chart) => {
+    state.charts.push(chart);
+    workspace.chartIds.push(chart.id);
+  });
+  selectedChartId = samples[0].id;
+  saveState();
+  renderRows();
+  showToast('3 sample charts added');
+}
+// ── Untrusted text ─────────────────────────────────────────────────────────
+// Chart and workspace text is typed by the user or imported from a file, so it's
+// escaped wherever it's placed into HTML: it always shows as text, never as markup.
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]);
+}
+// Brings a chart from outside (an imported file, or browser storage) into a known shape:
+// plain-text fields of sensible length, a well-formed date/time and coordinates, a safe
+// id (it's used in attributes and links), and positions the app itself derives from the
+// birth data. `fromFile` rebuilds the positions outright, since a file's can't be trusted;
+// stored charts keep theirs unless they're malformed. Returns null if the chart can't be
+// used (no valid birth date). Runs during loadState, before most of this file's
+// constants exist, so it only relies on functions and the constants declared above it.
+function sanitizeChart(raw, { fromFile = false } = {}) {
+  if (!raw || typeof raw !== 'object') return null;
+  const SAFE_CHART_ID = /^[A-Za-z0-9._-]{1,80}$/;
+  const text = (value, max = 120) => (typeof value === 'string' ? value : value == null ? '' : String(value)).replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, max);
+  const number = (value, min, max) => {
+    const parsed = typeof value === 'number' ? value : typeof value === 'string' && value.trim() !== '' ? Number(value) : NaN;
+    return Number.isFinite(parsed) && parsed >= min && parsed <= max ? parsed : null;
+  };
+  const birthDate = text(raw.birthDate, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(birthDate) || Number.isNaN(new Date(`${birthDate}T12:00:00Z`).getTime())) return null;
+  const birthTime = text(raw.birthTime, 5);
+  const chart = {
+    ...raw,
+    id: SAFE_CHART_ID.test(String(raw.id)) ? String(raw.id) : `chart-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    name: text(raw.name) || 'Untitled chart',
+    birthDate,
+    birthTime: /^([01]\d|2[0-3]):[0-5]\d$/.test(birthTime) ? birthTime : '',
+    location: text(raw.location),
+    timezone: text(raw.timezone, 64),
+    // Coordinates are stored as the app writes them (text like "38.7223"); a valid one is
+    // kept exactly as it is, an invalid one cleared.
+    latitude: number(raw.latitude, -90, 90) == null ? null : raw.latitude,
+    longitude: number(raw.longitude, -180, 180) == null ? null : raw.longitude,
+    uncertainty: number(raw.uncertainty, 0, 1440) || 0,
+    notes: number(raw.notes, 0, 100000) || 0,
+    tags: (Array.isArray(raw.tags) ? raw.tags : []).map((tag) => text(tag, 40)).filter(Boolean).slice(0, 12),
+    createdAt: number(raw.createdAt, 0, 8.64e15) || Date.now(),
+  };
+  const origin = raw.localSpaceOrigin;
+  if (origin && number(origin.lat, -90, 90) != null && number(origin.lon, -180, 180) != null) chart.localSpaceOrigin = { lat: Number(origin.lat), lon: Number(origin.lon) };
+  else delete chart.localSpaceOrigin;
+  if (typeof chart.designTime !== 'string' || Number.isNaN(new Date(chart.designTime).getTime())) chart.designTime = null;
+  // Positions: the app's own, derived from the birth data. A stored chart's are kept when
+  // every entry is one the app would produce (same body names, glyphs and shape).
+  const derived = makePositions(chart);
+  const known = new Map(derived.map((position) => [position.name, position.glyph]));
+  const wellFormed = Array.isArray(raw.positions) && raw.positions.length > 0 && raw.positions.every((position) =>
+    position && known.get(position.name) === position.glyph && SIGNS.includes(position.sign) && Number.isFinite(position.degree));
+  if (fromFile || !wellFormed) {
+    chart.positions = derived;
+    if (fromFile) chart.designTime = null;
+  }
+  return chart;
+}
+// The whole saved state: every chart cleaned (unusable ones dropped), workspace names as
+// plain text, and workspace chart lists pointing only at charts that exist.
+function sanitizeState(saved) {
+  const renamed = new Map();
+  const charts = (Array.isArray(saved.charts) ? saved.charts : []).map((raw) => {
+    const chart = sanitizeChart(raw);
+    if (chart && raw.id !== chart.id) renamed.set(raw.id, chart.id);
+    return chart;
+  }).filter(Boolean);
+  const ids = new Set(charts.map((chart) => chart.id));
+  const workspaces = (Array.isArray(saved.workspaces) ? saved.workspaces : [])
+    .map((workspace) => ({
+      ...workspace,
+      name: String(workspace?.name ?? '').replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, 60) || 'Workspace',
+      chartIds: (Array.isArray(workspace?.chartIds) ? workspace.chartIds : []).map((id) => renamed.get(id) || id).filter((id) => ids.has(id)),
+    }));
+  if (!workspaces.length) workspaces.push({ name: 'Personal', chartIds: [...ids] });
+  const activeWorkspace = workspaces.some((workspace) => workspace.name === saved.activeWorkspace) ? saved.activeWorkspace : workspaces[0].name;
+  return { ...saved, charts, workspaces, activeWorkspace };
+}
+
 function loadState() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    if (saved?.charts?.length) return saved;
+    // Any saved state counts, including an empty library.
+    if (saved && Array.isArray(saved.charts)) {
+      // Cleaning must never cost saved charts: if it fails, keep the data as it was.
+      try {
+        return removeBuiltInSamples(sanitizeState(saved));
+      } catch (error) {
+        console.error('Could not clean saved state; using it as stored', error);
+        return saved;
+      }
+    }
   } catch (error) {}
   const fresh = initialState();
   fresh.workspaces[0].chartIds = fresh.charts.map((chart) => chart.id);
@@ -432,7 +551,14 @@ function renderRows() {
   document.getElementById('activeChartStat').textContent = activeCharts().length;
   document.getElementById('tableSummary').textContent =
     `Showing ${charts.length} of ${activeCharts().length} charts`;
-  document.getElementById('emptyState').hidden = charts.length > 0;
+  const empty = document.getElementById('emptyState');
+  empty.hidden = charts.length > 0;
+  // An empty library offers a way to start; an empty search just says so.
+  empty.innerHTML = activeCharts().length
+    ? 'No charts match this search.'
+    : '<p class="empty-title">Your library is empty</p><p>Add a chart of your own, or start with three sample charts to explore.</p><div class="empty-actions"><button type="button" class="secondary-button" data-empty-add>Add chart</button><button type="button" class="primary-button" data-empty-samples>Add 3 sample charts</button></div>';
+  empty.querySelector('[data-empty-add]')?.addEventListener('click', openChartDialog);
+  empty.querySelector('[data-empty-samples]')?.addEventListener('click', addSampleCharts);
   // Columns and rows for the selected system come from library.js once it has loaded.
   const head = document.getElementById('libraryHead');
   if (head && typeof libraryHeaderMarkup === 'function') head.innerHTML = libraryHeaderMarkup();
@@ -440,6 +566,10 @@ function renderRows() {
   rows.querySelectorAll('tr').forEach((row) =>
     row.addEventListener('click', (event) => {
       if (event.target.type === 'checkbox') return;
+      // The chart name is a real link (keyboard focus, open in a new tab); a plain
+      // click on it opens the chart here like a click anywhere else on the row.
+      if (event.target.closest('a') && (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)) return;
+      event.preventDefault();
       selectedChartId = row.dataset.id;
       selectedRowIndex = [...rows.children].indexOf(row);
       openExplorer();
@@ -673,7 +803,7 @@ function renderWorkspaces() {
   list.innerHTML = state.workspaces
     .map(
       (workspace) =>
-        `<button type="button" class="workspace-choice ${workspace.name === state.activeWorkspace ? 'active' : ''}" data-workspace="${workspace.name}"><span class="workspace-dot"></span>${workspace.name}<small>${workspace.chartIds.length} charts</small></button>`,
+        `<button type="button" class="workspace-choice ${workspace.name === state.activeWorkspace ? 'active' : ''}" data-workspace="${escapeHtml(workspace.name)}"><span class="workspace-dot"></span>${escapeHtml(workspace.name)}<small>${workspace.chartIds.length} charts</small></button>`,
     )
     .join('');
   list.querySelectorAll('button').forEach((button) =>
@@ -712,18 +842,21 @@ function importWorkspace(event) {
       const imported = JSON.parse(reader.result);
       if (!Array.isArray(imported.charts)) throw new Error('No charts');
       const workspace = state.workspaces.find((item) => item.name === state.activeWorkspace);
-      imported.charts.forEach((chart) => {
-        if (!chart.id || state.charts.some((existing) => existing.id === chart.id))
-          chart.id = 'chart-' + Date.now() + '-' + Math.random();
-        if (!chart.positions) chart.positions = makePositions(chart);
-        if (!chart.designTime) chart.designTime = designTimeFor(chart);
+      // Everything from a file is cleaned first (see sanitizeChart); charts without a
+      // usable birth date are skipped.
+      const charts = imported.charts.map((raw) => sanitizeChart(raw, { fromFile: true })).filter(Boolean);
+      charts.forEach((chart) => {
+        if (state.charts.some((existing) => existing.id === chart.id))
+          chart.id = `chart-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        chart.designTime = designTimeFor(chart);
         state.charts.push(chart);
         workspace.chartIds.push(chart.id);
       });
       saveState();
       renderRows();
+      const skipped = imported.charts.length - charts.length;
       showToast(
-        `${imported.charts.length} chart${imported.charts.length === 1 ? '' : 's'} imported`,
+        `${charts.length} chart${charts.length === 1 ? '' : 's'} imported${skipped ? ` · ${skipped} skipped (no valid birth date)` : ''}`,
       );
     } catch (error) {
       showToast('Could not read that workspace file');
@@ -734,6 +867,8 @@ function importWorkspace(event) {
 }
 function init() {
   document.body.classList.toggle('dark', state.theme === 'dark');
+  // Developer mode (About dialog): the ephemeris banner and SVG id/coordinate hover readouts.
+  document.body.classList.toggle('developer-mode', Boolean(state.developerMode));
   document.getElementById('workspaceName').textContent = state.activeWorkspace;
   renderRows();
   document
@@ -775,6 +910,14 @@ function init() {
     .addEventListener('click', () => document.getElementById('shortcutsDialog').close());
   document.getElementById('aboutButton').addEventListener('click', () => document.getElementById('aboutDialog').showModal());
   document.getElementById('closeAbout').addEventListener('click', () => document.getElementById('aboutDialog').close());
+  const developerToggle = document.getElementById('developerModeToggle');
+  developerToggle.checked = Boolean(state.developerMode);
+  developerToggle.addEventListener('change', () => {
+    state.developerMode = developerToggle.checked;
+    document.body.classList.toggle('developer-mode', state.developerMode);
+    saveState();
+    if (typeof updateEphemerisDebugBar === 'function') updateEphemerisDebugBar();
+  });
   document.getElementById('timelineToday').addEventListener('click', () => {
     resetTimelineToNow();
     if (typeof refreshActiveSystemPanel === 'function') refreshActiveSystemPanel();

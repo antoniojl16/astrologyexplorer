@@ -27,8 +27,14 @@ own licenses; the notice above does not apply to them.
   file), built on Natural Earth map data (public domain).
   https://github.com/topojson/world-atlas · https://www.naturalearthdata.com
 
-- DM Mono, Manrope and Playfair Display fonts, loaded from Google Fonts,
-  SIL Open Font License 1.1.
+- Chiron starting states (CHIRON_STARTS in ephemeris.js) — from the NASA JPL
+  Horizons system, Solar System Dynamics Group, Jet Propulsion Laboratory
+  (2060 Chiron, orbit solution JPL#171). https://ssd.jpl.nasa.gov/horizons/
+
+- fonts/ — DM Mono (Copyright 2020 The DM Mono Project Authors), Manrope
+  (Copyright 2018 The Manrope Project Authors) and Playfair Display (Copyright 2017
+  The Playfair Display Project Authors, Reserved Font Name "Playfair Display"),
+  SIL Open Font License 1.1; each font's license is in fonts/OFL-*.txt.
 
 
 Trademarks

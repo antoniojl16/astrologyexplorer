@@ -95,7 +95,7 @@ function renderCycleExplorer() {
   const chart = chartById(cycleChartId);
   const select = document.getElementById('cycleChartSelect');
   if (select) {
-    select.innerHTML = charts.map(item => `<option value="${item.id}" ${item.id === cycleChartId ? 'selected' : ''}>${item.name}</option>`).join('');
+    select.innerHTML = charts.map(item => `<option value="${item.id}" ${item.id === cycleChartId ? 'selected' : ''}>${escapeHtml(item.name)}</option>`).join('');
     select.onchange = () => { cycleChartId = select.value; activeOccurrenceIndex = 0; renderCycleExplorer(); };
   }
   const tabs = document.getElementById('cycleTypeTabs');
@@ -133,11 +133,9 @@ function renderCycleSignature() {
   if (!signature || !context) return;
   const { cycleDef, occurrence } = context;
   const passes = occurrence.passes.map(pass => formatDate(pass.toISOString().slice(0, 10))).join(' · ');
-  const how = cycleDef.planet === 'Chiron'
-    ? 'Chiron isn\'t in the ephemeris yet, so this return is estimated from its average 50-year orbit; the natal Chiron placement itself is sample data.'
-    : `Transiting ${cycleDef.planet} reaches ${cycleDef.kind === 'opposition' ? 'the degree opposite ' : ''}its natal degree — exact ${occurrence.passes.length > 1 ? `${occurrence.passes.length} times while retrograde` : 'once'}: ${passes}.`;
+  const how = `Transiting ${cycleDef.planet} reaches ${cycleDef.kind === 'opposition' ? 'the degree opposite ' : ''}its natal degree — exact ${occurrence.passes.length > 1 ? `${occurrence.passes.length} times while retrograde` : 'once'}: ${passes}.`;
   signature.innerHTML = `
-    <span class="eyebrow">${context.chart.name.toUpperCase()} · AGE ${occurrence.ageYears.toFixed(1)}</span>
+    <span class="eyebrow">${escapeHtml(context.chart.name.toUpperCase())} · AGE ${occurrence.ageYears.toFixed(1)}</span>
     <h3>${context.cycleName}</h3>
     <p>${cycleDef.description}</p>
     <p class="cycle-signature-note">${how}</p>`;
@@ -202,7 +200,7 @@ const CYCLE_ASTRO_SUBJECTS = [['synastry', 'Synastry'], ['A', 'Natal'], ['B', 'C
 function renderCycleAstrology(surface, context) {
   const { chart } = context;
   const people = {
-    A: { key: 'A', chart, color: 'var(--blue)', name: 'Natal', tag: 'natal', housesName: 'natal house', legend: `Natal · ${chart.name}`, offset: 0 },
+    A: { key: 'A', chart, color: 'var(--blue)', name: 'Natal', tag: 'natal', housesName: 'natal house', legend: `Natal · ${escapeHtml(chart.name)}`, offset: 0 },
     B: { key: 'B', chart, color: 'var(--accent)', name: 'Cycle', tag: 'cycle', legend: `Cycle moment · ${context.cycleName}`, offset: context.anchorOffset },
   };
   const view = renderSynastryView(surface, people, { subjects: CYCLE_ASTRO_SUBJECTS, state: cycleAstroState, wheelId: 'cycleWheel', footer: timelineSliderMarkup('CYCLE MOMENT', 0) });
@@ -223,7 +221,7 @@ function renderCycleHumanDesign(surface, context) {
         </div>
         <div class="pair-hd-stage">
           <div class="pair-legend">
-            <span><i class="legend-dot" style="background:${CYCLE_NATAL_COLOR}"></i>Natal · ${chart.name}</span>
+            <span><i class="legend-dot" style="background:${CYCLE_NATAL_COLOR}"></i>Natal · ${escapeHtml(chart.name)}</span>
             <span><i class="legend-dot" style="background:${CYCLE_MOMENT_COLOR}"></i>Cycle moment · ${context.cycleName}</span>
             <span><i class="legend-swatch halo"></i>Electromagnetic — formed only together</span>
           </div>
@@ -288,7 +286,7 @@ function renderCycleGeneKeys(surface, context) {
         <div class="system-toolbar"><span class="eyebrow">${cycleGkTab.toUpperCase()}</span><span class="sample-badge">${context.anchorLabel.toUpperCase()}</span></div>
         <div class="pair-hd-stage">
           <div class="pair-legend">
-            <span><i class="legend-dot" style="background:var(--muted)"></i>Natal gate (in each sphere) · ${chart.name}</span>
+            <span><i class="legend-dot" style="background:var(--muted)"></i>Natal gate (in each sphere) · ${escapeHtml(chart.name)}</span>
             <span><i class="legend-dot" style="background:${CYCLE_MOMENT_COLOR}"></i>Cycle moment gate (below) · ${context.cycleName}</span>
           </div>
           <div data-cycle-graphic>${geneKeysDiagramSvg(natalHd, cycleGkTab, `Gene Keys ${cycleGkTab} at the cycle moment`, computeHumanDesignChart(chart, context.anchorOffset))}</div>

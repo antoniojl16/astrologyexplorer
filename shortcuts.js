@@ -84,3 +84,20 @@ document.addEventListener("keydown", (event) => {
   }
   if (handled) event.preventDefault();
 });
+
+// Keyboard access to the diagrams' tooltips. Planets, gates, centers, spheres and the
+// other focusable SVG elements explain themselves on hover; every tooltip here follows
+// the mouse, so when one of them gets keyboard focus it's shown as if the pointer were
+// resting on its center, and hidden again when focus moves on.
+document.addEventListener("focusin", (event) => {
+  const target = event.target;
+  if (!(target instanceof SVGElement) || !target.matches(":focus-visible")) return;
+  const box = target.getBoundingClientRect();
+  target.dispatchEvent(new MouseEvent("mousemove", { bubbles: true, clientX: box.left + box.width / 2, clientY: box.top + box.height / 2 }));
+});
+document.addEventListener("focusout", (event) => {
+  const target = event.target;
+  if (!(target instanceof SVGElement)) return;
+  document.body.dispatchEvent(new MouseEvent("mousemove", { bubbles: true, clientX: -1, clientY: -1 }));
+  for (let svg = target.ownerSVGElement; svg; svg = svg.ownerSVGElement) svg.dispatchEvent(new MouseEvent("mouseleave"));
+});

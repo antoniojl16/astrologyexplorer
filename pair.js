@@ -59,7 +59,7 @@ function bindChartCombo(root, { selectedId, onPick, onShow = () => {} }) {
   const paint = () => {
     list.innerHTML = matches.length
       ? matches
-          .map((chart, index) => `<div class="pair-option${index === highlighted ? ' highlighted' : ''}${chart.id === selectedId() ? ' selected' : ''}" role="option" data-id="${chart.id}"><b>${chart.name}</b><small>${pairChartDetails(chart)}</small></div>`)
+          .map((chart, index) => `<div class="pair-option${index === highlighted ? ' highlighted' : ''}${chart.id === selectedId() ? ' selected' : ''}" role="option" data-id="${chart.id}"><b>${escapeHtml(chart.name)}</b><small>${escapeHtml(pairChartDetails(chart))}</small></div>`)
           .join('')
       : '<div class="pair-empty">No matching charts</div>';
     list.querySelector('.highlighted')?.scrollIntoView({ block: 'nearest' });
@@ -210,8 +210,8 @@ function renderPairSystem() {
     return;
   }
   const entries = [
-    { chart: chartA, label: `CHART A · ${chartA.name}` },
-    { chart: chartB, label: `CHART B · ${chartB.name}` },
+    { chart: chartA, label: `CHART A · ${escapeHtml(chartA.name)}` },
+    { chart: chartB, label: `CHART B · ${escapeHtml(chartB.name)}` },
   ];
   if (pairActiveSystem === 'Gene Keys') return renderGeneKeysPair(surface, entries);
   if (pairActiveSystem === 'Astrocartography') return renderAstrocartographyPairPanel(surface, entries);
@@ -235,7 +235,7 @@ let pairAstroView = 'wheel';
 
 // Which color belongs to which chart; `notes` adds a small hint per chart key.
 function pairLegendMarkup(people, notes = {}) {
-  return people.map((person) => `<span><i class="legend-dot" style="background:${person.color}"></i>Chart ${person.key} · ${person.chart.name}${notes[person.key] ? ` <small>${notes[person.key]}</small>` : ''}</span>`).join('');
+  return people.map((person) => `<span><i class="legend-dot" style="background:${person.color}"></i>Chart ${person.key} · ${escapeHtml(person.chart.name)}${notes[person.key] ? ` <small>${notes[person.key]}</small>` : ''}</span>`).join('');
 }
 function pairSegmentedMarkup(attribute, options, current) {
   return `<div class="pair-seg" ${attribute}>${options.map(([value, label]) => `<button type="button" data-value="${value}" class="${value === current ? 'active' : ''}">${label}</button>`).join('')}</div>`;
@@ -249,7 +249,7 @@ const pairAstroState = {
   set view(value) { pairAstroView = value; },
 };
 function renderAstrologyPair(container, entries) {
-  const person = (key, entry) => ({ ...PAIR_ASTRO_PEOPLE[key], key, chart: entry.chart, name: `Chart ${key}`, tag: key, legend: `Chart ${key} · ${entry.chart.name}`, offset: 0 });
+  const person = (key, entry) => ({ ...PAIR_ASTRO_PEOPLE[key], key, chart: entry.chart, name: `Chart ${key}`, tag: key, legend: `Chart ${key} · ${escapeHtml(entry.chart.name)}`, offset: 0 });
   renderSynastryView(container, { A: person('A', entries[0]), B: person('B', entries[1]) }, { subjects: PAIR_ASTRO_SUBJECTS, state: pairAstroState, wheelId: 'pairWheel' });
 }
 // A bi-wheel view shared by the Pair Explorer (two charts) and the Cycle Explorer (a
@@ -280,7 +280,7 @@ function renderSynastryView(container, people, { subjects, state, wheelId, foote
       <aside class="detail-panel pair-aspect-panel">
         <div class="detail-content">
           <div class="section-heading"><span data-pair-aspect-title></span></div>
-          <div class="aspect-list" data-pair-aspect-list></div>
+          <div class="aspect-list" data-pair-aspect-list tabindex="0" role="region" aria-label="Cross-aspects"></div>
         </div>
       </aside>
     </div>`;
@@ -492,7 +492,7 @@ function renderHumanDesignPair(container, entries) {
       const person = people[pairHdSubject];
       state = computeBodygraphState(person.chart, 0);
       glyphMap = humanDesignGateGlyphMap(person.chart, 0);
-      legend.innerHTML = `<span><i class="legend-dot" style="background:${person.color}"></i>Chart ${person.key} · ${person.chart.name}</span><span><i class="legend-swatch" style="background:var(--ink)"></i>Personality</span><span><i class="legend-swatch" style="background:var(--accent)"></i>Design</span>`;
+      legend.innerHTML = `<span><i class="legend-dot" style="background:${person.color}"></i>Chart ${person.key} · ${escapeHtml(person.chart.name)}</span><span><i class="legend-swatch" style="background:var(--ink)"></i>Personality</span><span><i class="legend-swatch" style="background:var(--accent)"></i>Design</span>`;
       const typology = computeHumanDesignTypology(state.hd);
       info.innerHTML = hdTypologyAsideMarkup(typology, { showFilter: false });
       details.innerHTML = hdTypologyDetailsMarkup(typology);
@@ -572,7 +572,7 @@ function pairCompositeDetailsMarkup(people, composite) {
   const table = `
     <div class="pair-compare">
       <table class="pair-compare-table">
-        <thead><tr><th></th>${[people.A, people.B].map((person) => `<th style="color:${person.color}">Chart ${person.key} · ${person.chart.name}</th>`).join('')}<th>Composite</th></tr></thead>
+        <thead><tr><th><span class="visually-hidden">Feature</span></th>${[people.A, people.B].map((person) => `<th class="pair-person-head" style="--person-color:${person.color}">Chart ${person.key} · ${escapeHtml(person.chart.name)}</th>`).join('')}<th>Composite</th></tr></thead>
         <tbody>${rows.map(([label, read, compositeValue]) => `<tr><th>${label}</th><td>${pick(typologyA, read)}</td><td>${pick(typologyB, read)}</td><td>${compositeValue}</td></tr>`).join('')}</tbody>
       </table>
     </div>`;

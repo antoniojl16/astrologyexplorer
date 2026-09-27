@@ -71,8 +71,7 @@ function houseCuspsAtTime(chart, offsetMinutes) {
   const ascendantAngle = ascendant ? positionAngleAtTime(ascendant, offsetMinutes) : 0;
   if (houseSystem === 'Equal Houses') return Array.from({length: 12}, (_, index) => (ascendantAngle + index * 30) % 360);
   if (typeof realPlacidusHouseCusps === 'function' && EPHEMERIS_ENGINE === 'astronomy-engine' && ascendant && ascendant.latitude != null && ascendant.longitude != null) {
-    const date = new Date(ascendant.birthMoment);
-    date.setMinutes(date.getMinutes() + offsetMinutes);
+    const date = new Date(Date.parse(ascendant.birthMoment) + offsetMinutes * 60000);
     const real = realPlacidusHouseCusps(date, Number(ascendant.latitude), Number(ascendant.longitude));
     if (real) return real;
   }
@@ -163,7 +162,7 @@ function timelineTicksMarkup(spanMinutes) {
     .join('');
 }
 function timelineSliderInnerMarkup(labelText, value = 0) {
-  return `<div class="timeline-label"><span>${labelText}</span><strong data-timeline-date></strong></div><div class="timeline-exact" data-timeline-exact></div><div class="timeline-zoom" data-timeline-zoom><button type="button" class="timeline-center" data-timeline-center title="Reset to center">Center</button><button type="button" data-timeline-zoom-out aria-label="Expand timeline" title="Expand timeline">−</button><span>ZOOM</span><button type="button" data-timeline-zoom-in aria-label="Shrink timeline" title="Shrink timeline">＋</button></div><input data-timeline-slider type="range" min="-1440" max="1440" step="1" value="${value}"><div class="timeline-ticks" data-timeline-ticks></div><div class="timeline-ends" data-timeline-ends><span data-timeline-origin></span></div>`;
+  return `<div class="timeline-label"><span>${labelText}</span><strong data-timeline-date></strong></div><div class="timeline-exact" data-timeline-exact></div><div class="timeline-zoom" data-timeline-zoom><button type="button" class="timeline-center" data-timeline-center title="Reset to center">Center</button><button type="button" data-timeline-zoom-out aria-label="Expand timeline" title="Expand timeline">−</button><span>ZOOM</span><button type="button" data-timeline-zoom-in aria-label="Shrink timeline" title="Shrink timeline">＋</button></div><input data-timeline-slider type="range" aria-label="${labelText.charAt(0) + labelText.slice(1).toLowerCase()}" min="-1440" max="1440" step="1" value="${value}"><div class="timeline-ticks" data-timeline-ticks></div><div class="timeline-ends" data-timeline-ends><span data-timeline-origin></span></div>`;
 }
 function timelineSliderMarkup(labelText, value = 0) {
   return `<div class="timeline-control">${timelineSliderInnerMarkup(labelText, value)}</div>`;
@@ -204,9 +203,15 @@ function bindTimelineSlider(container, { onChange, originLabel = 'Birth moment',
     updateRange();
   }, {passive: false});
   slider.addEventListener('dblclick', recenter);
-  slider.addEventListener('input', () => onChange(Number(slider.value)));
+  // Screen readers announce the moment (the date readout), not the raw minute offset.
+  const dateReadout = container.querySelector('[data-timeline-date]');
+  const change = () => {
+    onChange(Number(slider.value));
+    if (dateReadout) slider.setAttribute('aria-valuetext', dateReadout.textContent);
+  };
+  slider.addEventListener('input', change);
   updateRange();
-  onChange(Number(slider.value));
+  change();
   return slider;
 }
 
@@ -480,7 +485,12 @@ function initPreciseTimeline() {
   const houseControl = document.querySelector('.chart-toolbar-right .zodiac-chip:nth-child(2)');
   const zodiacControl = document.querySelector('.chart-toolbar-right .zodiac-chip:nth-child(1)');
   const slider = container.querySelector('[data-timeline-slider]');
+  // These chips act as buttons: Enter and Space press them, as they would a real button.
+  const pressOnKeys = control => control.addEventListener('keydown', event => {
+    if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); control.click(); }
+  });
   if (zodiacControl) {
+    pressOnKeys(zodiacControl);
     zodiacControl.classList.add('zodiac-mode-toggle');
     zodiacControl.setAttribute('role', 'button');
     zodiacControl.tabIndex = 0;
@@ -497,6 +507,7 @@ function initPreciseTimeline() {
     });
   }
   if (houseControl) {
+    pressOnKeys(houseControl);
     houseControl.classList.add('house-system-toggle');
     houseControl.setAttribute('role', 'button');
     houseControl.tabIndex = 0;

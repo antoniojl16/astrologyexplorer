@@ -17,9 +17,9 @@
 // which dispatches on this variable, so nothing else needs to change.
 let EPHEMERIS_ENGINE = 'astronomy-engine'; // 'synthetic' | 'astronomy-engine'
 
-// Astronomy Engine only models real solar-system bodies, so Chiron (which it
-// doesn't cover) falls back to the synthetic engine even when EPHEMERIS_ENGINE
-// is 'astronomy-engine'. Everything else — the angle-derived points
+// Astronomy Engine only models the major bodies, so Chiron gets its own
+// computation (chironLongitude below: a gravity simulation from JPL starting
+// states). Everything else — the angle-derived points
 // (Ascendant/Midheaven/Vertex, realAscendantMidheaven/realVertex below),
 // Fortuna (an Arabic Part, a formula over Ascendant+Sun+Moon, realFortuna
 // below), the lunar nodes (realLunarNode below) and Lilith (the lunar apogee,
@@ -318,6 +318,94 @@ function realLilith(date) {
   return LILITH_MODE === 'true' ? trueLilithLongitude(date) : meanLilithLongitude(date);
 }
 
+// ── Chiron ─────────────────────────────────────────────────────────────────
+// Astronomy Engine has no model of Chiron, but it does ship a gravity simulator
+// (GravitySimulator: the Sun plus Jupiter, Saturn, Uranus and Neptune pulling on
+// small bodies). Chiron's orbit is chaotic enough — Saturn and Uranus bend it
+// noticeably every pass — that one set of orbital elements drifts by arcminutes
+// over a century, so the simulation restarts from the nearest of these starting
+// states: Chiron's real heliocentric position (AU) and velocity (AU/day), J2000
+// equatorial (ICRF) frame, at 1 January 12:00 TT of every 25th year, from NASA
+// JPL's Horizons system (ssd.jpl.nasa.gov/horizons, 2060 Chiron, orbit solution JPL#171).
+// Each 25-year stretch is integrated once, on first use, in 8-day steps and kept;
+// positions in between are interpolated from the stored positions and velocities.
+// Checked against Horizons' own apparent geocentric longitudes every 137 days
+// from 1800 to 2200: within a few arcseconds. Outside 1787–2212 it extrapolates
+// from the first or last start and loses accuracy (arcminutes per century).
+const CHIRON_STARTS = [
+  [1800, -5.883683288446, -6.429534958286, -2.402459551835, 4.057909428870e-03, -5.012164474820e-03, -1.308016569819e-03],
+  [1825, 17.192475970509, 5.140120828834, 2.735796543937, -1.371791812858e-03, 2.826455335504e-03, 7.980019627973e-04],
+  [1850, -4.113349525060, -8.196996401512, -2.840230931175, 4.803621433073e-03, -3.958090753721e-03, -9.294432239309e-04],
+  [1875, 16.559478217830, 6.257295992976, 3.041037156988, -1.704836157716e-03, 2.709123950313e-03, 7.381268234786e-04],
+  [1900, -2.085605685490, -9.635387976601, -3.160093443014, 5.185554498186e-03, -2.888934188026e-03, -5.762878776338e-04],
+  [1925, 16.773712354459, 6.824163356253, 3.189207533307, -1.770849594598e-03, 2.614020687693e-03, 7.091345046060e-04],
+  [1950, -2.737565897831, -9.218097497469, -3.060071878946, 5.133545228465e-03, -3.200386670792e-03, -6.832759520399e-04],
+  [1975, 16.993152297284, 6.619670090881, 3.131434914636, -1.681677849800e-03, 2.650283595806e-03, 7.265333897737e-04],
+  [2000, -3.529597340229, -8.675401106305, -2.935904698815, 4.971227221946e-03, -3.626418902160e-03, -8.257960236166e-04],
+  [2025, 17.273029924637, 6.174581025121, 3.004000553669, -1.554720760784e-03, 2.695921883572e-03, 7.485031716043e-04],
+  [2050, -4.385127151446, -8.010525708371, -2.778598245525, 4.746644996998e-03, -4.101317726708e-03, -9.896737641478e-04],
+  [2075, 17.494610505133, 5.718330720112, 2.872134720923, -1.418226540842e-03, 2.733756368491e-03, 7.672677841932e-04],
+  [2100, -5.090899143887, -7.314904211490, -2.596449204507, 4.508172325763e-03, -4.523777245965e-03, -1.136932551744e-03],
+  [2125, 17.184951317310, 5.710229061916, 2.832426883386, -1.447771630906e-03, 2.761636871979e-03, 7.722870693462e-04],
+  [2150, -4.290290047051, -8.028690632956, -2.765220294226, 4.802704854414e-03, -4.038022465814e-03, -9.662362742076e-04],
+  [2175, 16.686578186078, 6.431546111933, 3.020462428999, -1.660088142473e-03, 2.709670393232e-03, 7.435344114920e-04],
+  [2200, -2.881944012198, -9.028640073310, -2.985709937426, 5.142106619702e-03, -3.274224121633e-03, -7.064087021339e-04],
+];
+const CHIRON_STEP_DAYS = 8;
+const CHIRON_SPEED_OF_LIGHT = 173.1446326846693; // AU/day
+const chironStretches = new Map(); // start index → { t0 (TT days), before: [states], after: [states] }
+
+// The stretch nearest to `tt`, integrated out to cover it (both directions from its start).
+function chironStateAt(tt) {
+  const index = Math.max(0, Math.min(CHIRON_STARTS.length - 1, Math.round((tt / 365.25 + 2000 - 1800) / 25)));
+  let stretch = chironStretches.get(index);
+  if (!stretch) {
+    const [year, x, y, z, vx, vy, vz] = CHIRON_STARTS[index];
+    // The starting states are at 12:00 TT; MakeTime takes UT, so shift by ΔT.
+    const utTime = Astronomy.MakeTime(new Date(Date.UTC(year, 0, 1, 12)));
+    const t0 = utTime.AddDays(utTime.ut - utTime.tt);
+    const start = new Astronomy.StateVector(x, y, z, vx, vy, vz, t0);
+    stretch = { t0, start, before: [start], after: [start], simulators: {} };
+    chironStretches.set(index, stretch);
+  }
+  const steps = (tt - stretch.t0.tt) / CHIRON_STEP_DAYS;
+  const direction = steps < 0 ? 'before' : 'after';
+  const sign = steps < 0 ? -1 : 1;
+  const list = stretch[direction];
+  const needed = Math.floor(Math.abs(steps)) + 1;
+  if (list.length <= needed) {
+    const simulator = stretch.simulators[direction]
+      || (stretch.simulators[direction] = new Astronomy.GravitySimulator(Astronomy.Body.Sun, stretch.t0, [stretch.start]));
+    while (list.length <= needed) list.push(simulator.Update(stretch.t0.AddDays(sign * list.length * CHIRON_STEP_DAYS))[0]);
+  }
+  // Cubic Hermite interpolation between the two stored states around `tt`.
+  const offset = Math.abs(steps), i = Math.floor(offset), f = offset - i;
+  const a = list[i], b = list[i + 1], h = sign * CHIRON_STEP_DAYS;
+  const h00 = 2 * f ** 3 - 3 * f ** 2 + 1, h10 = f ** 3 - 2 * f ** 2 + f, h01 = -2 * f ** 3 + 3 * f ** 2, h11 = f ** 3 - f ** 2;
+  const at = (p, v) => h00 * a[p] + h10 * h * a[v] + h01 * b[p] + h11 * h * b[v];
+  return { x: at('x', 'vx'), y: at('y', 'vy'), z: at('z', 'vz') };
+}
+// Apparent geocentric longitude, ecliptic of date, true equinox — the same frame
+// as every other body here: light-time corrected (Chiron as it was when the light
+// left it) and with annual aberration (the Earth's own motion), then rotated by
+// Astronomy.Ecliptic, which applies precession and nutation. chironApparentVector is
+// the geocentric J2000 equatorial vector before that rotation (the map lines use it
+// for Chiron's right ascension and declination).
+function chironApparentVector(date) {
+  const time = Astronomy.MakeTime(date);
+  const earth = Astronomy.HelioState(Astronomy.Body.Earth, time);
+  let lightTime = 0, vector = null;
+  for (let pass = 0; pass < 3; pass++) {
+    const chiron = chironStateAt(time.tt - lightTime);
+    vector = { x: chiron.x - earth.x, y: chiron.y - earth.y, z: chiron.z - earth.z };
+    lightTime = Math.hypot(vector.x, vector.y, vector.z) / CHIRON_SPEED_OF_LIGHT;
+  }
+  return new Astronomy.Vector(vector.x + earth.vx * lightTime, vector.y + earth.vy * lightTime, vector.z + earth.vz * lightTime, time);
+}
+function chironLongitude(date) {
+  return norm360(Astronomy.Ecliptic(chironApparentVector(date)).elon);
+}
+
 // Real angle for `position` at `offsetMinutes` past its stored birthMoment
 // (stamped on every position by makePositions in app.js), or null if this
 // body/engine combination isn't backed by real ephemeris — positionAngleAtTime
@@ -325,8 +413,9 @@ function realLilith(date) {
 function ephemerisAngleAtTime(position, offsetMinutes) {
   if (EPHEMERIS_ENGINE !== 'astronomy-engine') return null;
   if (typeof Astronomy === 'undefined' || !position.birthMoment) return null;
-  const date = new Date(position.birthMoment);
-  date.setMinutes(date.getMinutes() + offsetMinutes);
+  // Elapsed time, not clock time: setMinutes() would add local-clock minutes and
+  // land an hour off whenever a daylight-saving change falls in between.
+  const date = new Date(Date.parse(position.birthMoment) + offsetMinutes * 60000);
   // Earth isn't a real ephemeris body in its own right here — by this app's
   // own convention (oppositePosition(sun, 'Earth') in makePositions) it's
   // always defined as exactly opposite the Sun. Pinning it to the real Sun
@@ -340,6 +429,7 @@ function ephemerisAngleAtTime(position, offsetMinutes) {
     return realLunarNode(position.name, date);
   }
   if (position.name === 'Lilith') return realLilith(date);
+  if (position.name === 'Chiron') return chironLongitude(date);
   if (REAL_ANGLE_BODIES.has(position.name)) {
     if (position.latitude == null || position.longitude == null) return null;
     const latitude = Number(position.latitude), longitude = Number(position.longitude);
@@ -358,9 +448,10 @@ function ephemerisAngleAtTime(position, offsetMinutes) {
 // a bogus computation is visible at a glance instead of hidden in state.
 // Polls on an interval rather than hooking every render path, since this is
 // a debug aid, not part of the app's real render flow.
+// Shown only in developer mode (About dialog); skipped entirely otherwise.
 function updateEphemerisDebugBar() {
   const bar = document.getElementById('ephemerisDebugBar');
-  if (!bar) return;
+  if (!bar || !document.body.classList.contains('developer-mode')) return;
   const libLoaded = typeof Astronomy !== 'undefined' && typeof Astronomy.SunPosition === 'function';
   let comparison = '';
   try {

@@ -145,7 +145,8 @@ function bindAcgMap(wrap, { onViewportChange } = {}) {
     } else {
       originMarker.setAttribute("visibility", "hidden");
     }
-    labelGroup.innerHTML = acgLabelsMarkup(acgPlaceLabels(labelLines, view, screen, (text) => acgMeasureLabel(measureText, text), blocked));
+    const zenith = acgZenithMarkup(labelLines, view, screen);
+    labelGroup.innerHTML = zenith.markup + acgLabelsMarkup(acgPlaceLabels(labelLines, view, screen, (text) => acgMeasureLabel(measureText, text), [...blocked, ...zenith.boxes]));
   };
   // Coalesces bursts (every pointermove while dragging) into one layout per frame.
   const scheduleLabels = () => {
@@ -365,15 +366,16 @@ const acgFilters = {
 
 // ── ACG Travel lines ────────────────────────────────────────────────────
 // Geocentric apparent right ascension/declination (degrees) of a chart body at
-// its birth moment. The 10 real bodies come straight from Astronomy Engine
-// (true equator and equinox of date, including the body's ecliptic latitude).
-// Everything else — the lunar nodes (which lie on the ecliptic, so latitude 0 is
-// exact), Chiron (still the app's synthetic longitude, so its lines are only as
-// good as that), and every body under the synthetic engine — converts the app's
-// own tropical ecliptic longitude at ecliptic latitude 0.
+// its birth moment. The 10 real bodies come straight from Astronomy Engine, and
+// Chiron from its own simulation (chironApparentVector, ephemeris.js) — true equator
+// and equinox of date, including the body's ecliptic latitude. Everything else —
+// the lunar nodes (which lie on the ecliptic, so latitude 0 is exact), the other
+// points, and every body under the synthetic engine — converts the app's own
+// tropical ecliptic longitude at ecliptic latitude 0.
 function acgBodyEquatorial(position, date, offsetMinutes) {
-  if (EPHEMERIS_ENGINE === "astronomy-engine" && REAL_EPHEMERIS_BODIES.has(position.name)) {
-    const vector = Astronomy.GeoVector(Astronomy.Body[position.name], date, true);
+  const real = EPHEMERIS_ENGINE === "astronomy-engine" && (REAL_EPHEMERIS_BODIES.has(position.name) || position.name === "Chiron");
+  if (real) {
+    const vector = position.name === "Chiron" ? chironApparentVector(date) : Astronomy.GeoVector(Astronomy.Body[position.name], date, true);
     const ofDate = Astronomy.EquatorFromVector(Astronomy.RotateVector(Astronomy.Rotation_EQJ_EQD(date), vector));
     return { rightAscension: ofDate.ra * 15, declination: ofDate.dec };
   }
@@ -576,16 +578,18 @@ function acgTravelLines(chart, offsetMinutes) {
   acgEachBody(chart, (body, member, position) => {
     const { rightAscension, declination } = acgBodyEquatorial(position, date, offsetMinutes);
     const mc = ((((rightAscension - siderealDegrees + 180) % 360) + 360) % 360) - 180;
-    const add = (lineKey, points) => {
+    const add = (lineKey, points, extra = {}) => {
       if (points.length < 2) return;
       const short = ACG_LINE_TYPES.find((line) => line.key === lineKey).short;
       const segments = [acgSegment(points)];
-      lines.push({ bodyKey: body.key, lineKey, color: body.color, label: `${member.glyph} ${short}`, hoverName: `${member.name} ${short}`, segments, d: acgSegmentsPath(segments) });
+      lines.push({ bodyKey: body.key, lineKey, color: body.color, label: `${member.glyph} ${short}`, hoverName: `${member.name} ${short}`, segments, d: acgSegmentsPath(segments), ...extra });
     };
     // Pole to pole: the drawing is clipped at the map's edge anyway (acgProject
     // clamps latitude), but hover distances need the whole meridian. The equator
     // point splits it into two arcs, since pole-to-pole alone would be ambiguous.
-    add("MC", [[mc, -90], [mc, 0], [mc, 90]]);
+    // The zenith point — where the body stood exactly overhead — lies on its MC line
+    // at the latitude equal to its declination; drawn as a small ring (acgZenithMarkup).
+    add("MC", [[mc, -90], [mc, 0], [mc, 90]], { zenith: { lon: mc, lat: declination, name: member.name } });
     add("IC", [[mc + 180, -90], [mc + 180, 0], [mc + 180, 90]]);
     add("ASC", acgHorizonCurve(mc, declination, -1));
     add("DSC", acgHorizonCurve(mc, declination, 1));
@@ -811,6 +815,31 @@ function acgPlaceLabels(lines, view, screen, measure, blocked) {
   });
 }
 
+// Zenith rings: a fixed-size circle (screen px, so it stays the same size at every
+// zoom) centred on each shown MC line at the body's zenith, on every tiled copy of
+// the world in view. Returns the markup and the rings' boxes, which labels avoid.
+const ACG_ZENITH_RADIUS = 6;
+function acgZenithMarkup(lines, view, screen) {
+  const boxes = [];
+  const markup = lines
+    .filter((line) => line.zenith)
+    .map((line) => {
+      const [x, y] = acgProject(line.zenith.lon, line.zenith.lat);
+      const sy = ((y - view.top) * screen.h) / view.vh;
+      if (sy < -ACG_ZENITH_RADIUS || sy > screen.h + ACG_ZENITH_RADIUS) return "";
+      let rings = "";
+      for (let copy = Math.floor((view.left - x) / ACG_WORLD_SIZE); x + copy * ACG_WORLD_SIZE <= view.left + view.vw; copy++) {
+        const sx = ((x + copy * ACG_WORLD_SIZE - view.left) * screen.w) / view.vw;
+        if (sx < -ACG_ZENITH_RADIUS || sx > screen.w + ACG_ZENITH_RADIUS) continue;
+        boxes.push({ x: sx - ACG_ZENITH_RADIUS, y: sy - ACG_ZENITH_RADIUS, w: 2 * ACG_ZENITH_RADIUS, h: 2 * ACG_ZENITH_RADIUS });
+        rings += `<circle class="acg-zenith" cx="${sx.toFixed(1)}" cy="${sy.toFixed(1)}" r="${ACG_ZENITH_RADIUS}"/>`;
+      }
+      return rings && `<g class="acg-zenith-group" data-body="${line.bodyKey}" data-zenith="${escapeHtml(line.zenith.name)}" style="--acg-line-color:${line.color}">${rings}</g>`;
+    })
+    .join("");
+  return { markup, boxes };
+}
+
 function acgLabelsMarkup(placements) {
   const tick = ({ anchor, box }) => {
     const toX = Math.max(box.x + 2, Math.min(box.x + box.w - 2, anchor.x));
@@ -914,7 +943,7 @@ function acgInfoMarkup(chart, view, linesText, originText) {
     <span class="eyebrow">MAP READING</span>
     <h3>${view}</h3>
     <p>${ACG_VIEW_DESCRIPTIONS[view] || ""}</p>
-    <div class="system-stat"><span>CHART</span><strong>${chart?.name || "—"}</strong></div>
+    <div class="system-stat"><span>CHART</span><strong>${escapeHtml(chart?.name || "—")}</strong></div>
     <div class="system-stat"><span>BIRTHPLACE</span><strong>${lat && lon ? `${lat}, ${lon}` : "—"}</strong></div>
     ${originText ? `<div class="system-stat"><span>ORIGIN</span><strong>${originText}</strong></div>` : ""}
     <div class="system-stat"><span>PROJECTION</span><strong>Mercator</strong></div>

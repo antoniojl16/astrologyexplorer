@@ -184,6 +184,9 @@ let routeApplying = false;
 let routeSyncTimer = 0;
 function syncRoute({ replace = false } = {}) {
   if (routeApplying) return;
+  // The address changed from outside (a link, Back/Forward) and its hashchange hasn't
+  // been handled yet — a click's sync can run first; applying it wins, not overwriting it.
+  if (routeLastHash !== null && location.hash !== routeLastHash) return;
   const hash = currentRoute();
   if (hash === location.hash) {
     routeLastHash = hash;
@@ -201,6 +204,7 @@ function scheduleRouteSync() {
   routeSyncTimer = setTimeout(syncRoute, 0);
 }
 function applyLocationHash() {
+  routeLastHash = location.hash;
   routeApplying = true;
   try {
     applyRoute(location.hash);
