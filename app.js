@@ -494,6 +494,12 @@ function sanitizeChart(raw, { fromFile = false } = {}) {
   const origin = raw.localSpaceOrigin;
   if (origin && number(origin.lat, -90, 90) != null && number(origin.lon, -180, 180) != null) chart.localSpaceOrigin = { lat: Number(origin.lat), lon: Number(origin.lon) };
   else delete chart.localSpaceOrigin;
+  // Saved map locations (Astrocartography): up to 20 valid lat/lon pairs.
+  const locations = (Array.isArray(raw.acgLocations) ? raw.acgLocations : [])
+    .filter((location) => location && number(location.lat, -90, 90) != null && number(location.lon, -180, 180) != null)
+    .slice(0, 20).map((location) => ({ lat: Number(location.lat), lon: Number(location.lon) }));
+  if (locations.length) chart.acgLocations = locations;
+  else delete chart.acgLocations;
   if (typeof chart.designTime !== 'string' || Number.isNaN(new Date(chart.designTime).getTime())) chart.designTime = null;
   // Positions: the app's own, derived from the birth data. A stored chart's are kept when
   // every entry is one the app would produce (same body names, glyphs and shape).

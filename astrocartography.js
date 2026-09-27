@@ -38,6 +38,9 @@ function acgUnproject(x, y) {
 // largest countries (~180 KB), loaded on demand the first time a map is shown. Until
 // it arrives the maps show the ocean, graticule and planetary lines; then every
 // map's world layer fills in.
+// Per-browser map preferences (style, city names, roads); storage may be unavailable.
+const acgStoredSetting = (key, fallback) => { try { return localStorage.getItem(key) ?? fallback; } catch { return fallback; } };
+const acgStoreSetting = (key, value) => { try { localStorage.setItem(key, value); } catch { /* private mode */ } };
 let acgWorldMarkupCache = null;
 let acgWorldMapRequested = false;
 function acgLoadWorldMap() {
@@ -47,6 +50,32 @@ function acgLoadWorldMap() {
   script.src = "world-map.js";
   script.onerror = () => { acgWorldMapRequested = false; };
   document.head.appendChild(script);
+}
+// Main roads (roads.js, ~0.85 MB) load the first time a map is zoomed in far enough to
+// show them: the major tier from ACG_ROADS_MAJOR_ZOOM, the minor one from
+// ACG_ROADS_MINOR_ZOOM (both hidden by the "Main roads" option).
+const ACG_ROADS_MAJOR_ZOOM = 6, ACG_ROADS_MINOR_ZOOM = 14;
+let acgShowRoads = acgStoredSetting("orbital-study-map-roads", "on") === "on";
+let acgRoadsRequested = false, acgRoadsMarkupCache = null;
+function acgLoadRoads() {
+  if (acgRoadsRequested) return;
+  acgRoadsRequested = true;
+  const script = document.createElement("script");
+  script.src = "roads.js";
+  script.onerror = () => { acgRoadsRequested = false; };
+  document.head.appendChild(script);
+}
+function acgRoadsMarkup() {
+  if (typeof WORLD_ROADS === "undefined") return "";
+  if (!acgRoadsMarkupCache) {
+    const path = (lines) => lines.map((line) => acgWorldPath(decodeWorldRing(line), false)).join("");
+    acgRoadsMarkupCache = `<path class="acg-road minor" d="${path(WORLD_ROADS.minor)}"/><path class="acg-road major" d="${path(WORLD_ROADS.major)}"/>`;
+  }
+  return acgRoadsMarkupCache;
+}
+// Called by roads.js once it has run.
+function acgRoadsLoaded() {
+  document.querySelectorAll("[data-acg-roads]").forEach((group) => { group.innerHTML = acgRoadsMarkup(); });
 }
 // Called by world-map.js once it has run.
 function acgWorldMapLoaded() {
@@ -92,6 +121,7 @@ function acgWorldMarkup() {
     acgWorldMarkupCache =
       `<path class="acg-land" d="${land.map((ring) => acgWorldPath(ring, true)).join("")}"/>` +
       `<path class="acg-lake" d="${lakes.map((ring) => acgWorldPath(ring, true)).join("")}"/>` +
+      `<g data-acg-roads>${acgRoadsMarkup()}</g>` +
       `<path class="acg-state" d="${states.map((line) => acgWorldPath(line, false)).join("")}"/>` +
       `<path class="acg-border" d="${[...land, ...lakes].map((ring) => acgWorldPath([...ring, ring[0]], false, acgArtificialEdge)).join("")}"/>`;
   }
@@ -156,16 +186,14 @@ function acgMapMarkup() {
 // "Relief" (the default) draws Natural Earth II — land colored by climate, with shaded
 // relief — under the vector map; "Plain" is the vector map alone. The picture is cut
 // into 256-pixel Web Mercator tiles (tools/build-map-tiles.py): tiles/<style>/<z>/<x>/<y>.webp,
-// level z being 256·2^z pixels across the world (5 levels, ~3.3 MB in all). Only the
+// level z being 256·2^z pixels across the world (levels 0–6, ~11.4 MB in all). Only the
 // tiles in view are requested, at the level that matches the zoom, over a level two
 // steps coarser as a backdrop while they load. The choice is remembered per browser.
 const ACG_MAP_STYLES = {
-  relief: { label: "Relief", maxZoom: 5 },
+  relief: { label: "Relief", maxZoom: 6 },
   plain: { label: "Plain" },
 };
 const ACG_TILE_SIZE = 256;
-const acgStoredSetting = (key, fallback) => { try { return localStorage.getItem(key) ?? fallback; } catch { return fallback; } };
-const acgStoreSetting = (key, value) => { try { localStorage.setItem(key, value); } catch { /* private mode */ } };
 let acgMapStyle = ACG_MAP_STYLES[acgStoredSetting("orbital-study-map-style", "relief")] ? acgStoredSetting("orbital-study-map-style", "relief") : "relief";
 let acgShowCities = acgStoredSetting("orbital-study-map-cities", "on") === "on";
 
@@ -231,7 +259,9 @@ function acgCityLabels(view, screen, blocked) {
 
 // `onViewportChange` fires after this map pans or zooms, so paired maps (Pair
 // Explorer) can follow along via their own refresh().
-function bindAcgMap(wrap, { onViewportChange } = {}) {
+// `onMapClick({lat, lon})` fires for a click that didn't pan the map; `setPins` draws
+// numbered markers (saved locations) above it.
+function bindAcgMap(wrap, { onViewportChange, onMapClick } = {}) {
   const svg = wrap.querySelector(".acg-map");
   const labelGroup = wrap.querySelector("[data-acg-labels]");
   const originMarker = wrap.querySelector("[data-acg-origin]");
@@ -242,6 +272,7 @@ function bindAcgMap(wrap, { onViewportChange } = {}) {
   let labelFrame = 0;
   // Draggable Local Space origin: {lat, lon, onMove} while shown, null otherwise.
   let origin = null;
+  let pins = [];
   wrap.dataset.mapStyle = acgMapStyle;
   const tileGroup = svg.querySelector("[data-acg-tiles]");
   const tileNodes = new Map();
@@ -294,9 +325,24 @@ function bindAcgMap(wrap, { onViewportChange } = {}) {
       originMarker.setAttribute("visibility", "hidden");
     }
     updateTiles(view, screen);
+    // Roads by zoom (custom properties, since the roads are drawn through <use> copies).
+    const majorRoads = acgShowRoads && acgViewport.zoom >= ACG_ROADS_MAJOR_ZOOM;
+    wrap.style.setProperty("--acg-roads-major", majorRoads ? "visible" : "hidden");
+    wrap.style.setProperty("--acg-roads-minor", acgShowRoads && acgViewport.zoom >= ACG_ROADS_MINOR_ZOOM ? "visible" : "hidden");
+    if (majorRoads) acgLoadRoads();
+    // Saved-location pins, on whichever copy of the world is nearest the view centre.
+    let pinMarkup = "";
+    pins.forEach((pin) => {
+      const [x, y] = acgProject(pin.lon, pin.lat);
+      const tiledX = x + Math.round((acgViewport.cx - x) / W) * W;
+      const sx = ((tiledX - view.left) * screen.w) / view.vw, sy = ((y - view.top) * screen.h) / view.vh;
+      if (sx < -10 || sy < -10 || sx > screen.w + 10 || sy > screen.h + 10) return;
+      blocked.push({ x: sx - 9, y: sy - 9, w: 18, h: 18 });
+      pinMarkup += `<g class="acg-pin" transform="translate(${sx.toFixed(1)},${sy.toFixed(1)})"><circle r="8"/><text text-anchor="middle" dominant-baseline="central">${pin.label}</text></g>`;
+    });
     const placements = acgPlaceLabels(labelLines, view, screen, (text) => acgMeasureLabel(measureText, text), blocked);
     const cities = acgCityLabels(view, screen, [...blocked, ...placements.map((placement) => placement.box)]);
-    labelGroup.innerHTML = cities + acgLabelsMarkup(placements);
+    labelGroup.innerHTML = cities + acgLabelsMarkup(placements) + pinMarkup;
   };
   // Coalesces bursts (every pointermove while dragging) into one layout per frame.
   const scheduleLabels = () => {
@@ -344,9 +390,12 @@ function bindAcgMap(wrap, { onViewportChange } = {}) {
   );
 
   let drag = null;
+  // A press that moves less than a few pixels is a click (onMapClick), not a pan.
+  let press = null;
   svg.addEventListener("pointerdown", (event) => {
     if (event.button !== 0) return;
     drag = { x: event.clientX, y: event.clientY };
+    press = { x: event.clientX, y: event.clientY };
     svg.setPointerCapture(event.pointerId);
   });
   // Hover: the 4 lines nearest the point under the cursor (hidden while panning).
@@ -404,8 +453,18 @@ function bindAcgMap(wrap, { onViewportChange } = {}) {
   });
   const endDrag = () => {
     drag = null;
+    press = null;
   };
-  svg.addEventListener("pointerup", endDrag);
+  svg.addEventListener("pointerup", (event) => {
+    if (press && onMapClick && Math.hypot(event.clientX - press.x, event.clientY - press.y) < 5) {
+      const screen = size();
+      const rect = svg.getBoundingClientRect();
+      const view = currentView(screen);
+      const [lon, lat] = acgUnproject(view.left + ((event.clientX - rect.left) * view.vw) / screen.w, view.top + ((event.clientY - rect.top) * view.vh) / screen.h);
+      onMapClick({ lat, lon });
+    }
+    endDrag();
+  });
   svg.addEventListener("pointercancel", endDrag);
 
   // Dragging the origin marker (it sits above the map, so this never pans the map).
@@ -464,6 +523,20 @@ function bindAcgMap(wrap, { onViewportChange } = {}) {
     setOrigin(value) {
       origin = value;
       scheduleLabels();
+    },
+    setPins(value) {
+      pins = value;
+      scheduleLabels();
+    },
+    // Pans so this point is in the middle of the map, zooming in to at least continent
+    // level if needed (zoomed all the way out, the whole world height is on screen and
+    // the map couldn't center the point vertically).
+    centerOn({ lat, lon }) {
+      const [x, y] = acgProject(lon, lat);
+      acgViewport.zoom = Math.max(acgViewport.zoom, 3);
+      acgViewport.cx = x;
+      acgViewport.cy = y;
+      apply();
     },
     viewCenter() {
       const [lon, lat] = acgUnproject(acgViewport.cx, acgViewport.cy);
@@ -1031,6 +1104,7 @@ function syncAcgFilterInputs(root = document) {
   root.querySelectorAll("[data-acg-line]").forEach((input) => { input.checked = acgFilters.lines.has(input.dataset.acgLine); });
   root.querySelectorAll("[data-acg-style]").forEach((input) => { input.checked = input.dataset.acgStyle === acgMapStyle; });
   root.querySelectorAll("[data-acg-cities]").forEach((input) => { input.checked = acgShowCities; });
+  root.querySelectorAll("[data-acg-roads]").forEach((input) => { input.checked = acgShowRoads; });
   root.querySelectorAll("[data-acg-group]").forEach((input) => {
     const [kind, group] = input.dataset.acgGroup.split(":");
     const members = acgFilterMembers(kind, group);
@@ -1042,7 +1116,13 @@ function syncAcgFilterInputs(root = document) {
 // Applies a planet / line / section checkbox change and re-syncs every ACG filter panel
 // on the page (they share acgFilters). Returns false for anything else.
 function applyAcgFilterChange(input) {
-  const { acgBody, acgLine, acgGroup, acgStyle, acgCities } = input.dataset;
+  const { acgBody, acgLine, acgGroup, acgStyle, acgCities, acgRoads } = input.dataset;
+  if (acgRoads != null) {
+    acgShowRoads = input.checked;
+    acgStoreSetting("orbital-study-map-roads", acgShowRoads ? "on" : "off");
+    syncAcgFilterInputs(document);
+    return true;
+  }
   if (acgStyle) {
     acgMapStyle = acgStyle;
     acgStoreSetting("orbital-study-map-style", acgStyle);
@@ -1097,6 +1177,7 @@ function acgFiltersMarkup() {
     <div class="acg-filter-group">
       ${Object.entries(ACG_MAP_STYLES).map(([key, style]) => `<label class="acg-filter"><input type="radio" name="acg-map-style" data-acg-style="${key}" ${acgMapStyle === key ? "checked" : ""}><span>${style.label}</span></label>`).join("")}
       <label class="acg-filter"><input type="checkbox" data-acg-cities ${acgShowCities ? "checked" : ""}><span>City names</span></label>
+      <label class="acg-filter"><input type="checkbox" data-acg-roads ${acgShowRoads ? "checked" : ""}><span>Main roads</span></label>
     </div>`;
 }
 
@@ -1135,6 +1216,64 @@ let acgActiveView = SYSTEM_TABS.Astrocartography[0];
 // Used by both the Chart/Timeline explorer (via renderSystemPanel) and the Cycle
 // Explorer; keeps its own view state rather than touching activeSystemTab, which
 // Human Design and Gene Keys share.
+// ── Saved locations ─────────────────────────────────────────────────────
+// Clicking the Chart Explorer's map saves that spot with the chart (chart.acgLocations,
+// up to ACG_MAX_LOCATIONS). The section under the map lists them — the same for ACG
+// Travel and ACG Local Space, so one place can be compared in both — each with its
+// coordinates, the nearest place in the gazetteer, and the tooltip's readings for the
+// lines shown: in Travel, the nearest intersections and lines (and any zenith zone it's
+// in); in Local Space, the nearest lines and a button to center the map on it.
+const ACG_MAX_LOCATIONS = 20;
+const ACG_LOCATION_ROWS = 3;
+// The place to name a spot by: the most populous place within ACG_CITY_RADIUS_KM (so a
+// spot in a city reads as the city, not the district it's in), else simply the nearest.
+const ACG_CITY_RADIUS_KM = 30;
+function acgNearestPlace(lat, lon) {
+  if (typeof placeIndex === "undefined" || !placeIndex) {
+    if (typeof loadPlaces === "function") loadPlaces();
+    return null;
+  }
+  const point = acgUnitVector(lon, lat);
+  let nearest = null, nearestKm = Infinity, largest = null, largestKm = 0;
+  // placeIndex is most populous first, so the first place within the radius is the largest.
+  for (const place of placeIndex) {
+    const km = acgAngle(point, acgUnitVector(Number(place.lon), Number(place.lat))) * ACG_EARTH_RADIUS_KM;
+    if (!largest && km <= ACG_CITY_RADIUS_KM) { largest = place; largestKm = km; }
+    if (km < nearestKm) { nearestKm = km; nearest = place; }
+  }
+  if (largest) return { place: largest, km: largestKm };
+  return nearest && { place: nearest, km: nearestKm };
+}
+function acgKm(value) {
+  return `${value < 10 ? value.toFixed(1) : Math.round(value).toLocaleString("en-US")} km`;
+}
+function acgLocationsMarkup(locations, lines, travel, intersections) {
+  if (!locations.length) {
+    return `<p class="acg-locations-empty">Click anywhere on the map to save that spot here, with its nearest place, lines${travel ? " and intersections" : ""}. Saved spots stay with this chart, in both map views.</p>`;
+  }
+  const row = (color, text) => `<li><span style="color:${color}">–</span> ${text}</li>`;
+  return `<ol class="acg-location-list">${locations.map((location, index) => {
+    const nearest = acgNearestPlace(location.lat, location.lon);
+    const city = nearest ? `${escapeHtml(placeLabel(nearest.place))} · ${acgKm(nearest.km)}` : "Finding the nearest place…";
+    const nearestLines = lines.length ? acgNearestLines(lines, location.lat, location.lon, ACG_LOCATION_ROWS) : [];
+    const block = (title, items) => `<div class="acg-location-block"><span class="acg-location-subhead">${title}</span><ul>${items || "<li>None among the shown lines</li>"}</ul></div>`;
+    const zones = travel ? acgZenithZonesAt(lines, location.lat, location.lon) : [];
+    return `<li class="acg-location" data-acg-location="${index}">
+      <div class="acg-location-head">
+        <span class="acg-location-number">${index + 1}</span>
+        <div><strong>${acgCoordinate(location.lat, "N", "S")}, ${acgCoordinate(location.lon, "E", "W")}</strong><small>${city}</small></div>
+        ${travel ? "" : `<button type="button" class="acg-origin-button" data-acg-location-center="${index}">Center map</button>`}
+        <button type="button" class="acg-location-remove" data-acg-location-remove="${index}" aria-label="Remove location ${index + 1}" title="Remove">×</button>
+      </div>
+      <div class="acg-location-body">
+        ${travel ? block("Nearest intersections", acgNearestIntersections(intersections, location.lat, location.lon, ACG_LOCATION_ROWS).map(({ crossing, km }) => `<li><span style="color:${crossing.a.color}">–</span><span style="color:${crossing.b.color}">–</span> ${crossing.a.hoverName} × ${crossing.b.hoverName} (${acgKm(km)})</li>`).join("")) : ""}
+        ${block("Nearest lines", nearestLines.map(({ line, km }) => row(line.color, `${line.hoverName} (${acgKm(km)})`)).join(""))}
+        ${zones.length ? block("Zenith zones", zones.map(({ line, km }) => row(line.color, `${escapeHtml(line.zenith.name)} zenith (${acgKm(km)} from centre)`)).join("")) : ""}
+      </div>
+    </li>`;
+  }).join("")}</ol>`;
+}
+
 function renderAstrocartographyPanel(container, chart) {
   const views = SYSTEM_TABS.Astrocartography;
   if (!views.includes(acgActiveView)) acgActiveView = views[0];
@@ -1152,6 +1291,7 @@ function renderAstrocartographyPanel(container, chart) {
         </div>
         <div class="acg-filters" data-acg-filters>${acgFiltersMarkup()}</div>
         <aside class="system-info" data-acg-info></aside>
+        ${chart ? `<section class="acg-locations" aria-label="Saved locations"><div class="system-toolbar"><span class="eyebrow">SAVED LOCATIONS</span><span class="sample-badge" data-acg-locations-count></span></div><div data-acg-locations></div></section>` : ""}
       </div>
     </div>`;
   let offsetMinutes = 0;
@@ -1197,7 +1337,46 @@ function renderAstrocartographyPanel(container, chart) {
     map.setOrigin(travel || !origin ? null : { ...origin, onMove: setOrigin });
     const originText = travel || !origin ? "" : `${acgCoordinate(origin.lat, "N", "S")}, ${acgCoordinate(origin.lon, "E", "W")}${moved ? ` (moved, ${acgLocalSpaceDirections} directions)` : ""}`;
     container.querySelector("[data-acg-info]").innerHTML = acgInfoMarkup(chart, acgActiveView, `${visible.length} / ${lines.length} shown`, originText);
+    showLocations(visible, travel);
   };
+  // Saved locations: re-rendered with the lines (view, filters, timeline, origin).
+  const locationsList = container.querySelector("[data-acg-locations]");
+  let locationsState = { visible: [], travel: true };
+  const showLocations = (visible = locationsState.visible, travel = locationsState.travel) => {
+    if (!chart || !locationsList) return;
+    locationsState = { visible, travel };
+    const locations = chart.acgLocations || [];
+    const intersections = travel && locations.length ? acgLineIntersections(visible) : [];
+    locationsList.innerHTML = acgLocationsMarkup(locations, visible, travel, intersections);
+    container.querySelector("[data-acg-locations-count]").textContent = locations.length ? `${locations.length} / ${ACG_MAX_LOCATIONS}` : "";
+    map.setPins(locations.map((location, index) => ({ ...location, label: index + 1 })));
+  };
+  const addLocation = ({ lat, lon }) => {
+    if (!chart) return;
+    chart.acgLocations = chart.acgLocations || [];
+    if (chart.acgLocations.length >= ACG_MAX_LOCATIONS) {
+      if (typeof showToast === "function") showToast(`Up to ${ACG_MAX_LOCATIONS} saved locations per chart — remove one to add another`);
+      return;
+    }
+    const wrapped = ((((lon + 180) % 360) + 360) % 360) - 180;
+    chart.acgLocations.push({ lat: Number(lat.toFixed(4)), lon: Number(wrapped.toFixed(4)) });
+    acgSaveSoon();
+    showLocations();
+  };
+  locationsList?.addEventListener("click", (event) => {
+    const remove = event.target.closest("[data-acg-location-remove]");
+    const center = event.target.closest("[data-acg-location-center]");
+    if (remove) {
+      chart.acgLocations.splice(Number(remove.dataset.acgLocationRemove), 1);
+      if (!chart.acgLocations.length) delete chart.acgLocations;
+      acgSaveSoon();
+      showLocations();
+    } else if (center) {
+      map.centerOn(chart.acgLocations[Number(center.dataset.acgLocationCenter)]);
+    }
+  });
+  // The nearest-place names arrive with places.js.
+  window.addEventListener("orbital-places-loaded", () => { if (locationsList?.isConnected) showLocations(); });
   container.querySelectorAll("[data-acg-view]").forEach((button) =>
     button.addEventListener("click", () => {
       acgActiveView = button.dataset.acgView;
@@ -1214,7 +1393,7 @@ function renderAstrocartographyPanel(container, chart) {
     if (applyAcgFilterChange(event.target)) showView();
   });
   syncAcgFilterInputs(container.querySelector("[data-acg-filters]"));
-  const map = bindAcgMap(container.querySelector(".acg-map-wrap"));
+  const map = bindAcgMap(container.querySelector(".acg-map-wrap"), { onMapClick: chart ? addLocation : null });
   container.querySelector("[data-acg-origin-center]").addEventListener("click", () => setOrigin(map.viewCenter()));
   container.querySelector("[data-acg-origin-reset]").addEventListener("click", () => setOrigin(null));
   const timelineContainer = container.querySelector(".acg-visual .timeline-control");

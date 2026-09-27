@@ -123,3 +123,27 @@ body:not(.developer-mode) #ephemerisDebugBar,body:not(.developer-mode) #mandalaH
 .acg-map-wrap[data-map-style=relief]{--acg-land-fill:none;--acg-lake-fill:none;--acg-border-color:#3d3a33;--acg-border-opacity:.45;--acg-state-opacity:.3}
 .acg-city circle{fill:var(--ink);stroke:var(--acg-land);stroke-width:1.2}
 .acg-city text{font:600 10px Manrope,sans-serif;fill:var(--ink);paint-order:stroke;stroke:var(--acg-land);stroke-width:3px;stroke-linejoin:round}
+/* Astrocartography: main roads and saved locations */
+.acg-road{fill:none;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}
+.acg-road.major{visibility:var(--acg-roads-major,hidden);stroke:#a4552f;stroke-width:1.1;stroke-opacity:.65}
+.acg-road.minor{visibility:var(--acg-roads-minor,hidden);stroke:#a4552f;stroke-width:.7;stroke-opacity:.5}
+.acg-pin circle{fill:var(--ink);stroke:var(--acg-land);stroke-width:2}
+.acg-pin text{fill:var(--paper);font:700 9px 'DM Mono',monospace}
+/* Map (with timeline) and saved locations stacked on the left; filters and info span both rows. */
+.acg-layout>.acg-visual{grid-column:1;grid-row:1}.acg-layout>.acg-filters{grid-column:2;grid-row:1 / span 2;align-self:start}.acg-layout>[data-acg-info]{grid-column:3;grid-row:1 / span 2;align-self:start}
+.acg-locations{grid-column:1;grid-row:2;border:1px solid var(--line);background:var(--panel);box-shadow:var(--shadow);padding:0 0 6px;align-self:start}
+.acg-locations>.system-toolbar{padding:14px 18px 10px}
+.acg-locations-empty{margin:0;padding:4px 18px 12px;font-size:12px;color:var(--muted)}
+.acg-location-list{list-style:none;margin:0;padding:0}
+.acg-location{border-top:1px solid var(--line);padding:12px 18px}
+.acg-location-head{display:flex;align-items:center;gap:10px}
+.acg-location-head>div{flex:1;min-width:0;display:grid;gap:2px}
+.acg-location-head strong{font:600 12px 'DM Mono',monospace}
+.acg-location-head small{font-size:12px;color:var(--muted)}
+.acg-location-number{flex:none;width:20px;height:20px;border-radius:50%;background:var(--ink);color:var(--paper);display:grid;place-items:center;font:700 10px 'DM Mono',monospace}
+.acg-location-remove{flex:none;border:0;background:transparent;color:var(--muted);font-size:18px;line-height:1;padding:2px 6px;cursor:pointer}
+.acg-location-remove:hover{color:var(--accent)}
+.acg-location-body{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px 18px;margin:10px 0 0 30px}
+.acg-location-subhead{font:10px 'DM Mono',monospace;color:var(--muted);letter-spacing:.6px;text-transform:uppercase}
+.acg-location-block ul{list-style:none;margin:4px 0 0;padding:0;font:11px 'DM Mono',monospace;line-height:1.7}
+.acg-location-block li span{font-weight:700}

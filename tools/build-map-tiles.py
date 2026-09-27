@@ -11,9 +11,9 @@ row is interpolated from the source rows at its latitude), then cut into a pyram
 256-pixel WebP tiles, tiles/<style>/<z>/<x>/<y>.webp, where level z is 256·2^z pixels
 wide. Requires Pillow and NumPy.
 
-The app's "relief" tiles: Natural Earth II with Shaded Relief and Water, 1:50m
-(public domain), https://naciscdn.org/naturalearth/50m/raster/NE2_50M_SR_W.zip —
-    python3 tools/build-map-tiles.py NE2_50M_SR_W/NE2_50M_SR_W.tif relief 5 72
+The app's "relief" tiles: Natural Earth II with Shaded Relief, Water and Drainages,
+1:10m (public domain), https://naciscdn.org/naturalearth/10m/raster/NE2_HR_LC_SR_W.zip —
+    python3 tools/build-map-tiles.py NE2_HR_LC_SR_W/NE2_HR_LC_SR_W.tif relief 6 72
 """
 import math, os, sys
 import numpy as np

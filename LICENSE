@@ -22,10 +22,12 @@ own licenses; the notice above does not apply to them.
   MIT License; the full text is at the top of the file.
   https://github.com/cosinekitty/astronomy
 
-- world-map.js — the Astrocartography base map, from Natural Earth data (public
-  domain): 1:110m land and lakes, 1:50m state/province lines.
-  tiles/relief/ — the map's relief imagery, from Natural Earth II with Shaded Relief
-  and Water, 1:50m (public domain), reprojected and tiled (tools/build-map-tiles.py). https://www.naturalearthdata.com
+- Astrocartography map data, all from Natural Earth (public domain),
+  https://www.naturalearthdata.com:
+  world-map.js — 1:110m land and lakes, 1:50m state/province lines;
+  roads.js — 1:10m main roads;
+  tiles/relief/ — Natural Earth II with Shaded Relief, Water and Drainages, 1:10m,
+  reprojected and tiled (tools/build-map-tiles.py).
 
 - places.js — place names, coordinates and time zones from GeoNames
   (https://www.geonames.org), licensed under the Creative Commons Attribution 4.0
