@@ -52,9 +52,14 @@ function aspectIntensity(orb, maxOrb) {
   return orb <= maxOrb * 0.6 ? 'normal' : 'weak';
 }
 
-const NON_ASPECT_BODIES = ['Earth', 'Lilith', 'Chiron', 'Vertex', 'Fortuna'];
-// Within one chart the Nodes are always exactly opposite each other — an axis, not an aspect.
-const isNodalAxis = (first, second) => [first.name, second.name].sort().join('|') === 'North Node|South Node';
+// The South Node is always exactly opposite the North Node, so its aspects only repeat
+// the North Node's (and crowd the lists); it's left out of aspects altogether.
+const NON_ASPECT_BODIES = ['Earth', 'Lilith', 'Chiron', 'Vertex', 'Fortuna', 'South Node'];
+// Aspects to the angles are listed, but not drawn as lines across the wheel.
+const UNDRAWN_ASPECT_BODIES = new Set(['Ascendant', 'Midheaven']);
+function aspectDrawnOnWheel(aspect) {
+  return !UNDRAWN_ASPECT_BODIES.has(aspect.first) && !UNDRAWN_ASPECT_BODIES.has(aspect.second);
+}
 function aspectBodies(positions) {
   return positions.filter(position => typeof position.angle === 'number' || position.sign).filter(position => NON_ASPECT_BODIES.indexOf(position.name) === -1);
 }
@@ -78,7 +83,6 @@ function calculateAspects(chart, visible = aspectVisible) {
   const positions = aspectBodies(chart.positions);
   const aspects = [];
   positions.forEach((first, firstIndex) => positions.slice(firstIndex + 1).forEach(second => {
-    if (isNodalAxis(first, second)) return;
     aspects.push(...aspectsBetween(first, second, visible));
   }));
   return aspects.sort((first, second) => first.orb - second.orb);
@@ -92,6 +96,106 @@ function calculateCrossAspects(positionsA, positionsB, visible = aspectVisible) 
     .sort((first, second) => first.orb - second.orb);
 }
 
+// ── Aspect tooltips (the Overview aspect lists) ───────────────────────────
+// Hovering or focusing an aspect row explains it: what the aspect does, and how it
+// joins the two bodies' themes. Built from the row's data-aspect-* attributes.
+const ASPECT_MEANINGS = {
+  Conjunction: { nature: 'Fusion', text: 'The two bodies sit together and act as one, each intensifying the other, for better or worse.', join: 'are fused, acting as one force' },
+  Opposition: { nature: 'Tension · polarity', text: 'The two bodies face each other across the zodiac: a pull between opposite needs that asks for balance, often met through other people.', join: 'pull in opposite directions, asking to be balanced' },
+  Square: { nature: 'Tension · friction', text: 'The two bodies are at cross purposes. The friction is uncomfortable, but it drives effort, action and growth.', join: 'clash and create friction that pushes for change' },
+  Trine: { nature: 'Harmony · flow', text: 'The two bodies share an element and work together easily: a natural gift, though one that can be taken for granted.', join: 'flow easily together, a natural talent' },
+  Sextile: { nature: 'Harmony · opportunity', text: 'The two bodies are compatible and support each other when you make the effort: an opportunity rather than a given.', join: 'cooperate and open opportunities when used' },
+  Quincunx: { nature: 'Adjustment', text: 'The two bodies have nothing in common (different element and mode), so they need constant small adjustments to get along.', join: 'misunderstand each other and need ongoing adjustment' },
+  Semisextile: { nature: 'Minor · subtle link', text: 'Neighbouring signs: a subtle link with mild friction that helps each body grow from the other.', join: 'are subtly linked, learning from each other' },
+  Semisquare: { nature: 'Minor · irritation', text: 'Half a square: small, nagging irritations that prompt action.', join: 'rub against each other in small, irritating ways' },
+  Sesquiquadrate: { nature: 'Minor · agitation', text: 'A square and a half: an underlying restlessness that flares up from time to time.', join: 'create an underlying agitation that flares now and then' },
+  Quintile: { nature: 'Minor · creativity', text: 'A fifth of the circle: a creative, distinctive talent that combines the two bodies in an individual way.', join: 'combine creatively, as a distinctive talent or style' },
+};
+const ASPECT_BODY_THEMES = {
+  Sun: 'identity and purpose',
+  Moon: 'emotions and needs',
+  Mercury: 'thinking and communication',
+  Venus: 'love, values and pleasure',
+  Mars: 'drive and assertion',
+  Jupiter: 'growth and optimism',
+  Saturn: 'discipline and limits',
+  Uranus: 'freedom and change',
+  Neptune: 'imagination and ideals',
+  Pluto: 'power and transformation',
+  'North Node': 'direction of growth',
+  'South Node': 'familiar patterns',
+  Ascendant: 'self-image and approach to life',
+  Midheaven: 'vocation and public role',
+  Chiron: 'wounds and healing',
+  Lilith: 'raw, untamed instinct',
+};
+function aspectRowAttributes(aspect, ownerFirst = '', ownerSecond = '') {
+  const attribute = value => escapeHtml(String(value));
+  return `tabindex="0" data-aspect-tip data-aspect-name="${attribute(aspect.name)}" data-aspect-first="${attribute(aspect.first)}" data-aspect-second="${attribute(aspect.second)}" data-aspect-orb="${aspect.orb}" data-aspect-max-orb="${aspect.maxOrb}"${ownerFirst ? ` data-aspect-owner-first="${attribute(ownerFirst)}" data-aspect-owner-second="${attribute(ownerSecond)}"` : ''}`;
+}
+function aspectTooltipHtml(row) {
+  const { aspectName: name, aspectFirst: first, aspectSecond: second, aspectOwnerFirst: ownerFirst, aspectOwnerSecond: ownerSecond } = row.dataset;
+  const definition = ASPECT_DEFINITIONS.find(item => item.name === name);
+  const meaning = ASPECT_MEANINGS[name];
+  if (!definition || !meaning) return '';
+  const orb = Number(row.dataset.aspectOrb), maxOrb = Number(row.dataset.aspectMaxOrb);
+  const who = (owner, body) => `${owner ? `${escapeHtml(owner)}'s ` : ''}${ASPECT_BODY_THEMES[body] || escapeHtml(body)} (${escapeHtml(body)})`;
+  const sentence = `${who(ownerFirst, first)} and ${who(ownerSecond, second)} ${meaning.join}.`;
+  const strength = orb <= 1 ? 'Exact: felt very strongly.' : orb <= 2 ? 'Very close: strongly felt.' : orb <= maxOrb * 0.6 ? 'Moderate orb: clearly felt.' : 'Wide orb: a milder, background influence.';
+  const between = ownerFirst && ownerFirst !== ownerSecond
+    ? '<div class="gk-tip-text">Between two charts (synastry), it describes how these two parts of the people meet in the relationship.</div>' : '';
+  return `<div class="gk-tip-title">${escapeHtml(first)} <span style="color:${ASPECT_COLORS[name] || 'inherit'}">${definition.glyph}</span> ${escapeHtml(name.toLowerCase())} ${escapeHtml(second)} · ${meaning.nature}</div>
+    <div class="gk-tip-text">${definition.angle}°: ${meaning.text}</div>
+    <div class="gk-tip-title">Here</div><div class="gk-tip-text">${sentence.charAt(0).toUpperCase()}${sentence.slice(1)}</div>${between}
+    <div class="gk-tip-title">Orb ${orb.toFixed(1)}° of ${maxOrb}°</div><div class="gk-tip-text">${strength}</div>`;
+}
+(() => {
+  let tooltip = null, current = null;
+  const place = (x, y) => {
+    const left = x + 14 + tooltip.offsetWidth > window.innerWidth ? x - 14 - tooltip.offsetWidth : x + 14;
+    const top = y + 14 + tooltip.offsetHeight > window.innerHeight ? y - 14 - tooltip.offsetHeight : y + 14;
+    tooltip.style.left = `${Math.max(8, left)}px`;
+    tooltip.style.top = `${Math.max(8, top)}px`;
+  };
+  const show = (row, x, y) => {
+    if (!tooltip) {
+      tooltip = document.createElement('div');
+      tooltip.id = 'aspectTooltip';
+      tooltip.className = 'wheel-tooltip gk-tooltip';
+      tooltip.setAttribute('role', 'tooltip');
+      document.body.appendChild(tooltip);
+    }
+    if (current !== row) {
+      current?.removeAttribute('aria-describedby');
+      current = row;
+      tooltip.innerHTML = aspectTooltipHtml(row);
+      row.setAttribute('aria-describedby', tooltip.id);
+    }
+    tooltip.hidden = false;
+    place(x, y);
+  };
+  const hide = () => {
+    current?.removeAttribute('aria-describedby');
+    current = null;
+    if (tooltip) tooltip.hidden = true;
+  };
+  document.addEventListener('mousemove', event => {
+    const row = event.target.closest?.('[data-aspect-tip]');
+    if (row) show(row, event.clientX, event.clientY);
+    else if (current && document.activeElement !== current) hide();
+  });
+  document.addEventListener('focusin', event => {
+    const row = event.target.closest?.('[data-aspect-tip]');
+    if (!row) return;
+    const box = row.getBoundingClientRect();
+    show(row, box.left + 24, box.bottom - 6);
+  });
+  document.addEventListener('focusout', event => { if (event.target === current) hide(); });
+  document.addEventListener('keydown', event => { if (event.key === 'Escape' && current && document.activeElement === current) hide(); });
+  // A list re-rendered under the tooltip (timeline, filters) takes its row away.
+  new MutationObserver(() => { if (current && !current.isConnected) hide(); }).observe(document.body, { childList: true, subtree: true });
+})();
+
 function renderCalculatedAspects(offsetMinutes = window.timelineOffsetMinutes || 0) {
   // The chart the explorer is showing: the library chart, or the current sky in the Timeline Explorer.
   const chart = currentExplorerChart();
@@ -101,7 +205,7 @@ function renderCalculatedAspects(offsetMinutes = window.timelineOffsetMinutes ||
     return {...position, angle: positionAngleAtTime(position, offsetMinutes)};
   })};
   const aspects = calculateAspects(transientChart).slice(0, 18);
-  list.innerHTML = aspects.length ? aspects.map(aspect => `<div class="aspect-row"><span><b class="aspect-glyph" style="color:${aspect.color}">${aspect.glyph}</b>${aspect.first} ${aspect.name.toLowerCase()} ${aspect.second}</span><span>${aspect.orb.toFixed(1)}° orb</span></div>`).join('') : '<div class="aspect-empty">No aspects in this filter.</div>';
+  list.innerHTML = aspects.length ? aspects.map(aspect => `<div class="aspect-row" ${aspectRowAttributes(aspect)}><span><b class="aspect-glyph" style="color:${aspect.color}">${aspect.glyph}</b>${aspect.first} ${aspect.name.toLowerCase()} ${aspect.second}</span><span>${aspect.orb.toFixed(1)}° orb</span></div>`).join('') : '<div class="aspect-empty">No aspects in this filter.</div>';
   if (chartViewMode !== 'wheel') renderAspectGrid(transientChart);
 }
 

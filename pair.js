@@ -339,7 +339,7 @@ function pairAspectListMarkup(people, aspects) {
   const [first, second = people[0]] = people;
   const name = (person, body) => `<i class="pair-aspect-name" style="color:${person.color}">${body}${people.length > 1 ? ` ${person.tag}` : ''}</i>`;
   return aspects.map((aspect) => `
-    <div class="aspect-row${aspect.intensity === 'exact' ? ' exact' : ''}">
+    <div class="aspect-row${aspect.intensity === 'exact' ? ' exact' : ''}" ${aspectRowAttributes(aspect, people.length > 1 ? first.chart.name : '', people.length > 1 ? second.chart.name : '')}>
       <span><b class="aspect-glyph" style="color:${aspect.color}">${aspect.glyph}</b>${name(first, aspect.first)} ${aspect.name.toLowerCase()} ${name(second, aspect.second)}</span>
       <span>${aspect.orb.toFixed(1)}° orb</span>
     </div>`).join('');
@@ -385,14 +385,16 @@ function renderPairWheel(svg, people) {
     : calculateAspects({ positions: withLongitude(insidePositions) });
   const insideByName = new Map(insidePositions.map((position) => [position.name, position]));
   const outsideByName = outside ? new Map(outsidePositions.map((position) => [position.name, position])) : insideByName;
-  markup += wheelAspectLinesMarkup(cx, cy, aspectR, aspects, (aspect) => [insideByName.get(aspect.first).angle, outsideByName.get(aspect.second).angle]);
+  // Every aspect is returned for the lists, but only those between planets are drawn.
+  const drawn = aspects.filter(aspectDrawnOnWheel);
+  markup += wheelAspectLinesMarkup(cx, cy, aspectR, drawn, (aspect) => [insideByName.get(aspect.first).angle, outsideByName.get(aspect.second).angle]);
   insidePositions.forEach((position) => { markup += planetMarkerMarkup(cx, cy, insideOuter, position, insideRingWidth); });
   outsidePositions.forEach((position) => { markup += planetMarkerMarkup(cx, cy, zodiacInner, position, outsideRingWidth); });
   svg.innerHTML = markup;
   const byKey = new Map([...insidePositions, ...outsidePositions].map((position) => [position.key, position]));
   svg._wheelHover = {
     planet: (key) => byKey.has(key) && (() => pairPlanetTooltip(byKey.get(key), houseCusps, inside)),
-    aspect: (index) => aspects[index] && (() => pairAspectTooltip(aspects[index], insideByName.get(aspects[index].first), outsideByName.get(aspects[index].second), people.length > 1)),
+    aspect: (index) => drawn[index] && (() => pairAspectTooltip(drawn[index], insideByName.get(drawn[index].first), outsideByName.get(drawn[index].second), people.length > 1)),
   };
   bindWheelHover(svg).hidden = true;
   return aspects;

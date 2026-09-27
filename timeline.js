@@ -229,13 +229,13 @@ const WHEEL_FILTER_BODIES = [
   { key: 'Uranus', glyph: '♅', group: 'Primary' },
   { key: 'Neptune', glyph: '♆', group: 'Primary' },
   { key: 'Pluto', glyph: '♇', group: 'Primary' },
+  { key: 'Ascendant', glyph: 'Asc', group: 'Primary' },
+  { key: 'Midheaven', glyph: 'MC', group: 'Primary' },
   { key: 'Lunar Nodes', glyph: '☊', group: 'Secondary', members: ['North Node', 'South Node'] },
   { key: 'Chiron', glyph: '⚷', group: 'Secondary' },
   { key: 'Lilith', glyph: '⚸', group: 'Secondary' },
   { key: 'Fortuna', glyph: '⊗', group: 'Secondary' },
   { key: 'Vertex', glyph: 'Vx', group: 'Secondary' },
-  { key: 'Ascendant', glyph: 'Asc', group: 'Secondary' },
-  { key: 'Midheaven', glyph: 'MC', group: 'Secondary' },
   { key: 'Earth', glyph: '⊕', group: 'Secondary' },
 ];
 const wheelHiddenBodies = new Set(['Earth']);
@@ -461,7 +461,7 @@ function renderPreciseWheel(chart, offsetMinutes, targetId = 'chartWheel') {
   // would compute from the unrotated positions.
   if (typeof calculateAspects === 'function') {
     const angleByName = new Map(markerPositions.map(position => [position.name, position.angle]));
-    aspects = calculateAspects({positions: markerPositions});
+    aspects = calculateAspects({positions: markerPositions}).filter(aspectDrawnOnWheel);
     markup += wheelAspectLinesMarkup(cx, cy, aspectR, aspects, aspect => [angleByName.get(aspect.first), angleByName.get(aspect.second)]);
   }
   markerPositions.forEach(position => { markup += planetMarkerMarkup(cx, cy, inner, position, planetRingWidth); });
