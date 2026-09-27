@@ -1,3 +1,4 @@
+// Orbital Study — Copyright (c) 2026 Antonio Juarez (@antoniojl16). All rights reserved. See LICENSE.
 // Gene Keys reference text for the sphere tooltips (systems.js, geneKeysTooltipHtml).
 // The Shadow / Gift / Siddhi names are the Gene Keys' own; every description here is
 // an original short summary, not quoted from the Gene Keys books.

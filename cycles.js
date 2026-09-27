@@ -1,3 +1,4 @@
+// Orbital Study — Copyright (c) 2026 Antonio Juarez (@antoniojl16). All rights reserved. See LICENSE.
 const CYCLE_DEFINITIONS = [
   {key: 'saturn-return', label: 'Saturn Return', planet: 'Saturn', periodYears: 29.457, kind: 'return', description: 'Saturn completes its natal orbit and meets itself again — a marker of maturity and structural reckoning.'},
   {key: 'jupiter-return', label: 'Jupiter Return', planet: 'Jupiter', periodYears: 11.862, kind: 'return', description: 'Jupiter returns to its natal degree roughly every 12 years, opening a fresh cycle of growth and opportunity.'},

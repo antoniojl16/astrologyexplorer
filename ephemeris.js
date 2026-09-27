@@ -1,3 +1,4 @@
+// Orbital Study — Copyright (c) 2026 Antonio Juarez (@antoniojl16). All rights reserved. See LICENSE.
 // ── Real ephemeris (Astronomy Engine) ────────────────────────────────────
 // Two position-computation strategies live side by side in this app:
 //   - 'synthetic' (default): the existing seeded-random birth position plus

@@ -1,10 +1,11 @@
 <!doctype html>
+<!-- Orbital Study — Copyright (c) 2026 Antonio Juarez (@antoniojl16). All rights reserved. See LICENSE. -->
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f5f1e9">
-  <title>Astrology Explorer</title>
+  <title>Orbital Study</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
@@ -16,7 +17,7 @@
     <aside class="sidebar" aria-label="Main navigation">
       <div class="brand-lockup">
         <div class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></div>
-        <div><p class="eyebrow">ORBITAL STUDY</p><h1>Astrology<br>Explorer</h1></div>
+        <div><h1>Orbital<br>Study</h1></div>
       </div>
       <div class="workspace-switcher">
         <span class="nav-label">WORKSPACE</span>
@@ -34,6 +35,7 @@
         <button class="side-action" id="importButton"><span>↥</span>Import workspace</button>
         <button class="side-action" id="exportButton"><span>↧</span>Export workspace</button>
         <input type="file" id="importInput" accept="application/json" hidden>
+        <button class="side-action" id="aboutButton"><span>ⓘ</span>About</button>
         <button class="shortcuts-link" id="shortcutsButton"><span>?</span>Keyboard guide <kbd>?</kbd></button>
         <p class="storage-note"><span class="storage-indicator"></span>Saved locally in this browser</p>
       </div>
@@ -51,15 +53,15 @@
           <button class="primary-button" id="addChartButton"><span>＋</span> Add chart <kbd>N</kbd></button>
         </div>
         <div class="stats-row"><div class="stat-block"><span>ACTIVE CHARTS</span><strong id="activeChartStat">10</strong></div><div class="stat-block"><span>LAST UPDATED</span><strong id="updatedStat">Today</strong></div><div class="stat-block"><span>ZOdiac</span><strong>Tropical <i>·</i> Placidus</strong></div><div class="library-tools"><label class="search-field"><span>⌕</span><input id="searchInput" placeholder="Search names, tags, places…" aria-label="Search charts"></label><button class="filter-button" id="filterButton">☷ <span>Filter</span></button></div></div>
-        <div class="table-wrap"><table><thead><tr><th class="check-col"><input type="checkbox" id="selectAll" aria-label="Select all charts"></th><th>CHART</th><th>BIRTH DATA</th><th>LOCATION</th><th>KEY SIGNATURE</th><th>NOTES</th><th></th></tr></thead><tbody id="chartRows"></tbody></table><div class="empty-state" id="emptyState" hidden>No charts match this search.</div></div>
-        <div class="table-footer"><span id="tableSummary">Showing 10 charts</span><span class="table-hint"><kbd>J</kbd><kbd>K</kbd> navigate <span>·</span> <kbd>↵</kbd> open chart</span></div>
+        <div class="explorer-system-tabs library-system-tabs" role="tablist" aria-label="Library system"><button class="active" data-library-system="Astrology" role="tab">Astrology</button><button data-library-system="Human Design" role="tab">Human Design</button></div><div class="table-wrap"><table><thead><tr id="libraryHead"></tr></thead><tbody id="chartRows"></tbody></table><div class="empty-state" id="emptyState" hidden>No charts match this search.</div></div>
+        <div class="table-footer"><span id="tableSummary">Showing 10 charts</span><span class="table-hint"><kbd>↵</kbd> open chart</span></div>
       </section>
 
       <section class="view explorer-view" id="explorerView" hidden>
         <div class="explorer-head"><div><button class="back-link" data-view="library">← Back to library</button><p class="eyebrow accent-label">ASTROLOGY / INDIVIDUAL CHART</p><h2 id="explorerName">—</h2><p class="intro-copy" id="explorerMeta">—</p></div><div class="explorer-actions"><button class="secondary-button" id="editChartButton">Edit chart</button><button class="secondary-button" id="cycleButton">↻ Cycle chart</button><button class="primary-button" id="pairButton">＋ Pair chart</button></div></div>
         <div id="explorerBodyMount"><div id="explorerBody"><div class="explorer-system-tabs" role="tablist" aria-label="Chart system"><button class="active" data-explorer-system="Astrology" role="tab">Astrology</button><button data-explorer-system="Human Design" role="tab">Human Design</button><button data-explorer-system="Gene Keys" role="tab">Gene Keys</button><button data-explorer-system="Astrocartography" role="tab">Astrocartography</button></div><div id="chartSystemSurface"><div class="chart-layout with-filters"><div class="chart-panel"><div class="panel-toolbar"><div class="segmented"><button class="active">Wheel</button><button>Aspects</button></div><div class="chart-toolbar-right"><span class="zodiac-chip">♈ Tropical</span><span class="zodiac-chip">⌂ Placidus</span><label class="fix-zodiac-toggle"><input type="checkbox" id="fixZodiacToggleChart">Fix Zodiac</label></div></div><div class="chart-signature"><div class="signature-point"><span class="signature-label">SUN</span><span class="sign-glyph" id="sunGlyph"></span><div><h3 id="sunSign"></h3><p id="sunDegree"></p></div></div><div class="signature-point"><span class="signature-label">RISING</span><span class="sign-glyph" id="risingGlyph"></span><div><h3 id="risingSign"></h3><p id="risingDegree"></p></div></div></div><div class="wheel-stage"><svg id="chartWheel" viewBox="0 0 600 600" role="img" aria-label="Interactive astrology wheel"></svg></div><div class="timeline-control" data-astro-timeline></div></div>
           <div class="acg-filters wheel-filters" data-wheel-filters></div>
-          <aside class="detail-panel"><div class="detail-tabs"><button class="active">Overview</button><button>Placements</button><button>Notes</button></div><div class="detail-content"><div class="detail-section"><div class="section-heading"><span>ASPECTS</span><button class="text-button">View grid →</button></div><div class="aspect-list" id="aspectList"></div></div></div></aside></div></div></div>
+          <aside class="detail-panel"><div class="detail-tabs"><button class="active">Overview</button></div><div class="detail-content"><div class="detail-section"><div class="section-heading"><span>ASPECTS</span><button class="text-button">View grid →</button></div><div class="aspect-list" id="aspectList"></div></div></div></aside></div></div></div>
       </section>
 
       <section class="view cycle-view" id="cycleView" hidden><div class="page-intro"><div><p class="eyebrow accent-label">ASTROLOGY / CYCLE STUDY</p><h2>Cycle explorer</h2><p class="intro-copy">Join a chart with a well-known planetary cycle and study the moment without touching birth data.</p></div></div><div class="cycle-picker"><label>Chart<select id="cycleChartSelect"></select></label><div class="cycle-type-tabs" id="cycleTypeTabs"></div></div><div class="cycle-occurrence-row" id="cycleOccurrenceRow"></div><div class="cycle-signature" id="cycleSignature"></div><div class="explorer-system-tabs cycle-system-tabs" role="tablist" aria-label="Cycle system"><button class="active" data-cycle-system="Astrology" role="tab">Astrology</button><button data-cycle-system="Human Design" role="tab">Human Design</button><button data-cycle-system="Gene Keys" role="tab">Gene Keys</button><button data-cycle-system="Astrocartography" role="tab">Astrocartography</button></div><div id="cycleSystemSurface"></div></section>
@@ -71,11 +73,20 @@
 
   <dialog id="chartDialog"><form method="dialog" id="chartForm"><div class="dialog-head"><div><p class="eyebrow accent-label">NEW RECORD</p><h2>Add individual chart</h2></div><button class="close-button" value="cancel" aria-label="Close">×</button></div><p class="dialog-copy">Birth time may be uncertain. The chart will keep the margin alongside the record.</p><div class="form-grid"><label>Chart name<input name="name" required placeholder="e.g. Mira's chart"></label><label>Birth location<input name="location" required placeholder="e.g. Lisbon, Portugal"></label><label>Birth date<input name="date" required type="date"></label><label>Birth time<input name="time" type="time"></label><label>Timezone<select name="timezone" required></select></label><label>Latitude<input name="latitude" required type="number" step="0.0001" placeholder="38.7223"></label><label>Longitude<input name="longitude" required type="number" step="0.0001" placeholder="-9.1393"></label><label class="wide-field">Time uncertainty (minutes)<input name="uncertainty" type="number" min="0" value="0"><small>Leave at 0 for a known birth time.</small></label><label class="wide-field">Tags<input name="tags" placeholder="personal, creative, study"></label></div><div class="dialog-actions"><button class="secondary-button" value="cancel">Cancel</button><button class="primary-button" value="default">Create chart <span>→</span></button></div></form></dialog>
   <dialog id="workspaceDialog"><form method="dialog" id="workspaceForm"><div class="dialog-head"><div><p class="eyebrow accent-label">WORKSPACES</p><h2>Choose a workspace</h2></div><button class="close-button" value="cancel">×</button></div><div id="workspaceList" class="workspace-list"></div><div class="dialog-actions"><button class="secondary-button" id="newWorkspaceButton" type="button">＋ New workspace</button><button class="primary-button" value="cancel">Done</button></div></form></dialog>
-  <dialog id="shortcutsDialog"><div class="dialog-head"><div><p class="eyebrow accent-label">QUICK REFERENCE</p><h2>Keyboard guide</h2></div><button class="close-button" id="closeShortcuts" aria-label="Close">×</button></div><div class="shortcut-list"><div><kbd>?</kbd><span>Open this guide</span></div><div><kbd>N</kbd><span>Add a new chart</span></div><div><kbd>J</kbd> <kbd>K</kbd><span>Move through the library</span></div><div><kbd>↵</kbd><span>Open selected chart</span></div><div><kbd>Esc</kbd><span>Close any dialog</span></div></div></dialog>
+  <dialog id="aboutDialog" class="about-dialog"><div class="dialog-head"><div><p class="eyebrow accent-label">ABOUT</p><h2>Orbital Study</h2></div><button class="close-button" id="closeAbout" aria-label="Close">×</button></div><div class="about-body">
+<p class="about-lead">A workspace for studying birth charts through four lenses — Astrology, Human Design, Gene Keys and Astrocartography — on their own, over time, between two people and across life cycles.</p>
+<div class="about-section"><span class="eyebrow">CREATED BY</span><p><strong>Antonio Juarez</strong> <span class="muted-text">(@antoniojl16)</span></p><p class="about-links"><a href="https://github.com/antoniojl16" target="_blank" rel="noopener">GitHub · antoniojl16</a><a href="https://www.facebook.com/antoniojl16/" target="_blank" rel="noopener">Facebook · antoniojl16</a></p><p class="about-fine">© 2026 Antonio Juarez. All rights reserved.</p></div>
+<div class="about-section"><span class="eyebrow">YOUR DATA</span><p>Charts are stored only in this browser, on this device; nothing is sent to a server. Use <em>Export workspace</em> to keep a backup or move your charts elsewhere.</p></div>
+<div class="about-section"><span class="eyebrow">ACCURACY</span><p>Positions come from Astronomy Engine. Checked against the Swiss Ephemeris, the Sun, Moon and planets agree to within about 20 seconds of arc (0.005°), the lunar nodes and mean Lilith to within half a minute, and cycle dates to within hours. Chiron is not yet computed from an ephemeris and is approximate.</p></div>
+<div class="about-section"><span class="eyebrow">BUILT WITH</span><ul class="about-credits"><li><a href="https://github.com/cosinekitty/astronomy" target="_blank" rel="noopener">Astronomy Engine</a> — © Don Cross, MIT License</li><li><a href="https://github.com/topojson/world-atlas" target="_blank" rel="noopener">world-atlas</a> — © Michael Bostock, ISC License · map data from <a href="https://www.naturalearthdata.com" target="_blank" rel="noopener">Natural Earth</a> (public domain)</li><li>DM Mono, Manrope and Playfair Display fonts via Google Fonts — SIL Open Font License</li></ul></div>
+<div class="about-section"><span class="eyebrow">NOTICES</span><p>“Human Design” and the Rave Mandala, and “Gene Keys”, are trademarks of their respective owners (Jovian Archive and Gene Keys Publishing). Orbital Study is an independent project, not affiliated with or endorsed by them. Descriptions in the app are original summaries.</p><p>Orbital Study is for study and self-reflection; it isn’t a substitute for professional advice.</p></div>
+</div></dialog>
+  <dialog id="shortcutsDialog"><div class="dialog-head"><div><p class="eyebrow accent-label">QUICK REFERENCE</p><h2>Keyboard guide</h2></div><button class="close-button" id="closeShortcuts" aria-label="Close">×</button></div><div class="shortcut-list shortcut-columns"><div class="shortcut-group"><p class="shortcut-section">General</p><div><span class="shortcut-keys"><kbd>?</kbd></span><span>Open this guide</span></div><div><span class="shortcut-keys"><kbd>Esc</kbd></span><span>Close any dialog</span></div></div><div class="shortcut-group"><p class="shortcut-section">Library</p><div><span class="shortcut-keys"><kbd>N</kbd></span><span>Add a new chart</span></div><div><span class="shortcut-keys"><kbd>↵</kbd></span><span>Open selected chart</span></div></div><div class="shortcut-group"><p class="shortcut-section">Explorers <small>Ctrl, or Alt / Option</small></p><div><span class="shortcut-keys"><kbd>Ctrl</kbd> <kbd>L</kbd></span><span>Library</span></div><div><span class="shortcut-keys"><kbd>Ctrl</kbd> <kbd>I</kbd></span><span>Chart explorer</span></div><div><span class="shortcut-keys"><kbd>Ctrl</kbd> <kbd>P</kbd></span><span>Pair explorer</span></div><div><span class="shortcut-keys"><kbd>Ctrl</kbd> <kbd>T</kbd></span><span>Timeline explorer</span></div><div><span class="shortcut-keys"><kbd>Ctrl</kbd> <kbd>C</kbd></span><span>Cycle explorer</span></div></div><div class="shortcut-group"><p class="shortcut-section">Systems <small>Ctrl, or Alt / Option</small></p><div><span class="shortcut-keys"><kbd>Ctrl</kbd> <kbd>A</kbd></span><span>Astrology</span></div><div><span class="shortcut-keys"><kbd>Ctrl</kbd> <kbd>H</kbd></span><span>Human Design</span></div><div><span class="shortcut-keys"><kbd>Ctrl</kbd> <kbd>G</kbd></span><span>Gene Keys</span></div><div><span class="shortcut-keys"><kbd>Ctrl</kbd> <kbd>Y</kbd></span><span>Astrocartography</span></div></div><div class="shortcut-group"><p class="shortcut-section">Chart views</p><div><span class="shortcut-keys"><kbd>E</kbd></span><span>Chart explorer: edit the chart</span></div><div><span class="shortcut-keys"><kbd>Z</kbd></span><span>Fix the zodiac on the astrology wheel</span></div><div><span class="shortcut-keys"><kbd>0</kbd></span><span>Center the timeline slider</span></div><div><span class="shortcut-keys"><kbd>P</kbd></span><span>Human Design: Personality only (again: all)</span></div><div><span class="shortcut-keys"><kbd>D</kbd></span><span>Human Design: Design only (again: all)</span></div><div><span class="shortcut-keys"><kbd>X</kbd></span><span>Human Design: Incarnation Cross only (again: all)</span></div><div><span class="shortcut-keys"><kbd>M</kbd></span><span>Human Design: Mandala ↔ Bodygraph</span></div></div><div class="shortcut-group"><p class="shortcut-section">Pair &amp; cycle explorers</p><div><span class="shortcut-keys"><kbd>1</kbd></span><span>First chart (Chart A / Natal)</span></div><div><span class="shortcut-keys"><kbd>2</kbd></span><span>Second chart (Chart B / Cycle)</span></div><div><span class="shortcut-keys"><kbd>3</kbd></span><span>Both together (Synastry / Composite)</span></div><div><span class="shortcut-keys"><kbd>R</kbd></span><span>Pair: swap the two charts</span></div></div></div></dialog>
   <div class="toast" id="toast" role="status"></div>
   <script src="astronomy-engine.js"></script>
   <script src="ephemeris.js"></script>
   <script src="app.js"></script>
+  <script src="zodiac-data.js"></script>
   <script src="timeline.js"></script>
   <script src="human-design.js"></script>
   <script src="editing.js"></script>
@@ -83,10 +94,12 @@
   <script src="workspace-actions.js"></script>
   <script src="gene-keys-data.js"></script>
   <script src="systems.js"></script>
+  <script src="library.js"></script>
   <script src="world-countries.js"></script>
   <script src="astrocartography.js"></script>
   <script src="cycles.js"></script>
   <script src="pair.js"></script>
   <script src="router.js"></script>
+  <script src="shortcuts.js"></script>
 </body>
 </html>

@@ -1,0 +1,39 @@
+Orbital Study
+Copyright (c) 2026 Antonio Juarez (GitHub: @antoniojl16). All rights reserved.
+
+This software, its source code, design and accompanying text are proprietary.
+No permission is granted to copy, modify, merge, publish, distribute,
+sublicense or sell it, in whole or in part, without the prior written
+permission of the copyright holder.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHOR BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY ARISING FROM, OUT OF
+OR IN CONNECTION WITH THE SOFTWARE OR ITS USE.
+
+
+Third-party components
+----------------------
+The following are included in or used by this project and remain under their
+own licenses; the notice above does not apply to them.
+
+- astronomy-engine.js — Astronomy Engine, Copyright (c) 2019-2023 Don Cross.
+  MIT License; the full text is at the top of the file.
+  https://github.com/cosinekitty/astronomy
+
+- world-countries.js — country outlines derived from world-atlas,
+  Copyright 2013-2019 Michael Bostock, ISC License (full text at the top of the
+  file), built on Natural Earth map data (public domain).
+  https://github.com/topojson/world-atlas · https://www.naturalearthdata.com
+
+- DM Mono, Manrope and Playfair Display fonts, loaded from Google Fonts,
+  SIL Open Font License 1.1.
+
+
+Trademarks
+----------
+"Human Design" and the Rave Mandala, and "Gene Keys", are trademarks of their
+respective owners (Jovian Archive and Gene Keys Publishing). Orbital Study is an
+independent project, not affiliated with or endorsed by them. Descriptive text
+in the app is original.

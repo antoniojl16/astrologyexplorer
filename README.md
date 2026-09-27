@@ -1,23 +1,45 @@
-# Astrology Explorer
+# Orbital Study
 
-A local-first JavaScript prototype for exploring astrology charts, workspaces, and future Human Design / Gene Keys views.
+A workspace for studying birth charts through four lenses — **Astrology**, **Human
+Design**, **Gene Keys** and **Astrocartography** — on their own, over time, between two
+people and across life cycles.
+
+© 2026 Antonio Juarez ([@antoniojl16](https://github.com/antoniojl16)). All rights
+reserved — see [LICENSE](LICENSE).
 
 ## Run it
 
-Open `index.html` directly in a modern browser. No build step or web server is required.
+Open `index.html` in a modern browser. There's no build step and no server: it works
+straight from disk (`file://`) or from any static host.
 
-The prototype stores its state in browser `localStorage`. Use **Export workspace** regularly to create a portable JSON backup. Imported charts are added to the active workspace.
+Charts are stored in the browser's local storage, on that device only. Use **Export
+workspace** to keep a JSON backup, and **Import workspace** to bring charts back.
 
-## Prototype scope
+## What's inside
 
-- 10 deterministic sample individual charts
-- Local workspaces and workspace switching
-- Chart library search and keyboard navigation
-- Astrology wheel with seeded placeholder positions
-- Birth and design-time (88 days prior) data retained together
-- Unknown-time markers and uncertainty margins
-- Chart timeline interaction without mutating birth data
-- JSON import/export
-- Light/dark mode and `?` keyboard guide
+- **Chart library** — every chart in an Astrology or Human Design view, with a miniature
+  chart and its key facts (Sun and Rising; Type, Authority, Profile, Definition).
+- **Chart explorer** — the astrology wheel with aspects, filters and a timeline; the
+  Human Design bodygraph and mandala with typology, Variable and PHS; the Gene Keys
+  profile and Star Pearl; Astrocartography travel and local-space maps.
+- **Timeline explorer** — the same views for the current moment.
+- **Pair explorer** — synastry wheel and cross-aspects, the Human Design composite with
+  connection channels, side-by-side Gene Keys and paired maps.
+- **Cycle explorer** — exact returns and oppositions (Saturn, Jupiter, Uranus, Chiron,
+  nodal) with the natal chart and the cycle moment compared in each system.
+- Direct links for every view (`#/chart/<name>/<system>/<view>`), keyboard shortcuts
+  (press `?`), light and dark themes.
 
-Planetary positions are intentionally placeholders until a local ephemeris engine is selected. The chart data model already carries planet, angle, speed, direction, house, and design-time metadata so that transition can be made without redesigning the UI.
+## Accuracy
+
+Positions come from [Astronomy Engine](https://github.com/cosinekitty/astronomy). Checked
+against the Swiss Ephemeris, the Sun, Moon and planets agree to within about 20
+arcseconds; the lunar nodes and mean Lilith to within half an arcminute; cycle dates to
+within hours. Chiron is not yet computed from an ephemeris and is approximate.
+
+## Credits and notices
+
+See [LICENSE](LICENSE) for third-party components (Astronomy Engine, world-atlas and
+Natural Earth, Google Fonts) and trademark notices. Orbital Study is an independent
+project, not affiliated with Jovian Archive or Gene Keys Publishing, and is meant for
+study and self-reflection rather than professional advice.

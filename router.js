@@ -1,3 +1,4 @@
+// Orbital Study — Copyright (c) 2026 Antonio Juarez (@antoniojl16). All rights reserved. See LICENSE.
 // URL routing: every explorer, chart, system and view has a direct link in the URL's
 // hash (the part after "#"), which the page reads itself — so it works without a web
 // server, straight from file://. The address bar follows along as you navigate, Back /
@@ -76,6 +77,8 @@ function currentRoute() {
     if (pairActiveSystem === "Human Design") parts.push(ROUTE_PAIR_SUBJECTS[pairHdSubject], pairHdView);
     if (pairActiveSystem === "Gene Keys") parts.push(routeSlug(geneKeysPairTab));
     if (pairActiveSystem === "Astrocartography") parts.push(routeSlug(acgActiveView.replace("ACG ", "")));
+  } else if (currentView === "library") {
+    parts.push(routeSlug(librarySystem));
   } else if (currentView === "cycle") {
     const system = document.querySelector("[data-cycle-system].active")?.dataset.cycleSystem || "Astrology";
     parts.push(chartSlug(cycleChartId), activeCycleKey, routeSlug(system));
@@ -165,6 +168,8 @@ function applyRoute(hash) {
     setView("cycle");
     switchCycleSystem(routeOption(ROUTE_SYSTEMS, system) || "Astrology");
   } else {
+    const [system] = rest;
+    setLibrarySystem(routeOption(LIBRARY_SYSTEMS, system) || "Astrology");
     setView("library");
   }
 }

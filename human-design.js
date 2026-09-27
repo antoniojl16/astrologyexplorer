@@ -1,3 +1,4 @@
+// Orbital Study — Copyright (c) 2026 Antonio Juarez (@antoniojl16). All rights reserved. See LICENSE.
 // Human Design gate/line/color/tone/base computation.
 //
 // Source of truth for "where is this planet" is the SAME deterministic angle
@@ -159,12 +160,22 @@ function hdChannelInfo(gates) {
 // Turns the 13 personality + 13 design placements into per-gate activation
 // (which side lit it up) and per-center definition (does at least one fully
 // activated channel — both gates lit, either side — connect through it).
-function computeBodygraphState(chart, offsetMinutes = 0) {
+// The Human Design view filter (Complete / Personality / Design / Incarnation Cross):
+// which activations count. Incarnation Cross keeps both sides' Sun and Earth only.
+function hdInfluenceIncluded(filter, side, planet) {
+  if (filter === 'Personality') return side === 'personality';
+  if (filter === 'Design') return side === 'design';
+  if (filter === 'Incarnation Cross') return planet === 'Sun' || planet === 'Earth';
+  return true;
+}
+// `filter` limits which activations light gates — and therefore which channels and
+// centers are defined — for drawing; `hd` always holds the whole chart.
+function computeBodygraphState(chart, offsetMinutes = 0, filter = 'Complete') {
   const hd = chart ? computeHumanDesignChart(chart, offsetMinutes) : null;
   const gateSides = {};
   if (hd) {
     const addSide = (side, influences) => influences.forEach(influence => {
-      if (influence.gate == null) return;
+      if (influence.gate == null || !hdInfluenceIncluded(filter, side, influence.planet)) return;
       if (!gateSides[influence.gate]) gateSides[influence.gate] = { personality: false, design: false };
       gateSides[influence.gate][side] = true;
     });
@@ -185,7 +196,7 @@ function computeBodygraphState(chart, offsetMinutes = 0) {
       definedCenters.add(HD_GATE_CENTER[gateB]);
     }
   });
-  return { hd, gateSide, centerDefined: centerId => definedCenters.has(centerId) };
+  return { hd, filter, gateSide, centerDefined: centerId => definedCenters.has(centerId) };
 }
 
 // ── Typology: type, authority, definition, profile, cross, Variable, PHS ──

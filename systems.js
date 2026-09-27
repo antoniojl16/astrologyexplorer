@@ -1,3 +1,4 @@
+// Orbital Study — Copyright (c) 2026 Antonio Juarez (@antoniojl16). All rights reserved. See LICENSE.
 const SYSTEM_TABS = {
   "Human Design": {
     views: ["Bodygraph", "Mandala"],
@@ -241,13 +242,14 @@ function hdTimelineControlMarkup(chart, offsetMinutes) {
 }
 // Which planets (personality and/or design) currently activate each gate, at a given
 // offset from birth. Reused by the mandala's initial render and its slider updates.
-function humanDesignGateGlyphMap(chart, offsetMinutes) {
+// `filter`: the Human Design view filter (see hdInfluenceIncluded).
+function humanDesignGateGlyphMap(chart, offsetMinutes, filter = "Complete") {
   const map = new Map();
   if (!chart) return map;
   const hd = computeHumanDesignChart(chart, offsetMinutes);
   const addSide = (side, influences) =>
     influences.forEach((influence, index) => {
-      if (influence.gate == null) return;
+      if (influence.gate == null || !hdInfluenceIncluded(filter, side, influence.planet)) return;
       if (!map.has(influence.gate))
         map.set(influence.gate, { personality: [], design: [] });
       map.get(influence.gate)[side].push(HD_PLANET_GLYPHS[index]);
@@ -678,7 +680,10 @@ function hdVariableArrowsMarkup(state) {
   const typology = state?.hd ? computeHumanDesignTypology(state.hd) : null;
   if (!typology) return "";
   const half = 16, head = 9, wing = 6;
-  return HD_VARIABLE_ARROWS.map((arrow) => {
+  return HD_VARIABLE_ARROWS.filter((arrow) => {
+    const [side, planet] = arrow.source.toLowerCase().split(" ");
+    return hdInfluenceIncluded(state.filter || "Complete", side, planet === "sun" ? "Sun" : "North Node");
+  }).map((arrow) => {
     const direction = typology.variable[arrow.key];
     const toward = direction === "Left" ? -1 : 1;
     const { x, y } = arrow;
@@ -939,7 +944,7 @@ function renderBodygraph(surface, chart) {
     return renderHumanDesignMandala(surface, chart);
   const gates = Array.from({ length: 64 }, (_, index) => index + 1);
   const planets = HD_PLANET_GLYPHS;
-  const state = chart ? computeBodygraphState(chart, 0) : null;
+  const state = chart ? computeBodygraphState(chart, 0, activeSystemFilter) : null;
   const hd = state ? state.hd : null;
   const visiblePlanetIndexes =
     activeSystemFilter === "Incarnation Cross"
@@ -1028,7 +1033,7 @@ function updateHdDefinedCentersStat(surface, state) {
 }
 
 function updateHumanDesignInfluences(surface, chart, offsetMinutes) {
-  const state = computeBodygraphState(chart, offsetMinutes);
+  const state = computeBodygraphState(chart, offsetMinutes, activeSystemFilter);
   const hd = state.hd;
   hdUpdateInfluenceLabels(surface, hd);
   refreshHdBodygraphLayers(surface, state);
@@ -1127,7 +1132,7 @@ function hdMandalaSvgMarkup(state, glyphMap = null) {
 }
 
 function renderHumanDesignMandala(surface, chart, offsetMinutes = 0) {
-  const state = chart ? computeBodygraphState(chart, offsetMinutes) : null;
+  const state = chart ? computeBodygraphState(chart, offsetMinutes, activeSystemFilter) : null;
   const hdTimelineMarkup = hdTimelineControlMarkup(chart, offsetMinutes);
   surface.innerHTML = `
     <div class="hd-mandala-layout">
@@ -1166,7 +1171,7 @@ function renderHumanDesignMandala(surface, chart, offsetMinutes = 0) {
       originLabel: timelineOriginLabel(),
       onChange: (offset) => {
         updateTimelineReadout(timelineContainer, chart, offset);
-        const glyphMap = humanDesignGateGlyphMap(chart, offset);
+        const glyphMap = humanDesignGateGlyphMap(chart, offset, activeSystemFilter);
         const sectorLayer = surface.querySelector("[data-mandala-sectors]");
         if (sectorLayer)
           sectorLayer.innerHTML = mandalaGateSectorsMarkup(glyphMap);
@@ -1175,7 +1180,7 @@ function renderHumanDesignMandala(surface, chart, offsetMinutes = 0) {
           layer.innerHTML = mandalaGlyphLayerMarkup(glyphMap);
           bindMandalaGlyphClicks(layer);
         }
-        const bodygraphState = computeBodygraphState(chart, offset);
+        const bodygraphState = computeBodygraphState(chart, offset, activeSystemFilter);
         refreshHdBodygraphLayers(surface, bodygraphState);
         updateHdDefinedCentersStat(surface, bodygraphState);
         updateHdTypology(surface, bodygraphState.hd);

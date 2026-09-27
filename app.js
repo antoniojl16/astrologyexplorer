@@ -1,3 +1,4 @@
+// Orbital Study — Copyright (c) 2026 Antonio Juarez (@antoniojl16). All rights reserved. See LICENSE.
 const STORAGE_KEY = 'astrology-explorer-v1';
 const PLANETS = [
   ['Sun', '☉', 'Leo'],
@@ -432,16 +433,13 @@ function renderRows() {
   document.getElementById('tableSummary').textContent =
     `Showing ${charts.length} of ${activeCharts().length} charts`;
   document.getElementById('emptyState').hidden = charts.length > 0;
-  rows.innerHTML = charts
-    .map((chart, index) => {
-      const sun = getSun(chart);
-      const signIndex = SIGNS.indexOf(sun.sign);
-      return `<tr data-id="${chart.id}" class="${selectedChartId === chart.id ? 'selected' : ''}"><td class="check-col"><input type="checkbox" aria-label="Select ${chart.name}"></td><td><div class="chart-cell"><div class="mini-wheel"></div><div><div class="chart-name">${chart.name}${chart.uncertainty ? '<span class="date-note">◌ uncertain time ±' + chart.uncertainty + 'm</span>' : ''}</div><div class="chart-type">INDIVIDUAL / ${chart.tags[0]?.toUpperCase() || 'STUDY'}</div></div></div></td><td class="birth-cell">${formatDate(chart.birthDate)}<br><span class="muted-text">${chart.birthTime || 'Time unknown'}</span></td><td class="location-cell">${chart.location}</td><td><div class="signature-cell"><span class="signature-glyph">${SIGN_GLYPHS[signIndex]}</span><div class="signature-text"><strong>${sun.sign}</strong><small>${sun.degree.toFixed(1)}° · House ${sun.house}</small></div></div></td><td class="note-count">${chart.notes ? `▤ ${chart.notes} notes` : '—'}</td><td><button class="row-menu" aria-label="More options">···</button></td></tr>`;
-    })
-    .join('');
+  // Columns and rows for the selected system come from library.js once it has loaded.
+  const head = document.getElementById('libraryHead');
+  if (head && typeof libraryHeaderMarkup === 'function') head.innerHTML = libraryHeaderMarkup();
+  rows.innerHTML = typeof libraryRowMarkup === 'function' ? charts.map(libraryRowMarkup).join('') : '';
   rows.querySelectorAll('tr').forEach((row) =>
     row.addEventListener('click', (event) => {
-      if (event.target.type === 'checkbox' || event.target.closest('.row-menu')) return;
+      if (event.target.type === 'checkbox') return;
       selectedChartId = row.dataset.id;
       selectedRowIndex = [...rows.children].indexOf(row);
       openExplorer();
@@ -700,7 +698,7 @@ function exportWorkspace() {
   link.href = URL.createObjectURL(
     new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }),
   );
-  link.download = `astrology-${state.activeWorkspace.toLowerCase().replace(/\s+/g, '-')}.json`;
+  link.download = `orbital-study-${state.activeWorkspace.toLowerCase().replace(/\s+/g, '-')}.json`;
   link.click();
   URL.revokeObjectURL(link.href);
   showToast('Workspace exported as JSON');
@@ -775,6 +773,8 @@ function init() {
   document
     .getElementById('closeShortcuts')
     .addEventListener('click', () => document.getElementById('shortcutsDialog').close());
+  document.getElementById('aboutButton').addEventListener('click', () => document.getElementById('aboutDialog').showModal());
+  document.getElementById('closeAbout').addEventListener('click', () => document.getElementById('aboutDialog').close());
   document.getElementById('timelineToday').addEventListener('click', () => {
     resetTimelineToNow();
     if (typeof refreshActiveSystemPanel === 'function') refreshActiveSystemPanel();
@@ -796,19 +796,6 @@ function init() {
     }
     if (event.key === 'Escape') {
       document.querySelectorAll('dialog[open]').forEach((dialog) => dialog.close());
-    }
-    if (
-      (event.key === 'j' || event.key === 'k') &&
-      currentView === 'library' &&
-      document.activeElement.tagName !== 'INPUT'
-    ) {
-      const charts = activeCharts();
-      selectedRowIndex = Math.max(
-        0,
-        Math.min(charts.length - 1, selectedRowIndex + (event.key === 'j' ? 1 : -1)),
-      );
-      selectedChartId = charts[selectedRowIndex]?.id;
-      renderRows();
     }
     if (
       event.key === 'Enter' &&

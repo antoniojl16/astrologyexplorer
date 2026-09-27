@@ -1,3 +1,4 @@
+// Orbital Study — Copyright (c) 2026 Antonio Juarez (@antoniojl16). All rights reserved. See LICENSE.
 const ORBITAL_PERIODS = {
   Sun: 1,
   Earth: 1,
@@ -347,10 +348,44 @@ function wheelZodiacMarkup(cx, cy, outer, inner, wheelRotation) {
     const labelR = outer - zodiacWidth * 0.375;
     const labelX = cx + labelR * Math.cos(zodiacAngle - Math.PI / 12);
     const labelY = cy + labelR * Math.sin(zodiacAngle - Math.PI / 12);
-    markup += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="var(--line)"/><text x="${labelX}" y="${labelY}" text-anchor="middle" dominant-baseline="middle" class="wheel-sign ${SIGN_ELEMENTS[index]}">${SIGN_GLYPHS[index]}</text>`;
+    markup += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="var(--line)" class="zodiac-boundary"/><text x="${labelX}" y="${labelY}" text-anchor="middle" dominant-baseline="middle" class="wheel-sign ${SIGN_ELEMENTS[index]}" data-zodiac-sign="${index}">${SIGN_GLYPHS[index]}</text>`;
   }
   return markup;
 }
+// Hovering a sign's glyph in any astrology wheel's zodiac ring shows what the sign is about — text from zodiac-data.js.
+function zodiacSignTooltipHtml(index) {
+  const info = ZODIAC_SIGN_INFO[index];
+  const element = SIGN_ELEMENTS[index][0].toUpperCase() + SIGN_ELEMENTS[index].slice(1);
+  const part = (title, text) => `<div class="gk-tip-title">${title}</div><div class="gk-tip-text">${text}</div>`;
+  return `<div class="gk-tip-title">${SIGNS[index]} ${SIGN_GLYPHS[index]}\uFE0E — ${info.symbol}</div>
+    <div class="gk-tip-text">${info.modality} ${element} · ruled by ${info.ruler}</div>
+    <div class="gk-tip-text">${info.summary}</div>
+    ${part("Psychological", info.psychological)}${part("Esoteric", info.esoteric)}${part("Material", info.material)}`;
+}
+(() => {
+  let tooltip = null;
+  document.addEventListener("mousemove", event => {
+    const sign = event.target.closest?.("[data-zodiac-sign]");
+    if (!sign) {
+      if (tooltip) tooltip.hidden = true;
+      return;
+    }
+    if (!tooltip) {
+      tooltip = document.createElement("div");
+      tooltip.className = "wheel-tooltip gk-tooltip";
+      document.body.appendChild(tooltip);
+    }
+    if (tooltip.dataset.sign !== sign.dataset.zodiacSign) {
+      tooltip.dataset.sign = sign.dataset.zodiacSign;
+      tooltip.innerHTML = zodiacSignTooltipHtml(Number(sign.dataset.zodiacSign));
+    }
+    tooltip.hidden = false;
+    const x = event.clientX + 14 + tooltip.offsetWidth > window.innerWidth ? event.clientX - 14 - tooltip.offsetWidth : event.clientX + 14;
+    const y = event.clientY + 14 + tooltip.offsetHeight > window.innerHeight ? event.clientY - 14 - tooltip.offsetHeight : event.clientY + 14;
+    tooltip.style.left = `${Math.max(8, x)}px`;
+    tooltip.style.top = `${Math.max(8, y)}px`;
+  });
+})();
 // House cusps drawn from fromR out to toR. The numbers sit near fromR, just inside
 // each house's starting cusp (houses run in increasing zodiac degree, so "inside"
 // is +degrees).

@@ -1,3 +1,4 @@
+// Orbital Study — Copyright (c) 2026 Antonio Juarez (@antoniojl16). All rights reserved. See LICENSE.
 // Astrocartography system: where a birth moment's planetary influences fall across
 // the globe. Both views ("ACG Travel", "ACG Local Space") currently share one
 // pannable/zoomable Mercator world map; the per-view planetary lines will be drawn

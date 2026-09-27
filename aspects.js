@@ -1,3 +1,4 @@
+// Orbital Study — Copyright (c) 2026 Antonio Juarez (@antoniojl16). All rights reserved. See LICENSE.
 const ASPECT_DEFINITIONS = [
   {name: 'Conjunction', angle: 0, orb: 10, glyph: '☌'},
   {name: 'Opposition', angle: 180, orb: 10, glyph: '☍'},
@@ -92,14 +93,15 @@ function calculateCrossAspects(positionsA, positionsB, visible = aspectVisible) 
 }
 
 function renderCalculatedAspects(offsetMinutes = window.timelineOffsetMinutes || 0) {
-  const chart = chartById(selectedChartId);
+  // The chart the explorer is showing: the library chart, or the current sky in the Timeline Explorer.
+  const chart = currentExplorerChart();
   const list = document.getElementById('aspectList');
   if (!chart || !list) return;
   const transientChart = {...chart, positions: chart.positions.map(position => {
     return {...position, angle: positionAngleAtTime(position, offsetMinutes)};
   })};
   const aspects = calculateAspects(transientChart).slice(0, 18);
-  list.innerHTML = aspects.length ? aspects.map(aspect => `<div class="aspect-row"><span><b class="aspect-glyph">${aspect.glyph}</b>${aspect.first} ${aspect.name.toLowerCase()} ${aspect.second}</span><span>${aspect.orb.toFixed(1)}° orb</span></div>`).join('') : '<div class="aspect-empty">No aspects in this filter.</div>';
+  list.innerHTML = aspects.length ? aspects.map(aspect => `<div class="aspect-row"><span><b class="aspect-glyph" style="color:${aspect.color}">${aspect.glyph}</b>${aspect.first} ${aspect.name.toLowerCase()} ${aspect.second}</span><span>${aspect.orb.toFixed(1)}° orb</span></div>`).join('') : '<div class="aspect-empty">No aspects in this filter.</div>';
   if (chartViewMode !== 'wheel') renderAspectGrid(transientChart);
 }
 
@@ -115,7 +117,7 @@ function renderAspectGrid(chart) {
   const aspects = calculateAspects(chart);
   const lookup = new Map(aspects.map(aspect => [`${aspect.first}|${aspect.second}`, aspect]));
   const shortName = name => name === 'North Node' ? 'N.Node' : name === 'South Node' ? 'S.Node' : name;
-  grid.innerHTML = `<div class="grid-corner"></div>${positions.map(position => `<div class="grid-label">${shortName(position.name)}</div>`).join('')}${positions.map((row, rowIndex) => `<div class="grid-label row-label">${shortName(row.name)}</div>${positions.map((column, columnIndex) => { const aspect = rowIndex === columnIndex ? null : (lookup.get(`${row.name}|${column.name}`) || lookup.get(`${column.name}|${row.name}`)); return `<div class="aspect-cell ${aspect ? 'has-aspect' : ''}" title="${aspect ? `${aspect.name}, ${aspect.orb.toFixed(1)}° orb` : 'No aspect'}">${aspect ? aspect.glyph : '·'}</div>`; }).join('')}`).join('')}`;
+  grid.innerHTML = `<div class="grid-corner"></div>${positions.map(position => `<div class="grid-label">${shortName(position.name)}</div>`).join('')}${positions.map((row, rowIndex) => `<div class="grid-label row-label">${shortName(row.name)}</div>${positions.map((column, columnIndex) => { const aspect = rowIndex === columnIndex ? null : (lookup.get(`${row.name}|${column.name}`) || lookup.get(`${column.name}|${row.name}`)); return `<div class="aspect-cell ${aspect ? 'has-aspect' : ''}" title="${aspect ? `${aspect.name}, ${aspect.orb.toFixed(1)}° orb` : 'No aspect'}"${aspect ? ` style="color:${aspect.color}"` : ''}>${aspect ? aspect.glyph : '·'}</div>`; }).join('')}`).join('')}`;
 }
 
 function setChartView(mode) {

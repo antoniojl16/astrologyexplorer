@@ -1,3 +1,4 @@
+// Orbital Study — Copyright (c) 2026 Antonio Juarez (@antoniojl16). All rights reserved. See LICENSE.
 // Pair Explorer: two library charts compared through each system — a synastry
 // wheel (Astrology), a composite (Human Design), side-by-side diagrams (Gene
 // Keys) and stacked, synchronised maps (Astrocartography). The chart picker at

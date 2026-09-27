@@ -1,3 +1,4 @@
+// Orbital Study — Copyright (c) 2026 Antonio Juarez (@antoniojl16). All rights reserved. See LICENSE.
 // Older versions stored sample charts' design time as exactly 88 days before
 // birth. Timezones were assigned to those charts afterwards, so today the gap is
 // 88 days give or take a whole-number UTC offset. A real 88°-arc solve essentially
