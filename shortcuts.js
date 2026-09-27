@@ -12,6 +12,7 @@
 //   P / D / X   Human Design: Personality / Design / Incarnation Cross only (again: all)
 //   M   Human Design: Mandala ↔ Bodygraph
 //   0   Center the timeline slider
+//   ← / →, Shift+← / →   On a timeline slider: step by the zoom's units (timelineKeySteps, timeline.js)
 //   R   Pair Explorer: swap the two charts
 //   E   Chart Explorer: edit the chart
 //   1 / 2 / 3   Pair and Cycle Explorers: first chart / second chart / both together

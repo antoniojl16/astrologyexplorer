@@ -124,14 +124,12 @@ const TIMELINE_MAX_INNER_TICKS = 20;
 // {value, label, end} — end marks the two slider extremes (unlabeled unless they
 // happen to also land on a regular tick), value is in minutes, label is empty for
 // the center tick (already covered by the origin label above the slider).
+function timelineTickUnit(spanMinutes) {
+  return TIMELINE_TICK_UNIT_DEFS.find(def => Math.floor(spanMinutes / def.size) * 2 + 1 >= 4)
+    || TIMELINE_TICK_UNIT_DEFS[TIMELINE_TICK_UNIT_DEFS.length - 1];
+}
 function timelineTicks(spanMinutes) {
-  let unit = TIMELINE_TICK_UNIT_DEFS[TIMELINE_TICK_UNIT_DEFS.length - 1];
-  for (const def of TIMELINE_TICK_UNIT_DEFS) {
-    if (Math.floor(spanMinutes / def.size) * 2 + 1 >= 4) {
-      unit = def;
-      break;
-    }
-  }
+  const unit = timelineTickUnit(spanMinutes);
   let multiplier = 1;
   while (Math.floor(spanMinutes / (unit.size * multiplier)) * 2 + 1 > TIMELINE_MAX_INNER_TICKS) multiplier += 1;
   const step = unit.size * multiplier;
@@ -152,6 +150,21 @@ function timelineTicks(spanMinutes) {
   addTick(spanMinutes, '');
   addTick(-spanMinutes, '');
   return Array.from(byValue.values()).sort((a, b) => a.value - b.value);
+}
+// Arrow-key steps (minutes) for a slider running from -spanMinutes to +spanMinutes.
+// Up to 200 years long: Shift+arrow moves one of the tick labels' unit, a plain arrow
+// one of the next smaller unit (year → month → week → day → hour → minute). Longer
+// than that, by powers of ten years: up to 2,000 years 10 y / 1 y, up to 20,000 years
+// 100 y / 10 y, and so on.
+const TIMELINE_YEAR_MINUTES = 525600;
+function timelineKeySteps(spanMinutes) {
+  const years = (2 * spanMinutes) / TIMELINE_YEAR_MINUTES;
+  if (years > 200) {
+    const large = 10 ** Math.ceil(Math.log10(years / 200) - 1e-9) * TIMELINE_YEAR_MINUTES;
+    return { large, small: large / 10 };
+  }
+  const index = TIMELINE_TICK_UNIT_DEFS.indexOf(timelineTickUnit(spanMinutes));
+  return { large: TIMELINE_TICK_UNIT_DEFS[index].size, small: TIMELINE_TICK_UNIT_DEFS[Math.min(index + 1, TIMELINE_TICK_UNIT_DEFS.length - 1)].size };
 }
 function timelineTicksMarkup(spanMinutes) {
   return timelineTicks(spanMinutes)
@@ -203,6 +216,17 @@ function bindTimelineSlider(container, { onChange, originLabel = 'Birth moment',
     updateRange();
   }, {passive: false});
   slider.addEventListener('dblclick', recenter);
+  // Arrow keys step by the zoom's units (timelineKeySteps) instead of the range's 1 minute.
+  const ARROW_DIRECTIONS = { ArrowRight: 1, ArrowUp: 1, ArrowLeft: -1, ArrowDown: -1 };
+  slider.addEventListener('keydown', event => {
+    const direction = ARROW_DIRECTIONS[event.key];
+    if (!direction || event.altKey || event.ctrlKey || event.metaKey) return;
+    event.preventDefault();
+    const steps = timelineKeySteps(span);
+    const next = Number(slider.value) + direction * (event.shiftKey ? steps.large : steps.small);
+    slider.value = String(Math.max(-span, Math.min(span, next)));
+    slider.dispatchEvent(new Event('input'));
+  });
   // Screen readers announce the moment (the date readout), not the raw minute offset.
   const dateReadout = container.querySelector('[data-timeline-date]');
   const change = () => {

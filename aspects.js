@@ -2,8 +2,8 @@
 const ASPECT_DEFINITIONS = [
   {name: 'Conjunction', angle: 0, orb: 10, glyph: '☌'},
   {name: 'Opposition', angle: 180, orb: 10, glyph: '☍'},
-  {name: 'Square', angle: 90, orb: 8, glyph: '□'},
-  {name: 'Trine', angle: 120, orb: 8, glyph: '△'},
+  {name: 'Square', angle: 90, orb: 10, glyph: '□'},
+  {name: 'Trine', angle: 120, orb: 10, glyph: '△'},
   {name: 'Sextile', angle: 60, orb: 6, glyph: '⚹'},
   {name: 'Quincunx', angle: 150, orb: 3, glyph: '⚻'},
   {name: 'Semisextile', angle: 30, orb: 2, glyph: '⚺'},
@@ -42,13 +42,11 @@ function angularDistance(first, second) {
   return Math.min(distance, 360 - distance);
 }
 
-// exact: within 2° regardless of aspect type. Beyond that, normal vs. weak
-// splits whatever orb range remains for that aspect's own max orb — so a
-// wide-orb aspect (e.g. a 10°-orb conjunction) still has room to be "normal"
-// well past 2°, while a tight minor aspect (2° max orb) is only ever exact
-// or weak, since it's never registered past its own max in the first place.
+// exact: within a fifth of the aspect's own max orb (2° for a 10° conjunction,
+// 0.4° for a 2° minor aspect). Beyond that, normal (up to 60% of the max orb) or weak.
+const ASPECT_EXACT_FRACTION = 1 / 5;
 function aspectIntensity(orb, maxOrb) {
-  if (orb <= 2) return 'exact';
+  if (orb <= maxOrb * ASPECT_EXACT_FRACTION) return 'exact';
   return orb <= maxOrb * 0.6 ? 'normal' : 'weak';
 }
 
@@ -141,7 +139,7 @@ function aspectTooltipHtml(row) {
   const orb = Number(row.dataset.aspectOrb), maxOrb = Number(row.dataset.aspectMaxOrb);
   const who = (owner, body) => `${owner ? `${escapeHtml(owner)}'s ` : ''}${ASPECT_BODY_THEMES[body] || escapeHtml(body)} (${escapeHtml(body)})`;
   const sentence = `${who(ownerFirst, first)} and ${who(ownerSecond, second)} ${meaning.join}.`;
-  const strength = orb <= 1 ? 'Exact: felt very strongly.' : orb <= 2 ? 'Very close: strongly felt.' : orb <= maxOrb * 0.6 ? 'Moderate orb: clearly felt.' : 'Wide orb: a milder, background influence.';
+  const strength = orb <= maxOrb * ASPECT_EXACT_FRACTION / 2 ? 'Exact: felt very strongly.' : orb <= maxOrb * ASPECT_EXACT_FRACTION ? 'Very close: strongly felt.' : orb <= maxOrb * 0.6 ? 'Moderate orb: clearly felt.' : 'Wide orb: a milder, background influence.';
   const between = ownerFirst && ownerFirst !== ownerSecond
     ? '<div class="gk-tip-text">Between two charts (synastry), it describes how these two parts of the people meet in the relationship.</div>' : '';
   return `<div class="gk-tip-title">${escapeHtml(first)} <span style="color:${ASPECT_COLORS[name] || 'inherit'}">${definition.glyph}</span> ${escapeHtml(name.toLowerCase())} ${escapeHtml(second)} · ${meaning.nature}</div>
@@ -149,7 +147,10 @@ function aspectTooltipHtml(row) {
     <div class="gk-tip-title">Here</div><div class="gk-tip-text">${sentence.charAt(0).toUpperCase()}${sentence.slice(1)}</div>${between}
     <div class="gk-tip-title">Orb ${orb.toFixed(1)}° of ${maxOrb}°</div><div class="gk-tip-text">${strength}</div>`;
 }
-(() => {
+// A hover tooltip for every element matching `selector` (also shown under one that
+// has keyboard focus, and described to screen readers); `htmlFor(element)` builds its
+// content when it's first shown. Used for aspect rows and Human Design features.
+function bindHoverTooltips(selector, htmlFor, id) {
   let tooltip = null, current = null;
   const place = (x, y) => {
     const left = x + 14 + tooltip.offsetWidth > window.innerWidth ? x - 14 - tooltip.offsetWidth : x + 14;
@@ -157,19 +158,19 @@ function aspectTooltipHtml(row) {
     tooltip.style.left = `${Math.max(8, left)}px`;
     tooltip.style.top = `${Math.max(8, top)}px`;
   };
-  const show = (row, x, y) => {
+  const show = (element, x, y) => {
     if (!tooltip) {
       tooltip = document.createElement('div');
-      tooltip.id = 'aspectTooltip';
+      tooltip.id = id;
       tooltip.className = 'wheel-tooltip gk-tooltip';
       tooltip.setAttribute('role', 'tooltip');
       document.body.appendChild(tooltip);
     }
-    if (current !== row) {
+    if (current !== element) {
       current?.removeAttribute('aria-describedby');
-      current = row;
-      tooltip.innerHTML = aspectTooltipHtml(row);
-      row.setAttribute('aria-describedby', tooltip.id);
+      current = element;
+      tooltip.innerHTML = htmlFor(element);
+      element.setAttribute('aria-describedby', tooltip.id);
     }
     tooltip.hidden = false;
     place(x, y);
@@ -180,21 +181,22 @@ function aspectTooltipHtml(row) {
     if (tooltip) tooltip.hidden = true;
   };
   document.addEventListener('mousemove', event => {
-    const row = event.target.closest?.('[data-aspect-tip]');
-    if (row) show(row, event.clientX, event.clientY);
+    const element = event.target.closest?.(selector);
+    if (element) show(element, event.clientX, event.clientY);
     else if (current && document.activeElement !== current) hide();
   });
   document.addEventListener('focusin', event => {
-    const row = event.target.closest?.('[data-aspect-tip]');
-    if (!row) return;
-    const box = row.getBoundingClientRect();
-    show(row, box.left + 24, box.bottom - 6);
+    const element = event.target.closest?.(selector);
+    if (!element) return;
+    const box = element.getBoundingClientRect();
+    show(element, box.left + 24, box.bottom - 6);
   });
   document.addEventListener('focusout', event => { if (event.target === current) hide(); });
   document.addEventListener('keydown', event => { if (event.key === 'Escape' && current && document.activeElement === current) hide(); });
-  // A list re-rendered under the tooltip (timeline, filters) takes its row away.
+  // A list re-rendered under the tooltip (timeline, filters) takes its element away.
   new MutationObserver(() => { if (current && !current.isConnected) hide(); }).observe(document.body, { childList: true, subtree: true });
-})();
+}
+bindHoverTooltips('[data-aspect-tip]', aspectTooltipHtml, 'aspectTooltip');
 
 function renderCalculatedAspects(offsetMinutes = window.timelineOffsetMinutes || 0) {
   // The chart the explorer is showing: the library chart, or the current sky in the Timeline Explorer.

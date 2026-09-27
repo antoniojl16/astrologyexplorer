@@ -863,30 +863,55 @@ function bindHdCenterClicks(container) {
 function hdChannelBadgeText(typology) {
   return `${typology ? typology.definedChannels.length : 0} / 36 CHANNELS DEFINED`;
 }
+// Tooltips for the typology features (texts from hd-meanings.js): `kind` is a key of
+// HD_FEATURE_MEANINGS; `value` the chart's value for it, and `type` its Type (which
+// Aura and Strategy depend on). A feature without a value explains only itself.
+function hdTipAttributes(kind, value = "", type = "") {
+  return `tabindex="0" data-hd-tip="${kind}" data-hd-tip-value="${escapeHtml(String(value))}" data-hd-tip-type="${escapeHtml(String(type))}"`;
+}
+function hdTypologyTipHtml(element) {
+  const { hdTip: kind, hdTipValue: value, hdTipType: type } = element.dataset;
+  const feature = HD_FEATURE_MEANINGS[kind];
+  if (!feature) return "";
+  let meaning = "";
+  if (kind === "type") meaning = HD_TYPE_MEANINGS[value];
+  else if (kind === "aura") meaning = HD_AURA_MEANINGS[type];
+  else if (kind === "strategy") meaning = HD_STRATEGY_MEANINGS[type];
+  else if (kind === "authority") meaning = HD_AUTHORITY_MEANINGS[value];
+  else if (kind === "definition") meaning = HD_DEFINITION_MEANINGS[value];
+  else if (kind === "profile" && value) {
+    const lines = value.split("/").map(Number);
+    meaning = `<b>${lines[0]}</b> (conscious) ${HD_LINE_MEANINGS[lines[0] - 1] || ""}<br><b>${lines[1]}</b> (unconscious) ${HD_LINE_MEANINGS[lines[1] - 1] || ""}`;
+  }
+  const title = value && kind !== "aura" && kind !== "strategy" ? `${feature.label}: ${escapeHtml(value)}` : feature.label;
+  return `<div class="gk-tip-title">${title}</div><div class="gk-tip-text">${feature.text}</div>${meaning ? `<div class="gk-tip-title">${type && (kind === "aura" || kind === "strategy") ? `For a ${escapeHtml(type)}` : "This chart"}</div><div class="gk-tip-text">${meaning}</div>` : ""}`;
+}
+bindHoverTooltips("[data-hd-tip]", hdTypologyTipHtml, "hdTooltip");
+
 function hdTypologyAsideMarkup(typology, { showFilter = true } = {}) {
   if (!typology) return `<span class="eyebrow">CHART SNAPSHOT</span><h3>No chart</h3><p>Select a chart to see its Human Design typology.</p>`;
-  const stat = (label, value) => `<div class="system-stat"><span>${label}</span><strong>${value}</strong></div>`;
+  const stat = (label, value, kind) => `<div class="system-stat${kind ? " hd-tip-stat" : ""}"${kind ? ` ${hdTipAttributes(kind, kind === "profile" ? typology.profile : typology[kind], typology.type)}` : ""}><span>${label}</span><strong>${value}</strong></div>`;
   return `
     <span class="eyebrow">CHART SNAPSHOT</span>
     <h3>${typology.type} · ${typology.profile}</h3>
     <p>${typology.profileNames} · ${typology.authority} authority</p>
-    ${stat("TYPE", typology.type)}
-    ${stat("AURA", typology.aura)}
-    ${stat("STRATEGY", typology.strategy)}
+    ${stat("TYPE", typology.type, "type")}
+    ${stat("AURA", typology.aura, "aura")}
+    ${stat("STRATEGY", typology.strategy, "strategy")}
     ${stat("NOT-SELF THEME", typology.notSelf)}
     ${stat("SIGNATURE", typology.signature)}
-    ${stat("INNER AUTHORITY", typology.authority)}
-    ${stat("DEFINITION", typology.definition)}
-    ${stat("PROFILE", `${typology.profile} · ${typology.profileNames}`)}
+    ${stat("INNER AUTHORITY", typology.authority, "authority")}
+    ${stat("DEFINITION", typology.definition, "definition")}
+    ${stat("PROFILE", `${typology.profile} · ${typology.profileNames}`, "profile")}
     ${stat("INCARNATION CROSS", `${typology.cross.angle} · ${typology.cross.gates}`)}
     ${stat("QUADRANT", `${typology.quadrant.name} · ${typology.quadrant.theme}`)}
     ${stat("DEFINED CENTERS", `<span data-hd-defined-centers>${typology.definedCenters.size} / 9</span>`)}
     ${stat("DEFINED CHANNELS", `${typology.definedChannels.length} / 36`)}
-    ${showFilter ? stat("FILTER", activeSystemFilter) : ""}
-    <div class="system-note">Incarnation Cross gates read Personality Sun / Personality Earth / Design Sun / Design Earth.</div>`;
+    ${showFilter ? stat("FILTER", activeSystemFilter) : ""}`;
 }
 // One row per channel: gates, name, the two centers it joins, and an optional note
-// (the Pair Explorer uses it for who brings which gate).
+// (the Pair Explorer uses it for who brings which gate). Clicking a row opens a short
+// description of the channel (HD_CHANNEL_MEANINGS, hd-meanings.js).
 function hdChannelListMarkup(channels, note = () => "") {
   if (!channels.length) return `<p class="hd-channel-empty">None</p>`;
   return `<div class="hd-channel-list">${channels
@@ -894,7 +919,8 @@ function hdChannelListMarkup(channels, note = () => "") {
       const gates = channel.gates || channel;
       const info = hdChannelInfo(gates);
       const extra = note(channel);
-      return `<div class="hd-channel-item"><b>${info.gates}</b><span>${info.name}</span><small>${info.centers}${extra ? ` · ${extra}` : ""}</small></div>`;
+      const meaning = HD_CHANNEL_MEANINGS[hdChannelKey(gates)];
+      return `<details class="hd-channel-item"><summary><b>${info.gates}</b><span>${info.name}</span><small>${info.centers}${extra ? ` · ${extra}` : ""}</small></summary>${meaning ? `<p>${meaning}</p>` : ""}</details>`;
     })
     .join("")}</div>`;
 }

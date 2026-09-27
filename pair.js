@@ -333,7 +333,7 @@ function renderSynastryView(container, people, { subjects, state, wheelId, foote
   return { draw };
 }
 
-// Tightest orb first (calculate*Aspects already sort them); within 2° reads as exact.
+// Tightest orb first (calculate*Aspects already sort them); within a fifth of its max orb reads as exact (aspectIntensity).
 function pairAspectListMarkup(people, aspects) {
   if (!aspects.length) return '<div class="aspect-empty">No aspects in this filter.</div>';
   const [first, second = people[0]] = people;
@@ -559,13 +559,14 @@ function pairCompositeDetailsMarkup(people, composite) {
   const [typologyA, typologyB] = [people.A, people.B].map((person) => computeHumanDesignTypology(computeHumanDesignChart(person.chart, 0)));
   const none = '<span class="pair-compare-none">—</span>';
   const pick = (typology, read) => (typology ? read(typology) : none);
+  // Rows with a tooltip kind (hdTypologyTipHtml) explain the feature, and each value, on hover.
   const rows = [
-    ['Type', (t) => t.type, structure.type],
-    ['Aura', (t) => t.aura, HD_TYPE_INFO[structure.type]?.aura || none],
-    ['Strategy', (t) => t.strategy, none],
-    ['Definition', (t) => t.definition, structure.definition],
-    ['Inner authority', (t) => t.authority, none],
-    ['Profile', (t) => `${t.profile} · ${t.profileNames}`, none],
+    ['Type', (t) => t.type, structure.type, 'type', (t) => t.type],
+    ['Aura', (t) => t.aura, HD_TYPE_INFO[structure.type]?.aura || none, 'aura', () => ''],
+    ['Strategy', (t) => t.strategy, none, 'strategy', () => ''],
+    ['Definition', (t) => t.definition, structure.definition, 'definition', (t) => t.definition],
+    ['Inner authority', (t) => t.authority, none, 'authority', (t) => t.authority],
+    ['Profile', (t) => `${t.profile} · ${t.profileNames}`, none, 'profile', (t) => t.profile],
     ['Incarnation cross', (t) => `${t.cross.angle} · ${t.cross.gates}`, none],
     ['Quadrant', (t) => t.quadrant.name, none],
     ['Centers defined / undefined', (t) => pairCentersSplit(t.definedCenters.size), pairCentersSplit(structure.definedCenters.size)],
@@ -575,7 +576,11 @@ function pairCompositeDetailsMarkup(people, composite) {
     <div class="pair-compare">
       <table class="pair-compare-table">
         <thead><tr><th><span class="visually-hidden">Feature</span></th>${[people.A, people.B].map((person) => `<th class="pair-person-head" style="--person-color:${person.color}">Chart ${person.key} · ${escapeHtml(person.chart.name)}</th>`).join('')}<th>Composite</th></tr></thead>
-        <tbody>${rows.map(([label, read, compositeValue]) => `<tr><th>${label}</th><td>${pick(typologyA, read)}</td><td>${pick(typologyB, read)}</td><td>${compositeValue}</td></tr>`).join('')}</tbody>
+        <tbody>${rows.map(([label, read, compositeValue, kind, tipValue]) => {
+          const cell = (typology) => (kind && typology ? `<td><span class="hd-tip-value" ${hdTipAttributes(kind, tipValue(typology), typology.type)}>${read(typology)}</span></td>` : `<td>${pick(typology, read)}</td>`);
+          const composite = kind && compositeValue !== none ? `<span class="hd-tip-value" ${hdTipAttributes(kind, kind === 'aura' ? '' : compositeValue, structure.type)}>${compositeValue}</span>` : compositeValue;
+          return `<tr><th>${kind ? `<span class="hd-tip-value" ${hdTipAttributes(kind)}>${label}</span>` : label}</th>${cell(typologyA)}${cell(typologyB)}<td>${composite}</td></tr>`;
+        }).join('')}</tbody>
       </table>
     </div>`;
   const notes = {
