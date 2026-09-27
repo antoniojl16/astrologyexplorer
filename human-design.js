@@ -144,6 +144,10 @@ const HD_CHANNEL_NAMES = {
 function hdChannelKey([first, second]) {
   return `${Math.min(first, second)}-${Math.max(first, second)}`;
 }
+// Element id for a channel, from its gates (lower first): [34, 20] → "channel-20-34".
+function hdChannelId(gates) {
+  return `channel-${hdChannelKey(gates)}`;
+}
 // "20–34", "Charisma", "Throat – Sacral" for a channel given as a gate pair.
 function hdChannelInfo(gates) {
   const [first, second] = [...gates].sort((a, b) => a - b);
@@ -225,9 +229,13 @@ const HD_ENVIRONMENTS = [
 ];
 const HD_MOTIVATIONS = ['Fear', 'Hope', 'Desire', 'Need', 'Guilt', 'Innocence'];
 const HD_PERSPECTIVES = ['Survival', 'Possibility', 'Power', 'Wanting', 'Probability', 'Personal'];
-// Tone (1–6) → sense/cognition. The two senses come from the Design side (Sun and
-// Node tones), the two cognitions from the Personality side (Sun and Node tones).
-const HD_TONE_SENSES = ['Smell', 'Taste', 'Outer Vision', 'Inner Vision', 'Feeling', 'Touch'];
+// Motivation and Perspective sub-factor, from their arrow (Personality Sun / Node tone):
+// left (tone 1–3) → Focused, right (tone 4–6) → Peripheral.
+const HD_PERSONALITY_SIDES = ['Focused', 'Peripheral'];
+// Tone (1–6) → cognition (Design side: Sun and Node tones) or sense (Personality
+// side: Sun and Node tones). The two sides have their own six names.
+const HD_COGNITIONS = ['Smell', 'Taste', 'Outer Vision', 'Inner Vision', 'Feeling', 'Touch'];
+const HD_SENSES = ['Security', 'Uncertainty', 'Action', 'Meditation', 'Judgment', 'Acceptance'];
 const HD_BASES = ['Movement', 'Evolution', 'Being', 'Design', 'Space'];
 
 // Channels, centers, definition islands, type and authority follow from the set of
@@ -312,16 +320,16 @@ function computeHumanDesignTypology(hd) {
     phs: {
       digestion: { color: ds.color, name: HD_DIGESTION[ds.color - 1].name, side: side(HD_DIGESTION, ds) },
       environment: { color: dn.color, name: HD_ENVIRONMENTS[dn.color - 1].name, side: side(HD_ENVIRONMENTS, dn) },
-      motivation: { color: ps.color, name: HD_MOTIVATIONS[ps.color - 1] },
-      perspective: { color: pn.color, name: HD_PERSPECTIVES[pn.color - 1] },
+      motivation: { color: ps.color, name: HD_MOTIVATIONS[ps.color - 1], side: HD_PERSONALITY_SIDES[ps.tone <= 3 ? 0 : 1] },
+      perspective: { color: pn.color, name: HD_PERSPECTIVES[pn.color - 1], side: HD_PERSONALITY_SIDES[pn.tone <= 3 ? 0 : 1] },
     },
-    senses: [
-      { source: 'Design Sun', tone: ds.tone, name: HD_TONE_SENSES[ds.tone - 1] },
-      { source: 'Design Node', tone: dn.tone, name: HD_TONE_SENSES[dn.tone - 1] },
-    ],
     cognitions: [
-      { source: 'Personality Sun', tone: ps.tone, name: HD_TONE_SENSES[ps.tone - 1] },
-      { source: 'Personality Node', tone: pn.tone, name: HD_TONE_SENSES[pn.tone - 1] },
+      { source: 'Design Sun', tone: ds.tone, name: HD_COGNITIONS[ds.tone - 1] },
+      { source: 'Design Node', tone: dn.tone, name: HD_COGNITIONS[dn.tone - 1] },
+    ],
+    senses: [
+      { source: 'Personality Sun', tone: ps.tone, name: HD_SENSES[ps.tone - 1] },
+      { source: 'Personality Node', tone: pn.tone, name: HD_SENSES[pn.tone - 1] },
     ],
   };
 }
@@ -338,7 +346,12 @@ function hdActiveGates(chart) {
   return new Set([...hd.personality, ...hd.design].filter(influence => influence.gate != null).map(influence => influence.gate));
 }
 function computeCompositeHumanDesign(chartA, chartB) {
-  const gatesA = hdActiveGates(chartA), gatesB = hdActiveGates(chartB);
+  return computeCompositeFromGates(hdActiveGates(chartA), hdActiveGates(chartB));
+}
+// The composite of any two sets of activated gates — two people's charts (above), or a
+// natal chart and the transits at a cycle moment (Cycle Explorer). `names` label the two
+// sides in gate hover titles.
+function computeCompositeFromGates(gatesA, gatesB, names = { A: 'Chart A', B: 'Chart B' }) {
   const union = new Set([...gatesA, ...gatesB]);
   const structure = hdStructureFromGates(union);
   const own = [hdStructureFromGates(gatesA), hdStructureFromGates(gatesB)];
@@ -366,9 +379,22 @@ function computeCompositeHumanDesign(chartA, chartB) {
       centerDefined: centerId => structure.definedCenters.has(centerId),
       gateHalo: gate => electromagneticGates.has(gate),
       gateTitle: gate => {
-        const who = [gatesA.has(gate) && 'Chart A', gatesB.has(gate) && 'Chart B'].filter(Boolean);
+        const who = [gatesA.has(gate) && names.A, gatesB.has(gate) && names.B].filter(Boolean);
         return `Gate ${gate}${who.length ? ` · ${who.join(' + ')}` : ''}${electromagneticGates.has(gate) ? ' · electromagnetic' : ''}`;
       },
     },
   };
+}
+
+// Cycle composite: the natal chart's 26 activations with the 13 planets' transits at a
+// cycle moment (`offsetMinutes` after birth). Transits have no Design side — they're
+// simply where the planets are at that moment.
+function computeCycleHumanDesign(chart, offsetMinutes) {
+  const transitGates = new Set(computeHumanDesignChart(chart, offsetMinutes).personality.filter(influence => influence.gate != null).map(influence => influence.gate));
+  const natalGates = hdActiveGates(chart);
+  const composite = computeCompositeFromGates(natalGates, transitGates, { A: 'Natal', B: 'Cycle moment' });
+  const natalChannels = new Set(hdStructureFromGates(natalGates).definedChannels.map(hdChannelKey));
+  // Channels defined only because of the transits.
+  composite.cycleChannels = composite.structure.definedChannels.filter(channel => !natalChannels.has(hdChannelKey(channel)));
+  return composite;
 }

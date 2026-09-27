@@ -27,30 +27,29 @@ function pairChartDetails(chart) {
 }
 
 // ── Chart picker (type-to-filter combo box, or click to browse) ──────────
-function pairSlotMarkup(slot) {
+// One combo box design for every "choose a chart" spot: the Pair Explorer's two slots
+// and the Chart Explorer's title. Focus lists the whole library; typing filters it by
+// name, place or date; arrows + Enter pick, Escape cancels.
+function chartComboMarkup(ariaLabel, inputClass = 'pair-input') {
   return `
-    <div class="pair-slot" data-pair-slot="${slot}">
-      <span class="eyebrow">CHART ${slot.toUpperCase()}</span>
       <div class="pair-combo">
-        <input type="text" class="pair-input" data-pair-input autocomplete="off" spellcheck="false" role="combobox" aria-expanded="false" aria-label="Chart ${slot.toUpperCase()}" placeholder="Type a name, place or date…">
-        <button type="button" class="pair-toggle" data-pair-toggle tabindex="-1" aria-label="Show all charts">▾</button>
-        <div class="pair-options" data-pair-options role="listbox" hidden></div>
-      </div>
-      <p class="pair-details" data-pair-details></p>
-    </div>`;
+        <input type="text" class="${inputClass}" data-chart-combo-input autocomplete="off" spellcheck="false" role="combobox" aria-expanded="false" aria-label="${ariaLabel}" placeholder="Type a name, place or date…">
+        <button type="button" class="pair-toggle" data-chart-combo-toggle tabindex="-1" aria-label="Show all charts">▾</button>
+        <div class="pair-options" data-chart-combo-options role="listbox" hidden></div>
+      </div>`;
 }
-
-function bindPairSlot(slotEl, onPick) {
-  const slot = slotEl.dataset.pairSlot;
-  const input = slotEl.querySelector('[data-pair-input]');
-  const list = slotEl.querySelector('[data-pair-options]');
+// selectedId(): the chart shown; onPick(id): a chart was chosen; onShow(chart): refresh
+// anything else that describes the selection. Returns { showSelection }.
+function bindChartCombo(root, { selectedId, onPick, onShow = () => {} }) {
+  const input = root.querySelector('[data-chart-combo-input]');
+  const list = root.querySelector('[data-chart-combo-options]');
   let matches = [];
   let highlighted = 0;
-  const selectedChart = () => chartById(pairSelection()[slot]);
+  const selectedChart = () => chartById(selectedId());
   const showSelection = () => {
     const chart = selectedChart();
     input.value = chart ? chart.name : '';
-    slotEl.querySelector('[data-pair-details]').textContent = chart ? pairChartDetails(chart) : 'No chart selected';
+    onShow(chart);
   };
   const close = () => {
     list.hidden = true;
@@ -59,7 +58,7 @@ function bindPairSlot(slotEl, onPick) {
   const paint = () => {
     list.innerHTML = matches.length
       ? matches
-          .map((chart, index) => `<div class="pair-option${index === highlighted ? ' highlighted' : ''}${chart.id === pairSelection()[slot] ? ' selected' : ''}" role="option" data-id="${chart.id}"><b>${chart.name}</b><small>${pairChartDetails(chart)}</small></div>`)
+          .map((chart, index) => `<div class="pair-option${index === highlighted ? ' highlighted' : ''}${chart.id === selectedId() ? ' selected' : ''}" role="option" data-id="${chart.id}"><b>${chart.name}</b><small>${pairChartDetails(chart)}</small></div>`)
           .join('')
       : '<div class="pair-empty">No matching charts</div>';
     list.querySelector('.highlighted')?.scrollIntoView({ block: 'nearest' });
@@ -71,17 +70,16 @@ function bindPairSlot(slotEl, onPick) {
     matches = text && text !== (selectedChart()?.name || '').toLowerCase()
       ? all.filter((chart) => `${chart.name} ${chart.location} ${chart.birthDate} ${formatDate(chart.birthDate)}`.toLowerCase().includes(text))
       : all;
-    highlighted = Math.max(0, matches.findIndex((chart) => chart.id === pairSelection()[slot]));
+    highlighted = Math.max(0, matches.findIndex((chart) => chart.id === selectedId()));
     list.hidden = false;
     input.setAttribute('aria-expanded', 'true');
     paint();
   };
   const pick = (chart) => {
-    setPairSelection(slot, chart.id);
     close();
-    showSelection();
     input.blur();
-    onPick();
+    onPick(chart.id);
+    showSelection();
   };
   input.addEventListener('focus', () => {
     input.select();
@@ -115,7 +113,7 @@ function bindPairSlot(slotEl, onPick) {
     const option = event.target.closest('.pair-option');
     if (option) pick(chartById(option.dataset.id));
   });
-  slotEl.querySelector('[data-pair-toggle]').addEventListener('mousedown', (event) => {
+  root.querySelector('[data-chart-combo-toggle]').addEventListener('mousedown', (event) => {
     event.preventDefault();
     if (list.hidden) input.focus();
     else input.blur();
@@ -123,6 +121,48 @@ function bindPairSlot(slotEl, onPick) {
   showSelection();
   return { showSelection };
 }
+
+function pairSlotMarkup(slot) {
+  return `
+    <div class="pair-slot" data-pair-slot="${slot}">
+      <span class="eyebrow">CHART ${slot.toUpperCase()}</span>
+      ${chartComboMarkup(`Chart ${slot.toUpperCase()}`)}
+      <p class="pair-details" data-pair-details></p>
+    </div>`;
+}
+function bindPairSlot(slotEl, onPick) {
+  const slot = slotEl.dataset.pairSlot;
+  return bindChartCombo(slotEl, {
+    selectedId: () => pairSelection()[slot],
+    onPick: (id) => {
+      setPairSelection(slot, id);
+      onPick();
+    },
+    onShow: (chart) => {
+      slotEl.querySelector('[data-pair-details]').textContent = chart ? pairChartDetails(chart) : 'No chart selected';
+    },
+  });
+}
+
+// Chart Explorer: the chart's name is itself the picker, to switch charts in place.
+let explorerChartCombo = null;
+function syncExplorerChartPicker() {
+  const heading = document.getElementById('explorerName');
+  if (!heading) return;
+  if (!explorerChartCombo) {
+    heading.classList.add('explorer-name-picker');
+    heading.innerHTML = chartComboMarkup('Chart', 'pair-input explorer-name-input');
+    explorerChartCombo = bindChartCombo(heading, {
+      selectedId: () => selectedChartId,
+      onPick: (id) => {
+        selectedChartId = id;
+        setView('explorer');
+      },
+    });
+  }
+  explorerChartCombo.showSelection();
+}
+syncExplorerChartPicker();
 
 // ── Page ────────────────────────────────────────────────────────────────
 let pairSlots = null;
@@ -182,7 +222,11 @@ function renderPairSystem() {
 // Chart A always sits inside (its houses and Ascendant orient the wheel), Chart B
 // in a ring around it; only aspects BETWEEN the two charts are drawn. "Chart A" /
 // "Chart B" alone show that chart's own natal wheel and aspects instead.
-const PAIR_PEOPLE = { A: { color: 'var(--accent)' }, B: { color: 'var(--blue)' } };
+// Per-person colors. Human Design (composite bodygraph and mandala, legend, comparison):
+// Chart A a light blue, Chart B green — kept clear of the red used for Design activations
+// in a single chart. The synastry views (wheel, grid, lists, legend): Chart A blue, Chart B red.
+const PAIR_PEOPLE = { A: { color: 'var(--pair-blue)' }, B: { color: 'var(--pair-green)' } };
+const PAIR_ASTRO_PEOPLE = { A: { color: 'var(--blue)' }, B: { color: 'var(--accent)' } };
 const PAIR_ASTRO_SUBJECTS = [['synastry', 'Synastry'], ['A', 'Chart A'], ['B', 'Chart B']];
 const PAIR_ASTRO_VIEWS = [['wheel', 'Wheel'], ['grid', 'Aspect grid'], ['both', 'Both']];
 let pairAstroSubject = 'synastry';
@@ -196,24 +240,40 @@ function pairSegmentedMarkup(attribute, options, current) {
   return `<div class="pair-seg" ${attribute}>${options.map(([value, label]) => `<button type="button" data-value="${value}" class="${value === current ? 'active' : ''}">${label}</button>`).join('')}</div>`;
 }
 
+// The Pair Explorer's view-button state lives in the router-visible globals above.
+const pairAstroState = {
+  get subject() { return pairAstroSubject; },
+  set subject(value) { pairAstroSubject = value; },
+  get view() { return pairAstroView; },
+  set view(value) { pairAstroView = value; },
+};
 function renderAstrologyPair(container, entries) {
-  const people = { A: { ...PAIR_PEOPLE.A, key: 'A', chart: entries[0].chart }, B: { ...PAIR_PEOPLE.B, key: 'B', chart: entries[1].chart } };
+  const person = (key, entry) => ({ ...PAIR_ASTRO_PEOPLE[key], key, chart: entry.chart, name: `Chart ${key}`, tag: key, legend: `Chart ${key} · ${entry.chart.name}`, offset: 0 });
+  renderSynastryView(container, { A: person('A', entries[0]), B: person('B', entries[1]) }, { subjects: PAIR_ASTRO_SUBJECTS, state: pairAstroState, wheelId: 'pairWheel' });
+}
+// A bi-wheel view shared by the Pair Explorer (two charts) and the Cycle Explorer (a
+// natal chart and its cycle moment). Each person: { key: 'A'|'B', chart, color, name
+// (e.g. "Chart A", "Natal"), tag (short, for lists: "A", "natal"), legend text, offset
+// (minutes after that chart's birth at which to draw it) }. config: { subjects (view
+// button labels), state ({ subject, view }, kept by the caller), wheelId, footer
+// (markup under the wheel) }. Returns { draw } for callers that change a person's offset.
+function renderSynastryView(container, people, { subjects, state, wheelId, footer = '' }) {
   container.innerHTML = `
     <div class="pair-astro-layout">
       <div class="chart-panel">
         <div class="panel-toolbar pair-astro-toolbar">
-          ${pairSegmentedMarkup('data-pair-subject', PAIR_ASTRO_SUBJECTS, pairAstroSubject)}
-          ${pairSegmentedMarkup('data-pair-view', PAIR_ASTRO_VIEWS, pairAstroView)}
+          ${pairSegmentedMarkup('data-pair-subject', subjects, state.subject)}
+          ${pairSegmentedMarkup('data-pair-view', PAIR_ASTRO_VIEWS, state.view)}
           <div class="chart-toolbar-right">
             <label class="fix-zodiac-toggle"><input type="checkbox" data-pair-fix-zodiac ${astroWheelFixedToAries ? 'checked' : ''}>Fix Zodiac</label>
-            <label class="fix-zodiac-toggle"><input type="checkbox" data-all-aspects ${aspectMode === 'all' ? 'checked' : ''}>All aspects</label>
           </div>
         </div>
         <div class="wheel-stage pair-astro-stage">
           <div class="pair-legend" data-pair-legend></div>
-          <svg id="pairWheel" viewBox="0 0 600 600" role="img" aria-label="Synastry wheel"></svg>
+          <svg id="${wheelId}" class="synastry-wheel" viewBox="0 0 600 600" role="img" aria-label="Synastry wheel"></svg>
           <div class="pair-aspect-grid-wrap" data-pair-grid></div>
         </div>
+        ${footer}
       </div>
       <div class="acg-filters wheel-filters" data-pair-wheel-filters>${wheelFiltersMarkup()}</div>
       <aside class="detail-panel pair-aspect-panel">
@@ -224,21 +284,21 @@ function renderAstrologyPair(container, entries) {
       </aside>
     </div>`;
   const draw = () => {
-    const subject = pairAstroSubject === 'synastry' ? [people.A, people.B] : [people[pairAstroSubject]];
-    const svg = container.querySelector('#pairWheel');
-    const aspects = renderPairWheel(svg, subject, aspectMode === 'all');
-    const showWheel = pairAstroView !== 'grid', showGrid = pairAstroView !== 'wheel';
+    const subject = state.subject === 'synastry' ? [people.A, people.B] : [people[state.subject]];
+    const svg = container.querySelector('.synastry-wheel');
+    const aspects = renderPairWheel(svg, subject);
+    const showWheel = state.view !== 'grid', showGrid = state.view !== 'wheel';
     // toggleAttribute, not .hidden: SVG elements have no `hidden` property.
     svg.toggleAttribute('hidden', !showWheel);
     const legend = container.querySelector('[data-pair-legend]');
     legend.hidden = !showWheel;
-    legend.innerHTML = pairLegendMarkup(subject, subject.length > 1 ? { A: 'inner', B: 'outer' } : {});
+    legend.innerHTML = subject.map((person) => `<span><i class="legend-dot" style="background:${person.color}"></i>${person.legend}${subject.length > 1 ? ` <small>${person.key === 'A' ? 'inner' : 'outer'}</small>` : ''}</span>`).join('');
     const grid = container.querySelector('[data-pair-grid]');
     grid.hidden = !showGrid;
     grid.innerHTML = showGrid ? pairAspectGridMarkup(subject, aspects) : '';
     container.querySelector('[data-pair-aspect-title]').textContent = subject.length > 1
       ? `CROSS-ASPECTS · ${aspects.length}`
-      : `CHART ${subject[0].key} ASPECTS · ${aspects.length}`;
+      : `${subject[0].name.toUpperCase()} ASPECTS · ${aspects.length}`;
     container.querySelector('[data-pair-aspect-list]').innerHTML = pairAspectListMarkup(subject, aspects);
   };
   const bindSegmented = (attribute, set) => {
@@ -251,8 +311,8 @@ function renderAstrologyPair(container, entries) {
       draw();
     });
   };
-  bindSegmented('data-pair-subject', (value) => { pairAstroSubject = value; });
-  bindSegmented('data-pair-view', (value) => { pairAstroView = value; });
+  bindSegmented('data-pair-subject', (value) => { state.subject = value; });
+  bindSegmented('data-pair-view', (value) => { state.view = value; });
   // Both checkboxes drive the Chart Explorer's own settings (shared state), so its
   // checkboxes are kept in step too.
   container.querySelector('[data-pair-fix-zodiac]').addEventListener('change', (event) => {
@@ -261,28 +321,22 @@ function renderAstrologyPair(container, entries) {
     if (explorerToggle) explorerToggle.checked = astroWheelFixedToAries;
     draw();
   });
-  container.querySelector('[data-all-aspects]').addEventListener('change', (event) => {
-    setAspectMode(event.target.checked ? 'all' : 'main');
-    draw();
-  });
-  // The planet filters are the Chart Explorer's own (one shared set), so its
-  // checkboxes are kept in step too.
-  container.querySelector('[data-pair-wheel-filters]').addEventListener('change', (event) => {
-    const key = event.target.dataset.wheelBody;
-    if (!key) return;
-    if (event.target.checked) wheelHiddenBodies.delete(key);
-    else wheelHiddenBodies.add(key);
-    document.querySelectorAll(`[data-wheel-body="${key}"]`).forEach((input) => { input.checked = event.target.checked; });
-    draw();
+  // The planet and aspect filters are shared with the Chart Explorer (one set of each);
+  // applyWheelFilterChange keeps every filter panel on the page in step.
+  const filters = container.querySelector('[data-pair-wheel-filters]');
+  syncWheelFilterInputs(filters);
+  filters.addEventListener('change', (event) => {
+    if (applyWheelFilterChange(event.target)) draw();
   });
   draw();
+  return { draw };
 }
 
 // Tightest orb first (calculate*Aspects already sort them); within 2° reads as exact.
 function pairAspectListMarkup(people, aspects) {
   if (!aspects.length) return '<div class="aspect-empty">No aspects in this filter.</div>';
   const [first, second = people[0]] = people;
-  const name = (person, body) => `<i class="pair-aspect-name" style="color:${person.color}">${body}${people.length > 1 ? ` ${person.key}` : ''}</i>`;
+  const name = (person, body) => `<i class="pair-aspect-name" style="color:${person.color}">${body}${people.length > 1 ? ` ${person.tag}` : ''}</i>`;
   return aspects.map((aspect) => `
     <div class="aspect-row${aspect.intensity === 'exact' ? ' exact' : ''}">
       <span><b class="aspect-glyph" style="color:${aspect.color}">${aspect.glyph}</b>${name(first, aspect.first)} ${aspect.name.toLowerCase()} ${name(second, aspect.second)}</span>
@@ -293,7 +347,7 @@ function pairAspectListMarkup(people, aspects) {
 // Draws one chart (people = [person]) as a natal wheel, or two (people = [A, B]) as
 // a bi-wheel with B's ring between A's planets and the zodiac. Returns the aspects
 // drawn: natal ones for one chart, A×B cross-aspects for two.
-function renderPairWheel(svg, people, includeAll) {
+function renderPairWheel(svg, people) {
   const cx = 300, cy = 300, outer = 250;
   const [inside, outside] = people;
   // Radii, outside in. One chart: the Chart Explorer's own proportions. Two: a
@@ -304,9 +358,9 @@ function renderPairWheel(svg, people, includeAll) {
   const insideRingWidth = outside ? 48 : Math.round((outer - zodiacInner) * 1.1);
   const aspectR = insideOuter - insideRingWidth;
   const ascendant = inside.chart.positions.find((position) => position.name === 'Ascendant');
-  const ascendantAngle = ascendant ? positionAngleAtTime(ascendant, 0) : 0;
+  const ascendantAngle = ascendant ? positionAngleAtTime(ascendant, inside.offset || 0) : 0;
   const wheelRotation = astroWheelFixedToAries ? 270 : (270 + ascendantAngle + 360) % 360;
-  const houseCusps = houseCuspsAtTime(inside.chart, 0);
+  const houseCusps = houseCuspsAtTime(inside.chart, inside.offset || 0);
   const circle = (r, extra = '') => `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--line)" stroke-width="1"${extra}/>`;
   let markup = circle(outer) + circle(zodiacInner) + (outside ? circle(insideOuter) : '') + circle(aspectR, ' opacity=".8"');
   markup += wheelZodiacMarkup(cx, cy, outer, zodiacInner, wheelRotation);
@@ -315,8 +369,9 @@ function renderPairWheel(svg, people, includeAll) {
   const ringPositions = (person) => person.chart.positions
     .filter((position) => wheelBodyVisible(position.name))
     .map((position) => {
-      const longitude = positionAngleAtTime(position, 0);
-      return { ...position, key: `${person.key}:${position.name}`, person, color: person.color, longitude, angle: (wheelRotation - longitude + 360) % 360, motion: wheelMotion(position, 0) };
+      const offset = person.offset || 0;
+      const longitude = positionAngleAtTime(position, offset);
+      return { ...position, key: `${person.key}:${position.name}`, person, color: person.color, longitude, angle: (wheelRotation - longitude + 360) % 360, motion: wheelMotion(position, offset) };
     });
   const insidePositions = ringPositions(inside);
   const outsidePositions = outside ? ringPositions(outside) : [];
@@ -325,8 +380,8 @@ function renderPairWheel(svg, people, includeAll) {
   // Orbs come from the true longitudes; the lines join the true (unspread) wheel angles.
   const withLongitude = (positions) => positions.map((position) => ({ ...position, angle: position.longitude }));
   const aspects = outside
-    ? calculateCrossAspects(withLongitude(insidePositions), withLongitude(outsidePositions), includeAll)
-    : calculateAspects({ positions: withLongitude(insidePositions) }, includeAll);
+    ? calculateCrossAspects(withLongitude(insidePositions), withLongitude(outsidePositions))
+    : calculateAspects({ positions: withLongitude(insidePositions) });
   const insideByName = new Map(insidePositions.map((position) => [position.name, position]));
   const outsideByName = outside ? new Map(outsidePositions.map((position) => [position.name, position])) : insideByName;
   markup += wheelAspectLinesMarkup(cx, cy, aspectR, aspects, (aspect) => [insideByName.get(aspect.first).angle, outsideByName.get(aspect.second).angle]);
@@ -346,11 +401,11 @@ function pairPlanetTooltip(position, cusps, housesOf) {
   const { glyph, degree } = wheelSignText(position.longitude);
   const mark = WHEEL_MOTION_MARKS[position.motion];
   const house = wheelHouseOf(position.longitude, cusps);
-  const where = !house ? '' : position.person === housesOf ? ` · House ${house}` : ` · in Chart ${housesOf.key}'s house ${house}`;
-  return `<div class="wheel-tooltip-main">${position.name} ${glyph}${degree.toFixed(2)}°${mark ? ` ${mark}` : ''}</div><div class="wheel-tooltip-sub">Chart ${position.person.key}${where}</div>`;
+  const where = !house ? '' : position.person === housesOf ? ` · House ${house}` : ` · in ${housesOf.housesName || `${housesOf.name}'s house`} ${house}`;
+  return `<div class="wheel-tooltip-main">${position.name} ${glyph}${degree.toFixed(2)}°${mark ? ` ${mark}` : ''}</div><div class="wheel-tooltip-sub">${position.person.name}${where}</div>`;
 }
 function pairAspectTooltip(aspect, first, second, synastry) {
-  const side = (position) => `${position.name}${wheelSignText(position.longitude).glyph}${synastry ? ` (${position.person.key})` : ''}`;
+  const side = (position) => `${position.name}${wheelSignText(position.longitude).glyph}${synastry ? ` (${position.person.tag})` : ''}`;
   return `<div class="wheel-tooltip-main">${side(first)} ${aspect.name} ${side(second)}</div><div class="wheel-tooltip-sub">Orb ${aspect.orb.toFixed(1)}°</div>`;
 }
 
@@ -372,13 +427,13 @@ function pairAspectGridMarkup(people, aspects) {
   const cell = (row, column) => {
     const aspect = !synastry && row.name === column.name ? null : lookup.get(`${row.name}|${column.name}`);
     const title = aspect
-      ? `${row.name}${synastry ? ' (A)' : ''} ${aspect.name} ${column.name}${synastry ? ' (B)' : ''} · orb ${aspect.orb.toFixed(1)}°`
+      ? `${row.name}${synastry ? ` (${rowsPerson.tag})` : ''} ${aspect.name} ${column.name}${synastry ? ` (${columnsPerson.tag})` : ''} · orb ${aspect.orb.toFixed(1)}°`
       : 'No aspect';
     return `<div class="aspect-cell${aspect ? ' has-aspect' : ''}" title="${title}"${aspect ? ` style="color:${aspect.color}"` : ''}>${aspect ? aspect.glyph : '·'}</div>`;
   };
   const heading = synastry
-    ? `CROSS-ASPECTS · ${aspects.length} · <span style="color:${rowsPerson.color}">rows chart A</span> · <span style="color:${columnsPerson.color}">columns chart B</span>`
-    : `CHART ${rowsPerson.key} ASPECTS · ${aspects.length}`;
+    ? `CROSS-ASPECTS · ${aspects.length} · <span style="color:${rowsPerson.color}">rows ${rowsPerson.name}</span> · <span style="color:${columnsPerson.color}">columns ${columnsPerson.name}</span>`
+    : `${rowsPerson.name.toUpperCase()} ASPECTS · ${aspects.length}`;
   return `<p class="eyebrow pair-grid-heading">${heading}</p>
     <div class="pair-aspect-grid" style="grid-template-columns:96px repeat(${columns.length},minmax(30px,1fr))">
       <div class="grid-corner"></div>${columns.map((position) => label(columnsPerson, position, false)).join('')}
@@ -403,7 +458,7 @@ let pairHdSubject = 'composite';
 let pairHdView = 'bodygraph';
 
 function renderHumanDesignPair(container, entries) {
-  const people = { A: { ...PAIR_PEOPLE.A, key: 'A', chart: entries[0].chart }, B: { ...PAIR_PEOPLE.B, key: 'B', chart: entries[1].chart } };
+  const people = { A: { ...PAIR_PEOPLE.A, key: 'A', name: 'Chart A', tag: 'A', chart: entries[0].chart }, B: { ...PAIR_PEOPLE.B, key: 'B', name: 'Chart B', tag: 'B', chart: entries[1].chart } };
   container.innerHTML = `
     <div class="pair-hd-layout">
       <div class="system-visual">
@@ -445,8 +500,7 @@ function renderHumanDesignPair(container, entries) {
       ? hdMandalaSvgMarkup(state, glyphMap)
       : `<svg class="bodygraph hd-bodygraph pair-bodygraph" viewBox="0 0 440 640" role="img" aria-label="Bodygraph">
           ${HD_BODYGRAPH_SILHOUETTE}
-          <g data-center-layer>${hdBodygraphCenterMarkup(state)}</g>
-          <g data-gate-layer>${hdBodygraphGateMarkup(state)}</g>
+          <g data-bodygraph-layers>${hdBodygraphLayersMarkup(state)}</g>
         </svg>`;
   };
   [['data-pair-subject', (value) => { pairHdSubject = value; }], ['data-pair-view', (value) => { pairHdView = value; }]].forEach(([attribute, set]) => {

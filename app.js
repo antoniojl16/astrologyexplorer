@@ -554,29 +554,21 @@ function bindAstrologyWheelTooltip(svg) {
   svg.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; });
 }
 
+// The Chart Explorer's title (the chart picker, from pair.js once loaded) and details
+// line. Refreshed whenever the explorer opens, whichever system tab is showing.
+function renderExplorerHeader() {
+  const chart = currentExplorerChart();
+  if (!chart || explorerMode !== 'chart') return;
+  if (typeof syncExplorerChartPicker === 'function') syncExplorerChartPicker();
+  else document.getElementById('explorerName').textContent = chart.name;
+  document.getElementById('explorerMeta').textContent =
+    `${formatDate(chart.birthDate)} · ${chart.birthTime || 'Time unknown'}${chart.uncertainty ? ' ± ' + chart.uncertainty + ' min' : ''} · ${chart.location}`;
+}
 function renderExplorer() {
   const chart = currentExplorerChart();
   if (!chart) return;
-  const sun = getSun(chart),
-    signIndex = SIGNS.indexOf(sun.sign);
-  if (explorerMode === 'chart') {
-    document.getElementById('explorerName').textContent = chart.name;
-    document.getElementById('explorerMeta').textContent =
-      `${formatDate(chart.birthDate)} · ${chart.birthTime || 'Time unknown'}${chart.uncertainty ? ' ± ' + chart.uncertainty + ' min' : ''} · ${chart.location}`;
-  }
-  document.getElementById('sunGlyph').textContent = SIGN_GLYPHS[signIndex];
-  document.getElementById('sunSign').textContent = sun.sign;
-  document.getElementById('sunDegree').textContent =
-    `${sun.degree.toFixed(1)}° · ${sun.house}th house`;
-  document.getElementById('signatureCopy').textContent =
-    `${sun.sign} energy brings a distinctive rhythm to ${explorerMode === 'timeline' ? 'this moment' : 'this chart'}, with the ${explorerMode === 'timeline' ? 'current' : 'birth'} sky held alongside design influences from ${formatDate(chart.designTime.slice(0, 10))}.`;
-  document.getElementById('placementList').innerHTML = chart.positions
-    .slice(0, 6)
-    .map(
-      (position) =>
-        `<div class="placement"><span class="placement-glyph">${position.glyph}</span><span class="placement-name">${position.name}<small class="placement-house"> · House ${position.house}</small></span><span class="placement-degree">${position.degree.toFixed(1)}° ${position.direction === 'retrograde' ? '℞' : ''}</span></div>`,
-    )
-    .join('');
+  renderExplorerHeader();
+  if (typeof updateDisplayedSigns === 'function') updateDisplayedSigns(chart, window.timelineOffsetMinutes || 0);
   const aspects = [
     ['Sun', 'Trine', 'Moon', '2° 14′'],
     ['Venus', 'Opposition', 'Saturn', '4° 06′'],
@@ -625,9 +617,10 @@ function setView(view) {
   if (view === 'pair' && typeof renderPairExplorer === 'function') renderPairExplorer();
   if (view === 'explorer' || view === 'timeline') {
     mountExplorerBody(view);
+    renderExplorerHeader();
     // Refresh whichever system tab (Astrology/Human Design/Gene Keys) is currently
     // active, not just Astrology — renderExplorer() alone assumes Astrology-only
-    // elements (sunGlyph, placementList, ...) exist, which isn't true if the surface
+    // elements (sunGlyph, aspectList, ...) exist, which isn't true if the surface
     // is currently showing a different tab.
     if (typeof refreshActiveSystemPanel === 'function') refreshActiveSystemPanel();
     else renderExplorer();

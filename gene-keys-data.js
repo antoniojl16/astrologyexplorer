@@ -1,0 +1,105 @@
+// Gene Keys reference text for the sphere tooltips (systems.js, geneKeysTooltipHtml).
+// The Shadow / Gift / Siddhi names are the Gene Keys' own; every description here is
+// an original short summary, not quoted from the Gene Keys books.
+
+// The 64 Gene Keys: Shadow → Gift → Siddhi, and what each is about.
+const GENE_KEYS = {
+  1: { shadow: "Entropy", gift: "Freshness", siddhi: "Beauty", summary: "Creative spirit: energy goes flat when it's forced into routine, and turns fresh and original when you follow your own mood and timing." },
+  2: { shadow: "Dislocation", gift: "Orientation", siddhi: "Unity", summary: "The inner compass: feeling lost or out of place gives way to trusting the direction life is already taking you." },
+  3: { shadow: "Chaos", gift: "Innovation", siddhi: "Innocence", summary: "Meeting change: what feels like chaos becomes the raw material for innovation once you stop resisting it." },
+  4: { shadow: "Intolerance", gift: "Understanding", siddhi: "Forgiveness", summary: "The mind's need for answers: rigid certainty relaxes into understanding that holds many viewpoints at once." },
+  5: { shadow: "Impatience", gift: "Patience", siddhi: "Timelessness", summary: "Rhythm and timing: trusting natural cycles instead of pushing replaces impatience with a calm, patient flow." },
+  6: { shadow: "Conflict", gift: "Diplomacy", siddhi: "Peace", summary: "Emotional boundaries: friction between people turns into diplomacy when feelings are allowed to settle before acting." },
+  7: { shadow: "Division", gift: "Guidance", siddhi: "Virtue", summary: "Leadership: taking sides divides people; guiding by example and serving the whole brings them together." },
+  8: { shadow: "Mediocrity", gift: "Style", siddhi: "Exquisiteness", summary: "Individual expression: conforming dulls you, while daring to be yourself gives rise to a style that's unmistakably yours." },
+  9: { shadow: "Inertia", gift: "Determination", siddhi: "Invincibility", summary: "The power of small things: steady attention to details turns stuck energy into quiet, unstoppable determination." },
+  10: { shadow: "Self-Obsession", gift: "Naturalness", siddhi: "Being", summary: "Self-love: worrying about how you come across gives way to simply being natural." },
+  11: { shadow: "Obscurity", gift: "Idealism", siddhi: "Light", summary: "Ideas and dreams: images that cloud the mind become inspiring ideals when they're shared and lived." },
+  12: { shadow: "Vanity", gift: "Discrimination", siddhi: "Purity", summary: "The voice of the heart: speaking to be admired gives way to choosing words with care and feeling." },
+  13: { shadow: "Discord", gift: "Discernment", siddhi: "Empathy", summary: "Listening: tuning into others' stories without getting lost in them turns discord into discernment." },
+  14: { shadow: "Compromise", gift: "Competence", siddhi: "Bounteousness", summary: "Work and resources: energy put into what you love grows into competence and abundance rather than compromise." },
+  15: { shadow: "Dullness", gift: "Magnetism", siddhi: "Florescence", summary: "Flow and extremes: embracing life's highs and lows, rather than flattening them, makes you naturally magnetic." },
+  16: { shadow: "Indifference", gift: "Versatility", siddhi: "Mastery", summary: "Skill: genuine enthusiasm turns half-hearted practice into versatility and, over time, mastery." },
+  17: { shadow: "Opinion", gift: "Far-Sightedness", siddhi: "Omniscience", summary: "Perspective: holding fixed opinions narrows the view; stepping back reveals the long-range pattern." },
+  18: { shadow: "Judgement", gift: "Integrity", siddhi: "Perfection", summary: "Improvement: the urge to correct becomes integrity when it starts with yourself instead of criticising others." },
+  19: { shadow: "Co-Dependence", gift: "Sensitivity", siddhi: "Sacrifice", summary: "Needs and belonging: depending on others' approval becomes a fine sensitivity to what people truly need." },
+  20: { shadow: "Superficiality", gift: "Self-Assurance", siddhi: "Presence", summary: "The present moment: acting from the surface gives way to a quiet self-assurance rooted in the now." },
+  21: { shadow: "Control", gift: "Authority", siddhi: "Valour", summary: "Control: gripping tightly out of fear becomes natural authority that others trust." },
+  22: { shadow: "Dishonour", gift: "Graciousness", siddhi: "Grace", summary: "Openness: letting emotions move through you gracefully turns hurt and dishonour into grace." },
+  23: { shadow: "Complexity", gift: "Simplicity", siddhi: "Quintessence", summary: "Communication: over-explaining gives way to saying the simple essence of things." },
+  24: { shadow: "Addiction", gift: "Invention", siddhi: "Silence", summary: "The thinking mind: repetitive loops of thought turn into genuine invention when the mind is allowed to rest." },
+  25: { shadow: "Constriction", gift: "Acceptance", siddhi: "Universal Love", summary: "The wounded heart: closing down to avoid pain gives way to accepting life as it is." },
+  26: { shadow: "Pride", gift: "Artfulness", siddhi: "Invisibility", summary: "Influence: pushing yourself forward becomes the art of persuading with humour, honesty and skill." },
+  27: { shadow: "Selfishness", gift: "Altruism", siddhi: "Selflessness", summary: "Care: looking after yourself and others in balance turns selfishness into genuine altruism." },
+  28: { shadow: "Purposelessness", gift: "Totality", siddhi: "Immortality", summary: "Meaning: facing the fear of a meaningless life leads to throwing yourself into it wholeheartedly." },
+  29: { shadow: "Half-Heartedness", gift: "Commitment", siddhi: "Devotion", summary: "Saying yes: committing fully to what you truly say yes to turns half-heartedness into devotion." },
+  30: { shadow: "Desire", gift: "Lightness", siddhi: "Rapture", summary: "Feeling: burning desire becomes lightness when you enjoy the longing without needing it fulfilled." },
+  31: { shadow: "Arrogance", gift: "Leadership", siddhi: "Humility", summary: "Voice and influence: leading from arrogance divides; leading by listening earns people's trust." },
+  32: { shadow: "Failure", gift: "Preservation", siddhi: "Veneration", summary: "Continuity: the fear of failing gives way to preserving what's truly worth keeping over time." },
+  33: { shadow: "Forgetting", gift: "Mindfulness", siddhi: "Revelation", summary: "Memory: stepping back to reflect turns forgotten lessons into mindful understanding." },
+  34: { shadow: "Force", gift: "Strength", siddhi: "Majesty", summary: "Power: pushing by force gives way to a natural strength that simply acts when the moment is right." },
+  35: { shadow: "Hunger", gift: "Adventure", siddhi: "Boundlessness", summary: "Experience: the restless hunger for more becomes a spirit of adventure that savours each experience." },
+  36: { shadow: "Turbulence", gift: "Humanity", siddhi: "Compassion", summary: "Emotional growth: living through emotional turbulence opens a deep sense of shared humanity." },
+  37: { shadow: "Weakness", gift: "Equality", siddhi: "Tenderness", summary: "Family and community: relationships built on fair give-and-take turn weakness into equality." },
+  38: { shadow: "Struggle", gift: "Perseverance", siddhi: "Honour", summary: "Meaningful struggle: fighting against life becomes perseverance for what truly matters." },
+  39: { shadow: "Provocation", gift: "Dynamism", siddhi: "Liberation", summary: "Energy: provoking and being provoked turns into dynamism that frees up stuck energy in others." },
+  40: { shadow: "Exhaustion", gift: "Resolve", siddhi: "Divine Will", summary: "Willpower: honouring the need to rest and be alone turns exhaustion into steady resolve." },
+  41: { shadow: "Fantasy", gift: "Anticipation", siddhi: "Emanation", summary: "New beginnings: escaping into fantasy gives way to anticipating what's truly about to begin." },
+  42: { shadow: "Expectation", gift: "Detachment", siddhi: "Celebration", summary: "Cycles: letting go of expectations about how things should end brings detachment and joy." },
+  43: { shadow: "Deafness", gift: "Insight", siddhi: "Epiphany", summary: "Breakthrough: tuning out your inner knowing gives way to sudden, original insight." },
+  44: { shadow: "Interference", gift: "Teamwork", siddhi: "Synarchy", summary: "Collaboration: reading people and patterns well turns interference into effortless teamwork." },
+  45: { shadow: "Dominance", gift: "Synergy", siddhi: "Communion", summary: "Community and resources: controlling others gives way to synergy, where everyone's contribution counts." },
+  46: { shadow: "Seriousness", gift: "Delight", siddhi: "Ecstasy", summary: "The body: taking life too seriously gives way to delight in simply being embodied." },
+  47: { shadow: "Oppression", gift: "Transmutation", siddhi: "Transfiguration", summary: "Mental pressure: the weight of the past, once accepted, transmutes into new understanding." },
+  48: { shadow: "Inadequacy", gift: "Resourcefulness", siddhi: "Wisdom", summary: "Depth: the fear of not knowing enough becomes resourcefulness that meets life as it comes." },
+  49: { shadow: "Reaction", gift: "Revolution", siddhi: "Rebirth", summary: "Change: emotional reactions turn into principled revolution that transforms how people live together." },
+  50: { shadow: "Corruption", gift: "Equilibrium", siddhi: "Harmony", summary: "Values: compromising your values gives way to balance and sound judgement in groups." },
+  51: { shadow: "Agitation", gift: "Initiative", siddhi: "Awakening", summary: "Shock: the jolt of the unexpected becomes the initiative to start something new." },
+  52: { shadow: "Stress", gift: "Restraint", siddhi: "Stillness", summary: "Stillness: restless stress gives way to a focused restraint that waits for the right moment." },
+  53: { shadow: "Immaturity", gift: "Expansion", siddhi: "Superabundance", summary: "Beginnings: rushing into new starts gives way to growth that unfolds in natural stages." },
+  54: { shadow: "Greed", gift: "Aspiration", siddhi: "Ascension", summary: "Ambition: grasping for more becomes aspiration that lifts yourself and others." },
+  55: { shadow: "Victimisation", gift: "Freedom", siddhi: "Freedom", summary: "Emotional freedom: blaming life for how you feel gives way to the freedom of accepting every mood." },
+  56: { shadow: "Distraction", gift: "Enrichment", siddhi: "Intoxication", summary: "Storytelling: seeking stimulation to avoid pain becomes stories and experiences that enrich others." },
+  57: { shadow: "Unease", gift: "Intuition", siddhi: "Clarity", summary: "Intuition: underlying fear and unease give way to trusting a clear inner knowing in the moment." },
+  58: { shadow: "Dissatisfaction", gift: "Vitality", siddhi: "Bliss", summary: "Joy: the drive to improve things turns from dissatisfaction into the vitality of serving life." },
+  59: { shadow: "Dishonesty", gift: "Intimacy", siddhi: "Transparency", summary: "Intimacy: hidden agendas give way to openness that lets real closeness grow." },
+  60: { shadow: "Limitation", gift: "Realism", siddhi: "Justice", summary: "Limits: working within real constraints, rather than fighting them, becomes grounded realism." },
+  61: { shadow: "Psychosis", gift: "Inspiration", siddhi: "Sanctity", summary: "Inner truth: the pressure to know the unknowable relaxes into genuine inspiration." },
+  62: { shadow: "Intellect", gift: "Precision", siddhi: "Impeccability", summary: "Language: using the intellect to categorise everything gives way to precise, meaningful expression." },
+  63: { shadow: "Doubt", gift: "Inquiry", siddhi: "Truth", summary: "Questioning: anxious doubt turns into an open, curious inquiry into what's really true." },
+  64: { shadow: "Confusion", gift: "Imagination", siddhi: "Illumination", summary: "Imagination: the mind's confusion becomes a rich imagination when you stop trying to resolve it." },
+};
+
+// Each sphere: what it represents, and a short phrase for it used in the line meanings.
+const GENE_KEYS_SPHERE_INFO = {
+  lifeswork: { summary: "Your core purpose in the world: the gift you're here to express through your work and way of life.", focus: "your life's work" },
+  evolution: { summary: "Your core challenge: the pattern that keeps pushing you to grow, and the gift hidden inside it.", focus: "your core challenge" },
+  radiance: { summary: "Your health and vitality: what keeps you well and lets you shine.", focus: "your health and radiance" },
+  purpose: { summary: "Your deepest purpose: what grounds and centres you, and gives your life meaning.", focus: "your deepest purpose" },
+  attraction: { summary: "What you draw into your life: the kind of relationships and partners your nature attracts.", focus: "the relationships you attract" },
+  iq: { summary: "Your mental intelligence: how your mind works at its best, and the fear that can cloud it.", focus: "your mental intelligence" },
+  eq: { summary: "Your emotional intelligence: how you meet others and handle feelings in relationship.", focus: "your emotional intelligence" },
+  sq: { summary: "Your spiritual intelligence: the love that opens once the heart's old wounds are healed.", focus: "your spiritual intelligence" },
+  vocation: { summary: "Your natural calling: where your gifts meet the world, and the pattern that can block them.", focus: "your vocation" },
+  culture: { summary: "The groups and culture you're drawn to, and the role you play within them.", focus: "your role in groups" },
+  pearl: { summary: "Your prosperity: how you create lasting wealth by serving something larger than yourself.", focus: "your prosperity" },
+  brand: { summary: "How the world recognises you: the essence your life's work carries out into the world.", focus: "your brand" },
+  creativity: { summary: "Your creative genius: how new things come through you.", focus: "your creativity" },
+  relating: { summary: "How you relate: the way you communicate and share yourself with others.", focus: "the way you relate" },
+  stability: { summary: "What gives your work and prosperity a lasting, stable foundation.", focus: "your stability" },
+};
+
+// The six lines in general, applied to a sphere's focus phrase.
+const GENE_KEYS_LINES = {
+  1: { name: "Foundation", meaning: (focus) => `Line 1 grounds ${focus} in study and a secure foundation; it thrives on knowing how things really work.` },
+  2: { name: "Natural", meaning: (focus) => `Line 2 carries ${focus} as a natural, often unconscious talent that shines when others call it out.` },
+  3: { name: "Experiment", meaning: (focus) => `Line 3 develops ${focus} through trial and error; what fails teaches as much as what works.` },
+  4: { name: "Network", meaning: (focus) => `Line 4 unfolds ${focus} among the people around it; its opportunities come through relationships and community.` },
+  5: { name: "Influence", meaning: (focus) => `Line 5 projects ${focus} outward: others look to it for practical solutions, so its reputation matters.` },
+  6: { name: "Role Model", meaning: (focus) => `Line 6 lives ${focus} as an example to others, maturing over a lifetime into a role model.` },
+};
+
+// Each gate's own name for each of its lines (384 in all), keyed "gate.line", e.g.
+// "55.1": "Sharing". When a name is listed here, the tooltip shows it in place of the
+// general line name above.
+const GENE_KEYS_LINE_NAMES = {};

@@ -16,14 +16,15 @@
 // which dispatches on this variable, so nothing else needs to change.
 let EPHEMERIS_ENGINE = 'astronomy-engine'; // 'synthetic' | 'astronomy-engine'
 
-// Astronomy Engine only models real solar-system bodies. It has no notion of
-// Lilith (an osculating apogee) — that always falls back to the synthetic
-// engine, even when EPHEMERIS_ENGINE is 'astronomy-engine'. Everything else —
-// the angle-derived points (Ascendant/Midheaven/Vertex, realAscendantMidheaven/
-// realVertex below), Fortuna (an Arabic Part, a formula over Ascendant+Sun+
-// Moon, realFortuna below), and the lunar nodes (realLunarNode below) — DOES
-// get a real computation, since none of them need anything beyond the birth
-// moment and birth location, which every chart already carries.
+// Astronomy Engine only models real solar-system bodies, so Chiron (which it
+// doesn't cover) falls back to the synthetic engine even when EPHEMERIS_ENGINE
+// is 'astronomy-engine'. Everything else — the angle-derived points
+// (Ascendant/Midheaven/Vertex, realAscendantMidheaven/realVertex below),
+// Fortuna (an Arabic Part, a formula over Ascendant+Sun+Moon, realFortuna
+// below), the lunar nodes (realLunarNode below) and Lilith (the lunar apogee,
+// realLilith below) — DOES get a real computation, since none of them need
+// anything beyond the birth moment and birth location, which every chart
+// already carries.
 const REAL_EPHEMERIS_BODIES = new Set(['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto']);
 const REAL_ANGLE_BODIES = new Set(['Ascendant', 'Midheaven', 'Vertex', 'Fortuna']);
 const REAL_NODE_BODIES = new Set(['North Node', 'South Node']);
@@ -35,7 +36,15 @@ const REAL_NODE_BODIES = new Set(['North Node', 'South Node']);
 // mean position by up to ~1.5° on a roughly half-month period, but is more
 // "real"). Both are implemented below; flip this to switch, the same way
 // EPHEMERIS_ENGINE switches the whole app between synthetic and real.
-let LUNAR_NODE_MODE = 'mean'; // 'mean' | 'true'
+let LUNAR_NODE_MODE = 'true'; // 'mean' | 'true'
+
+// Lilith (Black Moon) is the lunar apogee, and software disagrees on which one
+// in much the same way: the MEAN apogee (a smooth polynomial — what most
+// Western astrology software means by "Black Moon Lilith") or the TRUE,
+// osculating apogee of the Moon's instantaneous orbit, which swings tens of
+// degrees around the mean (up to ~30° on real dates). Both are implemented
+// below (realLilith); flip this to switch.
+let LILITH_MODE = 'mean'; // 'mean' | 'true'
 
 function norm360(degrees) { return ((degrees % 360) + 360) % 360; }
 
@@ -218,10 +227,19 @@ function realFortuna(date, latitude, longitude) {
 // J2000 TT. This isn't exposed by Astronomy Engine's public API, but it
 // computes this exact series internally for its own lunar theory — this is
 // the same well-known formula, not reverse-engineered from the library.
-function meanLunarNodeLongitude(date) {
-  const centuries = Astronomy.MakeTime(date).tt / 36525;
+// The polynomial is measured from the MEAN equinox of date; adding the
+// nutation in longitude (Astronomy.e_tilt's dpsi, in arcseconds) refers it to
+// the TRUE equinox, like every other body here and like Swiss Ephemeris'
+// MEAN_NODE — which it then matches to within ~0.1″ (without it, up to ~17″).
+// The mean node's polynomial itself (degrees, mean equinox of date, not normalized),
+// shared with the mean Lilith below.
+function meanLunarNodePolynomial(centuries) {
   const c2 = centuries * centuries, c3 = c2 * centuries, c4 = c3 * centuries;
-  return norm360(125.0445479 - 1934.1362891 * centuries + 0.0020754 * c2 + c3 / 467441 - c4 / 60616000);
+  return 125.0445479 - 1934.1362891 * centuries + 0.0020754 * c2 + c3 / 467441 - c4 / 60616000;
+}
+function meanLunarNodeLongitude(date) {
+  const time = Astronomy.MakeTime(date);
+  return norm360(meanLunarNodePolynomial(time.tt / 36525) + Astronomy.e_tilt(time).dpsi / 3600);
 }
 // True node: the ascending intersection of the Moon's actual, instantaneous
 // orbital plane with the ecliptic (of date) — derived from the Moon's
@@ -254,6 +272,51 @@ function realLunarNode(bodyName, date) {
   return bodyName === 'North Node' ? ascendingNode : norm360(ascendingNode + 180);
 }
 
+// ── Lilith (lunar apogee) ──────────────────────────────────────────────────
+// Two independent implementations, chosen by LILITH_MODE. Both checked against
+// Swiss Ephemeris (pyswisseph 2.10) on dates from 1900 to 2100.
+//
+// Mean apogee: the Meeus mean longitude of the lunar perigee, plus 180°. That
+// polynomial measures the apogee ALONG the Moon's orbit (from the equinox to
+// the node on the ecliptic, then on along the orbit), so it's reduced onto the
+// ecliptic through the mean node and the orbit's mean 5.145° inclination —
+// without that step it's off by up to ~0.11° (~410″) — then referred to the
+// true equinox with the nutation in longitude, like the mean node. Matches
+// Swiss Ephemeris' MEAN_APOG to within ~1″.
+const MOON_MEAN_INCLINATION = 5.1453964; // degrees
+function meanLilithLongitude(date) {
+  const time = Astronomy.MakeTime(date);
+  const centuries = time.tt / 36525;
+  const c2 = centuries * centuries, c3 = c2 * centuries, c4 = c3 * centuries;
+  const apogeeInOrbit = 83.3532465 + 4069.0137287 * centuries - 0.01032 * c2 - c3 / 80053 + c4 / 18999000 + 180;
+  const node = meanLunarNodePolynomial(centuries);
+  const inclination = MOON_MEAN_INCLINATION * Math.PI / 180;
+  const fromNode = (apogeeInOrbit - node) * Math.PI / 180;
+  const onEcliptic = node + Math.atan2(Math.cos(inclination) * Math.sin(fromNode), Math.cos(fromNode)) * 180 / Math.PI;
+  return norm360(onEcliptic + Astronomy.e_tilt(time).dpsi / 3600);
+}
+// True (osculating) apogee: the apogee of the two-body orbit through the Moon's
+// actual position and velocity (GeoMoonState, in the ecliptic-of-date frame as
+// for the true node). The eccentricity vector points to perigee; the apogee is
+// opposite. Matches Swiss Ephemeris' OSCU_APOG to within a few arcminutes — the
+// osculating apogee magnifies small errors in the Moon's velocity, so that's
+// the limit of Astronomy Engine's lunar theory here, not of the method.
+const EARTH_MOON_GM = (398600.4418 + 4902.800066) * 86400 ** 2 / 149597870.7 ** 3; // AU³/day²
+function trueLilithLongitude(date) {
+  const state = Astronomy.GeoMoonState(date);
+  const rotation = Astronomy.Rotation_EQJ_ECT(date);
+  const r = Astronomy.RotateVector(rotation, { x: state.x, y: state.y, z: state.z, t: state.t });
+  const v = Astronomy.RotateVector(rotation, { x: state.vx, y: state.vy, z: state.vz, t: state.t });
+  const distance = Math.hypot(r.x, r.y, r.z);
+  const speedSquared = v.x * v.x + v.y * v.y + v.z * v.z;
+  const radialSpeed = r.x * v.x + r.y * v.y + r.z * v.z;
+  const eccentricity = (axis) => ((speedSquared - EARTH_MOON_GM / distance) * r[axis] - radialSpeed * v[axis]) / EARTH_MOON_GM;
+  return norm360(Math.atan2(-eccentricity('y'), -eccentricity('x')) * 180 / Math.PI);
+}
+function realLilith(date) {
+  return LILITH_MODE === 'true' ? trueLilithLongitude(date) : meanLilithLongitude(date);
+}
+
 // Real angle for `position` at `offsetMinutes` past its stored birthMoment
 // (stamped on every position by makePositions in app.js), or null if this
 // body/engine combination isn't backed by real ephemeris — positionAngleAtTime
@@ -275,6 +338,7 @@ function ephemerisAngleAtTime(position, offsetMinutes) {
   if (REAL_NODE_BODIES.has(position.name)) {
     return realLunarNode(position.name, date);
   }
+  if (position.name === 'Lilith') return realLilith(date);
   if (REAL_ANGLE_BODIES.has(position.name)) {
     if (position.latitude == null || position.longitude == null) return null;
     const latitude = Number(position.latitude), longitude = Number(position.longitude);

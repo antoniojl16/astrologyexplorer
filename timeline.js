@@ -21,11 +21,8 @@ let zodiacMode = 'Tropical';
 // When checked, "Fix Zodiac" stops the wheel from rotating with the Ascendant
 // (which sweeps ~360° per day due to Earth's rotation) and instead holds the
 // Aries cusp at the wheel's leftmost point, the same way wheelRotation holds
-// the Ascendant there when unfixed. Two independent toggles since the chart
-// wheel and the cycle wheel are separate renderings the user may want set
-// differently.
+// the Ascendant there when unfixed. Shared by every astrology wheel.
 let astroWheelFixedToAries = false;
-let cycleWheelFixedToAries = false;
 const LAHIRI_AYANAMSHA = 24;
 
 function exactChartTime(chart, offsetMinutes) {
@@ -49,8 +46,9 @@ function displaySignAtTime(position, offsetMinutes = 0) {
 
 function syntheticAngleAtTime(position, offsetMinutes) {
   const baseAngle = positionBaseAngle(position);
-  const period = ORBITAL_PERIODS[position.name] || ANGULAR_PERIODS[position.name] || 0;
-  return baseAngle + (period ? offsetMinutes / (period * 1440) * 360 : 0);
+  // ORBITAL_PERIODS are in years, ANGULAR_PERIODS in days; both become days here.
+  const periodDays = ORBITAL_PERIODS[position.name] ? ORBITAL_PERIODS[position.name] * 365.25 : ANGULAR_PERIODS[position.name] || 0;
+  return baseAngle + (periodDays ? offsetMinutes / (periodDays * 1440) * 360 : 0);
 }
 // Single dispatch point for "where is this body right now": tries the real
 // ephemeris (ephemeris.js) first, and falls back to the synthetic
@@ -211,9 +209,9 @@ function bindTimelineSlider(container, { onChange, originLabel = 'Birth moment',
   return slider;
 }
 
-// Planet filters for the astrology wheel, grouped like the Astrocartography ones.
-// Ascendant and Midheaven aren't listed: they're the chart's angles (the wheel is
-// oriented by the Ascendant), so they always show. Remembered for the session.
+// Planet filters for the astrology wheel, grouped like the Astrocartography ones, in
+// display order. Earth starts hidden (it's always exactly opposite the Sun); everything
+// else starts shown. Remembered for the session.
 const WHEEL_FILTER_BODIES = [
   { key: 'Sun', glyph: '☉', group: 'Primary' },
   { key: 'Moon', glyph: '☽', group: 'Primary' },
@@ -225,22 +223,19 @@ const WHEEL_FILTER_BODIES = [
   { key: 'Uranus', glyph: '♅', group: 'Primary' },
   { key: 'Neptune', glyph: '♆', group: 'Primary' },
   { key: 'Pluto', glyph: '♇', group: 'Primary' },
-  { key: 'Chiron', glyph: '⚷', group: 'Secondary' },
   { key: 'Lunar Nodes', glyph: '☊', group: 'Secondary', members: ['North Node', 'South Node'] },
-  { key: 'Earth', glyph: '⊕', group: 'Secondary' },
-  { key: 'Vertex', glyph: 'Vx', group: 'Secondary' },
-  { key: 'Fortuna', glyph: '⊗', group: 'Secondary' },
+  { key: 'Chiron', glyph: '⚷', group: 'Secondary' },
   { key: 'Lilith', glyph: '⚸', group: 'Secondary' },
+  { key: 'Fortuna', glyph: '⊗', group: 'Secondary' },
+  { key: 'Vertex', glyph: 'Vx', group: 'Secondary' },
+  { key: 'Ascendant', glyph: 'Asc', group: 'Secondary' },
+  { key: 'Midheaven', glyph: 'MC', group: 'Secondary' },
+  { key: 'Earth', glyph: '⊕', group: 'Secondary' },
 ];
-const wheelHiddenBodies = new Set();
+const wheelHiddenBodies = new Set(['Earth']);
 function wheelBodyVisible(name) {
   const body = WHEEL_FILTER_BODIES.find(item => (item.members || [item.key]).includes(name));
   return !body || !wheelHiddenBodies.has(body.key);
-}
-function wheelFiltersMarkup() {
-  const option = body => `<label class="acg-filter"><input type="checkbox" data-wheel-body="${body.key}" ${wheelHiddenBodies.has(body.key) ? '' : 'checked'}><span>${body.glyph} ${body.key}</span></label>`;
-  const group = name => `<div class="acg-filter-group"><span class="acg-filter-subhead">${name}</span>${WHEEL_FILTER_BODIES.filter(body => body.group === name).map(option).join('')}</div>`;
-  return `<span class="eyebrow">PLANETS</span>${group('Primary')}${group('Secondary')}`;
 }
 
 // ── Wheel hover tooltips ────────────────────────────────────────────────
@@ -316,9 +311,22 @@ function bindWheelHover(svg) {
 // Zodiac ring (inner..outer), rotated so zodiac degree d sits at wheel angle
 // wheelRotation - d. Degree ticks on the ring's inner side: long & bold at 10°/20° of
 // each sign, short & bold at 5°/15°/25°, short & thin at every other whole degree.
+// A faint tint behind each sign in the zodiac ring (inner..outer), in its element's
+// color (see .zodiac-sector in styles.css). Zodiac degree d sits at wheel angle
+// wheelRotation - d, so a sign's wedge runs from its cusp toward decreasing angles.
+function wheelZodiacSectorsMarkup(cx, cy, outer, inner, wheelRotation) {
+  const point = (r, degree) => {
+    const rad = (wheelRotation - degree - 90) * Math.PI / 180;
+    return `${cx + r * Math.cos(rad)} ${cy + r * Math.sin(rad)}`;
+  };
+  return SIGN_ELEMENTS.map((element, index) => {
+    const start = index * 30, end = start + 30;
+    return `<path d="M ${point(outer, start)} A ${outer} ${outer} 0 0 0 ${point(outer, end)} L ${point(inner, end)} A ${inner} ${inner} 0 0 1 ${point(inner, start)} Z" class="zodiac-sector ${element}"/>`;
+  }).join('');
+}
 function wheelZodiacMarkup(cx, cy, outer, inner, wheelRotation) {
   const zodiacWidth = outer - inner;
-  let markup = '';
+  let markup = wheelZodiacSectorsMarkup(cx, cy, outer, inner, wheelRotation);
   for (let degree = 0; degree < 360; degree += 1) {
     const withinSign = degree % 30;
     if (withinSign === 0) continue;
@@ -413,7 +421,7 @@ function renderPreciseWheel(chart, offsetMinutes, targetId = 'chartWheel') {
   // would compute from the unrotated positions.
   if (typeof calculateAspects === 'function') {
     const angleByName = new Map(markerPositions.map(position => [position.name, position.angle]));
-    aspects = calculateAspects({positions: markerPositions}, aspectMode === 'all');
+    aspects = calculateAspects({positions: markerPositions});
     markup += wheelAspectLinesMarkup(cx, cy, aspectR, aspects, aspect => [angleByName.get(aspect.first), angleByName.get(aspect.second)]);
   }
   markerPositions.forEach(position => { markup += planetMarkerMarkup(cx, cy, inner, position, planetRingWidth); });
@@ -462,21 +470,14 @@ function initPreciseTimeline() {
       houseSystem = houseSystem === 'Placidus' ? 'Equal Houses' : 'Placidus';
       houseControl.textContent = `⌂ ${houseSystem}`;
       const chart = currentExplorerChart();
-      if (chart) renderPreciseWheel(chart, Number(slider.value));
+      if (chart) {
+        renderPreciseWheel(chart, Number(slider.value));
+        updateDisplayedSigns(chart, Number(slider.value));
+      }
     });
   }
-  const wheelFilters = document.querySelector('[data-wheel-filters]');
-  if (wheelFilters) {
-    wheelFilters.innerHTML = wheelFiltersMarkup();
-    wheelFilters.addEventListener('change', event => {
-      const key = event.target.dataset.wheelBody;
-      if (!key) return;
-      if (event.target.checked) wheelHiddenBodies.delete(key);
-      else wheelHiddenBodies.add(key);
-      const chart = currentExplorerChart();
-      if (chart) renderPreciseWheel(chart, window.timelineOffsetMinutes || 0);
-    });
-  }
+  // The planet/aspect filter panel is set up by initAspectEngine (aspects.js), which
+  // loads after this file and knows the aspects too.
   const fixZodiacToggle = document.getElementById('fixZodiacToggleChart');
   if (fixZodiacToggle) {
     fixZodiacToggle.checked = astroWheelFixedToAries;
@@ -499,11 +500,6 @@ function initPreciseTimeline() {
       // first call doesn't throw; every later call (real slider input) is unaffected.
       if (typeof renderCalculatedAspects === 'function') renderCalculatedAspects(offsetMinutes);
       updateDisplayedSigns(chart, offsetMinutes);
-      const placementList = document.getElementById('placementList');
-      if (placementList) placementList.innerHTML = chart.positions.slice(0, 6).map(position => {
-        const angle = positionAngleAtTime(position, offsetMinutes);
-        return `<div class="placement"><span class="placement-glyph">${position.glyph}</span><span class="placement-name">${position.name}<small class="placement-house"> · House ${position.house}</small></span><span class="placement-degree">${angle.toFixed(1)}°</span></div>`;
-      }).join('');
     }
   });
 }
@@ -520,22 +516,32 @@ function refreshExplorerTimeline(chart) {
   slider.dispatchEvent(new Event('input'));
 }
 
+// The signature strip above the wheel: the Sun's sign, degree and house, and the
+// Rising sign (Ascendant) and degree, at the timeline's moment — so it follows the
+// slider and the zodiac / house-system toggles.
+function ordinalHouse(number) {
+  return `${number}${number === 1 ? 'st' : number === 2 ? 'nd' : number === 3 ? 'rd' : 'th'}`;
+}
 function updateDisplayedSigns(chart, offsetMinutes) {
-  const sun = chart.positions.find(position => position.name === 'Sun');
-  if (!sun) return;
-  const displayedSun = displaySignAtTime(sun, offsetMinutes);
-  const sunIndex = SIGNS.indexOf(displayedSun.sign);
-  const sunGlyph = document.getElementById('sunGlyph');
-  const sunSign = document.getElementById('sunSign');
-  const sunDegree = document.getElementById('sunDegree');
-  if (sunGlyph) sunGlyph.textContent = SIGN_GLYPHS[sunIndex];
-  if (sunSign) sunSign.textContent = displayedSun.sign;
-  if (sunDegree) sunDegree.textContent = `${displayedSun.degree.toFixed(1)}° · ${sun.house}th house`;
-  const placementList = document.getElementById('placementList');
-  if (placementList) placementList.innerHTML = chart.positions.slice(0, 6).map(position => {
-    const displayed = displaySignAtTime(position, offsetMinutes);
-    return `<div class="placement"><span class="placement-glyph">${position.glyph}</span><span class="placement-name">${position.name}<small class="placement-house"> · House ${position.house}</small></span><span class="placement-degree">${displayed.sign} ${displayed.degree.toFixed(1)}°</span></div>`;
-  }).join('');
+  const fill = (name, glyphId, signId, degreeId, withHouse) => {
+    const position = chart.positions.find(item => item.name === name);
+    const glyph = document.getElementById(glyphId), sign = document.getElementById(signId), degree = document.getElementById(degreeId);
+    if (!glyph || !sign || !degree) return;
+    if (!position) {
+      glyph.textContent = '';
+      sign.textContent = '—';
+      degree.textContent = '';
+      return;
+    }
+    const longitude = positionAngleAtTime(position, offsetMinutes);
+    const index = Math.floor(longitude / 30);
+    glyph.textContent = SIGN_GLYPHS[index];
+    sign.textContent = SIGNS[index];
+    const house = withHouse ? wheelHouseOf(longitude, houseCuspsAtTime(chart, offsetMinutes)) : null;
+    degree.textContent = `${(longitude - index * 30).toFixed(2)}°${house ? ` · ${ordinalHouse(house)} house` : ''}`;
+  };
+  fill('Sun', 'sunGlyph', 'sunSign', 'sunDegree', true);
+  fill('Ascendant', 'risingGlyph', 'risingSign', 'risingDegree', false);
 }
 
 initPreciseTimeline();

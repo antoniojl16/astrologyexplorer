@@ -9,19 +9,68 @@ const CYCLE_DEFINITIONS = [
 let cycleChartId = null;
 let activeCycleKey = 'saturn-return';
 let activeOccurrenceIndex = 0;
-let cycleSliderOffsetDays = 0;
-const cycleAstrologyMarkup = document.getElementById('cycleSystemSurface')?.innerHTML;
+// Which system tab the Cycle Explorer shows, and the Human Design / Gene Keys views' own state.
+let cycleActiveSystem = 'Astrology';
+let cycleHdView = 'bodygraph';
+let cycleGkTab = 'All Paths';
+const cycleAstroState = { subject: 'synastry', view: 'wheel' };
 
-function computeCycleOccurrences(chart, cycleDef, maxAgeYears = 100) {
-  const birthMoment = chartBirthMomentUTC(chart);
-  const periodMs = cycleDef.periodYears * 365.25 * 86400000;
-  const startMultiplier = cycleDef.kind === 'opposition' ? 0.5 : 1;
-  const raw = Array.from({length: 10}, (_, index) => {
-    const multiplier = startMultiplier + index;
-    return {index, date: new Date(birthMoment.getTime() + multiplier * periodMs), ageYears: multiplier * cycleDef.periodYears};
+// Exact cycle moments, computed on demand from the same ephemeris every view uses: each
+// time the cycle planet reaches its natal degree (a return) or the degree opposite it (an
+// opposition), from birth to age 101. The planet's position is sampled every few days,
+// each crossing is refined by bisection to the minute, and crossings close together —
+// the planet going back and forth over the degree while retrograde — are grouped into one
+// occurrence, dated by its first crossing, with every crossing kept in `passes`.
+const CYCLE_MAX_AGE_YEARS = 101;
+const CYCLE_DAY_MINUTES = 1440, CYCLE_YEAR_MINUTES = 365.25 * 1440;
+const cycleOccurrenceCache = new Map();
+function computeCycleOccurrences(chart, cycleDef, maxAgeYears = CYCLE_MAX_AGE_YEARS) {
+  const position = chart.positions.find(item => item.name === cycleDef.planet);
+  if (!position) return [];
+  const cacheKey = [chart.id, cycleDef.key, position.birthMoment, EPHEMERIS_ENGINE, LUNAR_NODE_MODE, maxAgeYears].join('|');
+  if (cycleOccurrenceCache.has(cacheKey)) return cycleOccurrenceCache.get(cacheKey);
+  const birth = chartBirthMomentUTC(chart).getTime();
+  const target = (positionAngleAtTime(position, 0) + (cycleDef.kind === 'opposition' ? 180 : 0)) % 360;
+  // Signed distance (−180..180°) from the target degree, `minutes` after birth.
+  const gap = minutes => ((positionAngleAtTime(position, minutes) - target + 540) % 360) - 180;
+  // The true lunar node wobbles back and forth within days, so it's sampled daily.
+  const step = (cycleDef.planet === 'North Node' ? 1 : 4) * CYCLE_DAY_MINUTES;
+  // A return can't happen in the first half of the planet's period (skips the birth moment itself).
+  const start = cycleDef.kind === 'return' ? cycleDef.periodYears * 0.5 * CYCLE_YEAR_MINUTES : 0;
+  const end = maxAgeYears * CYCLE_YEAR_MINUTES;
+  const crossings = [];
+  let previousTime = start, previousGap = gap(start);
+  for (let time = start + step; time <= end; time += step) {
+    const currentGap = gap(time);
+    // A sign change near 0° is a crossing; one near ±180° is just the wrap-around.
+    if (Math.sign(currentGap) !== Math.sign(previousGap) && Math.abs(currentGap) < 90 && Math.abs(previousGap) < 90) {
+      let low = previousTime, high = time, lowGap = previousGap;
+      while (high - low > 1) {
+        const middle = (low + high) / 2, middleGap = gap(middle);
+        if (Math.sign(middleGap) === Math.sign(lowGap)) { low = middle; lowGap = middleGap; } else high = middle;
+      }
+      crossings.push((low + high) / 2);
+    }
+    previousTime = time;
+    previousGap = currentGap;
+  }
+  // Crossings within a quarter of the period (at most two years) of the previous one
+  // belong to the same occurrence.
+  const window = Math.min(cycleDef.periodYears * 0.25, 2) * CYCLE_YEAR_MINUTES;
+  const groups = [];
+  crossings.forEach(time => {
+    const group = groups[groups.length - 1];
+    if (group && time - group[group.length - 1] < window) group.push(time);
+    else groups.push([time]);
   });
-  const withinLifetime = raw.filter(occurrence => occurrence.ageYears <= maxAgeYears);
-  return withinLifetime.length ? withinLifetime : raw.slice(0, 1);
+  const occurrences = groups.map((group, index) => ({
+    index,
+    date: new Date(birth + group[0] * 60000),
+    ageYears: group[0] / CYCLE_YEAR_MINUTES,
+    passes: group.map(time => new Date(birth + time * 60000)),
+  }));
+  cycleOccurrenceCache.set(cacheKey, occurrences);
+  return occurrences;
 }
 
 function defaultOccurrenceIndex(occurrences) {
@@ -34,139 +83,237 @@ function defaultOccurrenceIndex(occurrences) {
   return bestIndex;
 }
 
-function renderCycleWheel(chart, offsetMinutes) {
-  const svg = document.getElementById('cycleWheel');
-  if (!svg) return;
-  const cx = 300, cy = 300, outer = 250, houseInner = 202;
-  let markup = `<circle cx="${cx}" cy="${cy}" r="${outer}" fill="none" stroke="var(--line)" stroke-width="1"/><circle cx="${cx}" cy="${cy}" r="${houseInner}" fill="none" stroke="var(--line)" stroke-width="1"/><circle cx="${cx}" cy="${cy}" r="${houseInner - 34}" fill="none" stroke="var(--line)" stroke-width="1" opacity=".8"/><circle cx="${cx}" cy="${cy}" r="${houseInner - 70}" fill="none" stroke="var(--line)" stroke-width="1" opacity=".6"/>`;
-  const ascendant = chart.positions.find(position => position.name === 'Ascendant');
-  const ascendantAngle = ascendant ? positionAngleAtTime(ascendant, 0) : 0;
-  const wheelRotation = cycleWheelFixedToAries ? 270 : (270 + ascendantAngle + 360) % 360;
-  const houseCusps = houseCuspsAtTime(chart, 0);
-  for (let index = 0; index < 12; index += 1) {
-    const zodiacAngle = (wheelRotation - index * 30 - 90) * Math.PI / 180;
-    const x1 = cx + houseInner * Math.cos(zodiacAngle), y1 = cy + houseInner * Math.sin(zodiacAngle);
-    const x2 = cx + outer * Math.cos(zodiacAngle), y2 = cy + outer * Math.sin(zodiacAngle);
-    // -PI/12, not +: centers the label in its OWN wedge rather than the previous
-    // sign's (see the matching comment in timeline.js's renderPreciseWheel).
-    const labelX = cx + (outer - 18) * Math.cos(zodiacAngle - Math.PI / 12), labelY = cy + (outer - 18) * Math.sin(zodiacAngle - Math.PI / 12);
-    markup += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="var(--line)"/><text x="${labelX}" y="${labelY}" text-anchor="middle" dominant-baseline="middle" class="wheel-sign ${SIGN_ELEMENTS[index]}">${SIGN_GLYPHS[index]}</text>`;
-  }
-  houseCusps.forEach((cusp, index) => {
-    const houseAngle = (wheelRotation - cusp - 90) * Math.PI / 180;
-    const x1 = cx + (houseInner - 70) * Math.cos(houseAngle), y1 = cy + (houseInner - 70) * Math.sin(houseAngle);
-    const x2 = cx + houseInner * Math.cos(houseAngle), y2 = cy + houseInner * Math.sin(houseAngle);
-    const labelAngle = (wheelRotation - cusp - 15 - 90) * Math.PI / 180;
-    const labelX = cx + (houseInner - 86) * Math.cos(labelAngle), labelY = cy + (houseInner - 86) * Math.sin(labelAngle);
-    markup += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" class="house-cusp"/><text x="${labelX}" y="${labelY}" class="house-number" text-anchor="middle" dominant-baseline="middle">${index + 1}</text>`;
-  });
-  const natalPositions = chart.positions.map(position => ({...position, design: false, angle: (wheelRotation - positionAngleAtTime(position, 0) + 360) % 360}));
-  spreadClusteredAngles(natalPositions);
-  natalPositions.forEach(position => { markup += planetMarkerMarkup(cx, cy, houseInner, position); });
-  const transitPositions = chart.positions.map(position => ({...position, design: true, angle: (wheelRotation - positionAngleAtTime(position, offsetMinutes) + 360) % 360}));
-  spreadClusteredAngles(transitPositions);
-  transitPositions.forEach(position => { markup += planetMarkerMarkup(cx, cy, houseInner - 33, position); });
-  // markup += `<circle cx="${cx}" cy="${cy}" r="4" fill="var(--accent)"/>`;
-  svg.innerHTML = markup;
-  svg.querySelectorAll('.planet-marker').forEach(node => node.addEventListener('click', () => showToast(`${node.dataset.planet} · click for placement details`)));
-}
-
-function updateCycleMoment(chart, cycleDef, occurrence) {
-  const displayedDate = new Date(occurrence.date.getTime() + cycleSliderOffsetDays * 86400000);
-  const birthMoment = chartBirthMomentUTC(chart);
-  const offsetMinutes = (displayedDate.getTime() - birthMoment.getTime()) / 60000;
-  document.getElementById('cycleDate').textContent = new Intl.DateTimeFormat('en-US', {year: 'numeric', month: 'long', day: 'numeric'}).format(displayedDate);
-  renderCycleWheel(chart, offsetMinutes);
-  const focusPlanet = chart.positions.find(position => position.name === cycleDef.planet);
-  const info = document.getElementById('cycleInfoPanel');
-  if (!info) return;
-  const viewingLabel = cycleSliderOffsetDays === 0 ? 'Exact cycle moment' : `${cycleSliderOffsetDays > 0 ? '+' : ''}${cycleSliderOffsetDays} days from anchor`;
-  info.innerHTML = `<div class="signature-card"><span class="eyebrow">${cycleDef.label.toUpperCase()}</span><h3>${chart.name}</h3><p>${cycleDef.description}</p></div><div class="system-stat"><span>CYCLE PLANET</span><strong>${focusPlanet ? focusPlanet.glyph + ' ' + cycleDef.planet : cycleDef.planet}</strong></div><div class="system-stat"><span>ANCHOR DATE</span><strong>${formatDate(occurrence.date.toISOString().slice(0, 10))}</strong></div><div class="system-stat"><span>AGE AT CYCLE</span><strong>${Math.round(occurrence.ageYears)}</strong></div><div class="system-stat"><span>CURRENTLY VIEWING</span><strong>${viewingLabel}</strong></div><div class="system-note">Cycle dates are approximated from average orbital periods against sample planetary positions — not yet a true ephemeris lookup.</div>`;
-}
-
 function renderCycleExplorer() {
   const view = document.getElementById('cycleView');
   if (!view) return;
   const charts = activeCharts();
   const surface = document.getElementById('cycleSystemSurface');
+  const signature = document.getElementById('cycleSignature');
   if (!charts.length) { surface.innerHTML = '<p class="intro-copy">Add a chart to the library before exploring its cycles.</p>'; return; }
   if (!cycleChartId || !charts.some(chart => chart.id === cycleChartId)) cycleChartId = selectedChartId && charts.some(chart => chart.id === selectedChartId) ? selectedChartId : charts[0].id;
   const chart = chartById(cycleChartId);
   const select = document.getElementById('cycleChartSelect');
   if (select) {
     select.innerHTML = charts.map(item => `<option value="${item.id}" ${item.id === cycleChartId ? 'selected' : ''}>${item.name}</option>`).join('');
-    select.onchange = () => { cycleChartId = select.value; activeOccurrenceIndex = 0; cycleSliderOffsetDays = 0; renderCycleExplorer(); };
+    select.onchange = () => { cycleChartId = select.value; activeOccurrenceIndex = 0; renderCycleExplorer(); };
   }
   const tabs = document.getElementById('cycleTypeTabs');
   if (tabs) {
     tabs.innerHTML = CYCLE_DEFINITIONS.map(def => `<button type="button" class="${def.key === activeCycleKey ? 'active' : ''}" data-cycle-key="${def.key}">${def.label}</button>`).join('');
-    tabs.querySelectorAll('[data-cycle-key]').forEach(button => button.addEventListener('click', () => { activeCycleKey = button.dataset.cycleKey; activeOccurrenceIndex = 0; cycleSliderOffsetDays = 0; renderCycleExplorer(); }));
+    tabs.querySelectorAll('[data-cycle-key]').forEach(button => button.addEventListener('click', () => { activeCycleKey = button.dataset.cycleKey; activeOccurrenceIndex = 0; renderCycleExplorer(); }));
   }
   const cycleDef = CYCLE_DEFINITIONS.find(def => def.key === activeCycleKey);
   const occurrences = computeCycleOccurrences(chart, cycleDef);
-  if (activeOccurrenceIndex >= occurrences.length) activeOccurrenceIndex = defaultOccurrenceIndex(occurrences);
   const occurrenceRow = document.getElementById('cycleOccurrenceRow');
+  if (!occurrences.length) {
+    if (occurrenceRow) occurrenceRow.innerHTML = `<p class="intro-copy">No ${cycleDef.label} happens before age ${CYCLE_MAX_AGE_YEARS} for this chart.</p>`;
+    if (signature) signature.innerHTML = '';
+    return;
+  }
+  if (activeOccurrenceIndex >= occurrences.length) activeOccurrenceIndex = defaultOccurrenceIndex(occurrences);
   if (occurrenceRow) {
     occurrenceRow.innerHTML = occurrences.map((occurrence, index) => `<button type="button" class="cycle-chip ${index === activeOccurrenceIndex ? 'active' : ''} ${occurrence.date.getTime() < Date.now() ? 'past' : 'future'}" data-occurrence-index="${index}">${occurrence.date.getFullYear()} <small>age ${Math.round(occurrence.ageYears)}</small></button>`).join('');
     occurrenceRow.querySelectorAll('[data-occurrence-index]').forEach(button => button.addEventListener('click', () => {
       activeOccurrenceIndex = Number(button.dataset.occurrenceIndex);
-      cycleSliderOffsetDays = 0;
-      const slider = document.getElementById('cycleSlider');
-      if (slider) slider.value = '0';
       occurrenceRow.querySelectorAll('.cycle-chip').forEach((chip, index) => chip.classList.toggle('active', index === activeOccurrenceIndex));
-      updateCycleMoment(chart, cycleDef, occurrences[activeOccurrenceIndex]);
+      renderCycleSignature();
+      renderCycleSystemView();
     }));
   }
-  const occurrence = occurrences[activeOccurrenceIndex];
-  cycleSliderOffsetDays = 0;
-  const slider = document.getElementById('cycleSlider');
-  if (slider) slider.value = '0';
-  // The cycle slider's span is fixed (±180 days, no zoom), so its ticks never
-  // change — but the surface (and this tick row) gets rebuilt from scratch every
-  // time switchCycleSystem() returns to Astrology, so it still needs refilling
-  // here rather than once at load. timelineTicksMarkup works in minutes, so the
-  // ±180-day span is converted going in.
-  const tickList = document.getElementById('cycleTicks');
-  if (tickList && typeof timelineTicksMarkup === 'function') tickList.innerHTML = timelineTicksMarkup(180 * 1440);
-  const summaryLabel = document.getElementById('cycleSummaryLabel');
-  if (summaryLabel) summaryLabel.textContent = `${cycleDef.label.toUpperCase()} · AGE ${Math.round(occurrence.ageYears)}`;
-  const anchorLabel = document.getElementById('cycleAnchorLabel');
-  if (anchorLabel) anchorLabel.textContent = `${cycleDef.label} · ${formatDate(occurrence.date.toISOString().slice(0, 10))}`;
-  // switchCycleSystem() rebuilds this surface from a cached markup string when
-  // returning to Astrology, wiping any previously bound listener — rebind here,
-  // on every render, same as the tabs/occurrence-row buttons above.
-  const fixZodiacToggle = document.getElementById('fixZodiacToggleCycle');
-  if (fixZodiacToggle) {
-    fixZodiacToggle.checked = cycleWheelFixedToAries;
-    fixZodiacToggle.onchange = () => {
-      cycleWheelFixedToAries = fixZodiacToggle.checked;
-      updateCycleMoment(chart, cycleDef, occurrences[activeOccurrenceIndex]);
-    };
-  }
-  updateCycleMoment(chart, cycleDef, occurrence);
+  renderCycleSignature();
+  renderCycleSystemView();
+}
+
+// Top and center, above the system tabs: which cycle this is, when it's exact, and what
+// it means — shared by every system tab.
+function renderCycleSignature() {
+  const signature = document.getElementById('cycleSignature');
+  const context = cycleContext();
+  if (!signature || !context) return;
+  const { cycleDef, occurrence } = context;
+  const passes = occurrence.passes.map(pass => formatDate(pass.toISOString().slice(0, 10))).join(' · ');
+  const how = cycleDef.planet === 'Chiron'
+    ? 'Chiron isn\'t in the ephemeris yet, so this return is estimated from its average 50-year orbit; the natal Chiron placement itself is sample data.'
+    : `Transiting ${cycleDef.planet} reaches ${cycleDef.kind === 'opposition' ? 'the degree opposite ' : ''}its natal degree — exact ${occurrence.passes.length > 1 ? `${occurrence.passes.length} times while retrograde` : 'once'}: ${passes}.`;
+  signature.innerHTML = `
+    <span class="eyebrow">${context.chart.name.toUpperCase()} · AGE ${occurrence.ageYears.toFixed(1)}</span>
+    <h3>${context.cycleName}</h3>
+    <p>${cycleDef.description}</p>
+    <p class="cycle-signature-note">${how}</p>`;
 }
 
 function switchCycleSystem(system) {
   const surface = document.getElementById('cycleSystemSurface');
   if (!surface) return;
+  cycleActiveSystem = system;
   document.querySelectorAll('[data-cycle-system]').forEach(item => item.classList.toggle('active', item.dataset.cycleSystem === system));
-  if (system === 'Astrology') { surface.innerHTML = cycleAstrologyMarkup; renderCycleExplorer(); return; }
   if (system === 'Astrocartography') { renderAstrocartographyPanel(surface, chartById(cycleChartId)); return; }
-  surface.innerHTML = `<div class="system-visual" style="padding:40px"><p class="intro-copy">${system} cycle overlays (a composite bodygraph or dual Gene Keys reading at the cycle moment) are coming in a future iteration. For now, explore the Astrology cycle wheel.</p></div>`;
+  renderCycleSystemView();
+}
+
+// ── Human Design and Gene Keys at the cycle moment ─────────────────────────
+// The selected chart, cycle and occurrence, and the occurrence's moment as minutes after
+// birth — what the Human Design and Gene Keys cycle views draw from.
+function cycleContext() {
+  const chart = chartById(cycleChartId);
+  const cycleDef = CYCLE_DEFINITIONS.find(def => def.key === activeCycleKey);
+  if (!chart || !cycleDef) return null;
+  const occurrence = computeCycleOccurrences(chart, cycleDef)[activeOccurrenceIndex];
+  if (!occurrence) return null;
+  const anchorOffset = (occurrence.date.getTime() - chartBirthMomentUTC(chart).getTime()) / 60000;
+  return {
+    chart, cycleDef, occurrence, anchorOffset,
+    anchorLabel: `${cycleDef.label} · ${formatDate(occurrence.date.toISOString().slice(0, 10))}`,
+    cycleName: `${cycleDef.label} ${occurrence.date.getFullYear()}`,
+  };
+}
+// Re-renders the Astrology, Human Design or Gene Keys cycle view for the current selection
+// (the Astrocartography tab is left as it is).
+function renderCycleSystemView() {
+  const surface = document.getElementById('cycleSystemSurface');
+  const context = cycleContext();
+  if (!surface || !context) return;
+  if (cycleActiveSystem === 'Astrology') renderCycleAstrology(surface, context);
+  if (cycleActiveSystem === 'Human Design') renderCycleHumanDesign(surface, context);
+  if (cycleActiveSystem === 'Gene Keys') renderCycleGeneKeys(surface, context);
+}
+// The slider under each cycle chart moves only the cycle moment (the natal chart stays
+// put); its readout shows the offset from the exact cycle moment and the date.
+function bindCycleSlider(container, context, onChange) {
+  bindTimelineSlider(container, {
+    originLabel: context.anchorLabel,
+    initialSpan: 30 * 1440,
+    onChange: offset => {
+      container.querySelector('[data-timeline-date]').textContent = offset === 0
+        ? 'Exact cycle moment'
+        : `${offset > 0 ? '+' : '-'}${formatTimelineSpan(offset)} from the cycle moment`;
+      container.querySelector('[data-timeline-exact]').textContent = exactChartTime(context.chart, context.anchorOffset + offset);
+      onChange(context.anchorOffset + offset);
+    },
+  });
+}
+const CYCLE_NATAL_COLOR = 'var(--pair-blue)', CYCLE_MOMENT_COLOR = 'var(--pair-green)';
+
+// Astrology: the Pair Explorer's synastry view with the natal chart inside (blue) and the
+// sky at the cycle moment around it (red), cross-aspects between them, and a slider that
+// moves only the cycle moment.
+const CYCLE_ASTRO_SUBJECTS = [['synastry', 'Synastry'], ['A', 'Natal'], ['B', 'Cycle']];
+function renderCycleAstrology(surface, context) {
+  const { chart } = context;
+  const people = {
+    A: { key: 'A', chart, color: 'var(--blue)', name: 'Natal', tag: 'natal', housesName: 'natal house', legend: `Natal · ${chart.name}`, offset: 0 },
+    B: { key: 'B', chart, color: 'var(--accent)', name: 'Cycle', tag: 'cycle', legend: `Cycle moment · ${context.cycleName}`, offset: context.anchorOffset },
+  };
+  const view = renderSynastryView(surface, people, { subjects: CYCLE_ASTRO_SUBJECTS, state: cycleAstroState, wheelId: 'cycleWheel', footer: timelineSliderMarkup('CYCLE MOMENT', 0) });
+  bindCycleSlider(surface.querySelector('.timeline-control'), context, offset => {
+    people.B.offset = offset;
+    view.draw();
+  });
+}
+
+function renderCycleHumanDesign(surface, context) {
+  const { chart, cycleDef } = context;
+  surface.innerHTML = `
+    <div class="pair-hd-layout cycle-system-layout">
+      <div class="system-visual">
+        <div class="panel-toolbar pair-astro-toolbar">
+          ${pairSegmentedMarkup('data-cycle-hd-view', PAIR_HD_VIEWS, cycleHdView)}
+          <span class="eyebrow cycle-toolbar-label">${context.anchorLabel.toUpperCase()}</span>
+        </div>
+        <div class="pair-hd-stage">
+          <div class="pair-legend">
+            <span><i class="legend-dot" style="background:${CYCLE_NATAL_COLOR}"></i>Natal · ${chart.name}</span>
+            <span><i class="legend-dot" style="background:${CYCLE_MOMENT_COLOR}"></i>Cycle moment · ${context.cycleName}</span>
+            <span><i class="legend-swatch halo"></i>Electromagnetic — formed only together</span>
+          </div>
+          <div data-cycle-graphic></div>
+        </div>
+        ${timelineSliderMarkup('CYCLE MOMENT', 0)}
+      </div>
+      <aside class="system-info" data-cycle-info></aside>
+    </div>`;
+  let momentOffset = context.anchorOffset;
+  const draw = () => {
+    const composite = computeCycleHumanDesign(chart, momentOffset);
+    const graphic = surface.querySelector('[data-cycle-graphic]');
+    if (cycleHdView === 'mandala') {
+      // Natal planets (both sides) in the natal color, the cycle moment's planets in the cycle color.
+      const glyphs = new Map();
+      const add = (entryMap, color, label, sides) => entryMap.forEach((entry, gate) => {
+        if (!glyphs.has(gate)) glyphs.set(gate, { items: [] });
+        sides.forEach(side => glyphs.get(gate).items.push(...entry[side].map(glyph => ({ glyph, color, side: label }))));
+      });
+      add(humanDesignGateGlyphMap(chart, 0), CYCLE_NATAL_COLOR, 'Natal', ['personality', 'design']);
+      add(humanDesignGateGlyphMap(chart, momentOffset), CYCLE_MOMENT_COLOR, 'Cycle moment', ['personality']);
+      graphic.innerHTML = hdMandalaSvgMarkup(composite.state, glyphs);
+    } else {
+      graphic.innerHTML = `<svg class="bodygraph hd-bodygraph pair-bodygraph" viewBox="0 0 440 640" role="img" aria-label="Cycle composite bodygraph">
+          ${HD_BODYGRAPH_SILHOUETTE}
+          <g data-bodygraph-layers>${hdBodygraphLayersMarkup(composite.state)}</g>
+        </svg>`;
+    }
+    const { structure, newlyDefinedCenters, cycleChannels } = composite;
+    const centerName = id => HD_CENTERS.find(center => center.id === id)?.name || id;
+    const stat = (label, value) => `<div class="system-stat"><span>${label}</span><strong>${value}</strong></div>`;
+    surface.querySelector('[data-cycle-info]').innerHTML = `
+      <span class="eyebrow">CYCLE COMPOSITE</span>
+      <h3>${structure.type} composite</h3>
+      <p>${structure.definition}</p>
+      ${stat('CENTERS DEFINED / UNDEFINED', `${structure.definedCenters.size} / ${9 - structure.definedCenters.size}`)}
+      ${stat('DEFINED CHANNELS', `${structure.definedChannels.length} / 36`)}
+      ${stat('DEFINED ONLY WITH THE CYCLE', newlyDefinedCenters.length ? newlyDefinedCenters.map(centerName).join(', ') : 'None')}
+      <span class="eyebrow cycle-info-subhead">CHANNELS THE CYCLE COMPLETES · ${cycleChannels.length}</span>
+      ${hdChannelListMarkup(cycleChannels)}`;
+  };
+  surface.querySelector('[data-cycle-hd-view]').addEventListener('click', event => {
+    const button = event.target.closest('button[data-value]');
+    if (!button) return;
+    cycleHdView = button.dataset.value;
+    surface.querySelectorAll('[data-cycle-hd-view] button').forEach(item => item.classList.toggle('active', item === button));
+    draw();
+  });
+  bindCycleSlider(surface.querySelector('.timeline-control'), context, offset => { momentOffset = offset; draw(); });
+}
+
+function renderCycleGeneKeys(surface, context) {
+  const { chart } = context;
+  const tabs = Object.keys(GENE_KEYS_TAB_ACTIVE_INDEXES);
+  if (!tabs.includes(cycleGkTab)) cycleGkTab = tabs[0];
+  const natalHd = computeHumanDesignChart(chart, 0);
+  surface.innerHTML = `
+    <div class="system-tabs">${tabs.map(tab => `<button type="button" class="${tab === cycleGkTab ? 'active' : ''}" data-cycle-gk-tab="${tab}">${tab}</button>`).join('')}</div>
+    <div class="system-layout cycle-system-layout">
+      <div class="system-visual gene-visual">
+        <div class="system-toolbar"><span class="eyebrow">${cycleGkTab.toUpperCase()}</span><span class="sample-badge">${context.anchorLabel.toUpperCase()}</span></div>
+        <div class="pair-hd-stage">
+          <div class="pair-legend">
+            <span><i class="legend-dot" style="background:var(--muted)"></i>Natal gate (in each sphere) · ${chart.name}</span>
+            <span><i class="legend-dot" style="background:${CYCLE_MOMENT_COLOR}"></i>Cycle moment gate (below) · ${context.cycleName}</span>
+          </div>
+          <div data-cycle-graphic>${geneKeysDiagramSvg(natalHd, cycleGkTab, `Gene Keys ${cycleGkTab} at the cycle moment`, computeHumanDesignChart(chart, context.anchorOffset))}</div>
+        </div>
+        ${timelineSliderMarkup('CYCLE MOMENT', 0)}
+      </div>
+      <aside class="system-info"><span class="eyebrow">CYCLE READING</span><h3>${cycleGkTab}</h3></aside>
+    </div>`;
+  const card = surface.querySelector('.gene-visual');
+  bindGeneKeysAllPathsClicks(card);
+  bindGeneKeysHoverDebug(card.querySelector('svg'));
+  surface.querySelectorAll('[data-cycle-gk-tab]').forEach(button => button.addEventListener('click', () => {
+    cycleGkTab = button.dataset.cycleGkTab;
+    renderCycleGeneKeys(surface, context);
+  }));
+  bindCycleSlider(surface.querySelector('.timeline-control'), context, offset => {
+    const layer = surface.querySelector('[data-gene-spheres]');
+    layer.innerHTML = geneKeysSpheresLayerMarkup(natalHd, cycleGkTab, computeHumanDesignChart(chart, offset));
+    bindGeneKeysAllPathsClicks(layer);
+  });
 }
 
 function initCycleExplorer() {
   document.querySelectorAll('[data-cycle-system]').forEach(button => button.addEventListener('click', () => switchCycleSystem(button.dataset.cycleSystem)));
-  document.getElementById('cycleSlider')?.addEventListener('input', event => {
-    cycleSliderOffsetDays = Number(event.target.value);
-    const chart = chartById(cycleChartId);
-    if (!chart) return;
-    const cycleDef = CYCLE_DEFINITIONS.find(def => def.key === activeCycleKey);
-    const occurrence = computeCycleOccurrences(chart, cycleDef)[activeOccurrenceIndex];
-    updateCycleMoment(chart, cycleDef, occurrence);
-  });
   document.getElementById('cycleButton')?.addEventListener('click', () => {
-    if (selectedChartId) { cycleChartId = selectedChartId; activeOccurrenceIndex = 0; cycleSliderOffsetDays = 0; }
+    if (selectedChartId) { cycleChartId = selectedChartId; activeOccurrenceIndex = 0; }
     setView('cycle');
   });
 }

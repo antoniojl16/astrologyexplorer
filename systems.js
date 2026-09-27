@@ -15,6 +15,25 @@ const SYSTEM_TABS = {
 };
 let activeSystemTab = "Bodygraph";
 let activeSystemFilter = "Complete";
+// "Full precision" checkbox: planet influences read G.L.C.T.B instead of G.L.
+let hdFullPrecision = false;
+function hdInfluenceText(influence) {
+  if (!influence || !influence.label) return "—";
+  return hdFullPrecision ? influence.label : `${influence.gate}.${influence.line}`;
+}
+// Rewrites every planet-influence label under `root` for `hd`; remembers `hd` so the
+// precision checkbox can redo it later without re-rendering (which would reset the
+// timeline slider).
+function hdUpdateInfluenceLabels(root, hd) {
+  root._hdInfluences = hd;
+  ["personality", "design"].forEach((setName) =>
+    hd[setName].forEach((influence, index) =>
+      root.querySelectorAll(`[data-hd-set="${setName}"][data-hd-index="${index}"]`).forEach((node) => {
+        node.textContent = hdInfluenceText(influence);
+      }),
+    ),
+  );
+}
 // Shared glyph order for the 13 HD_PERSONALITY_PLANETS (human-design.js) — used by
 // both the bodygraph columns and the mandala's per-gate glyph stacks.
 const HD_PLANET_GLYPHS = [
@@ -139,6 +158,10 @@ function bindMandalaHoverDebug(svg) {
   svg.dataset.hoverDebugBound = "true";
   const tooltip = ensureMandalaHoverTooltip();
   svg.addEventListener("mousemove", (event) => {
+    if (event.target.closest("[data-hd-arrow]")) {
+      tooltip.style.display = "none";
+      return;
+    }
     const point = svg.createSVGPoint();
     point.x = event.clientX;
     point.y = event.clientY;
@@ -180,6 +203,10 @@ function bindBodygraphHoverDebug(svg) {
   svg.dataset.hoverDebugBound = "true";
   const tooltip = ensureBodygraphHoverTooltip();
   svg.addEventListener("mousemove", (event) => {
+    if (event.target.closest("[data-hd-arrow]")) {
+      tooltip.style.display = "none";
+      return;
+    }
     const point = svg.createSVGPoint();
     point.x = event.clientX;
     point.y = event.clientY;
@@ -333,7 +360,7 @@ const HD_BODYGRAPH_CENTERS = [
     x: 220,
     y: 137,
     shape: "down-triangle",
-    color: "#5e8c5a",
+    color: "#4f7d4c",
   },
   {
     name: "Throat",
@@ -385,67 +412,310 @@ const HD_BODYGRAPH_CENTERS = [
     color: "#8a6446",
   },
 ];
-const HD_BODYGRAPH_CHANNEL_COORDS = [
-  [220, 280, 220, 247, 1, 8],
-  [220, 455, 220, 340, 2, 14],
-  [220, 550, 220, 505, 3, 60],
-  [235, 115, 235, 84, 4, 63],
-  [205, 455, 205, 340, 5, 15],
-  [252, 470, 314, 420, 6, 59],
-  [205, 295, 205, 247, 7, 31],
-  [235, 505, 235, 550, 9, 52],
-  [235, 165, 235, 200, 11, 56],
-  [250, 228, 350, 405, 12, 22],
-  [235, 295, 235, 247, 13, 33],
-  [77, 399, 190, 211, 16, 48],
-  [205, 165, 205, 200, 17, 62],
-  [78, 446, 194, 593, 18, 58],
-  [244, 555, 335, 427, 19, 49],
-  [190, 228, 95, 405, 20, 57],
-  [286, 340, 250, 243, 21, 45],
-  [220, 200, 220, 165, 23, 43],
-  [220, 115, 220, 84, 24, 61],
-  [244, 324, 270, 350, 25, 51],
-  [264, 369, 112, 414, 26, 44],
-  [188, 470, 121, 420, 27, 50],
-  [92, 438, 194, 575, 28, 38],
-  [235, 455, 235, 340, 29, 46],
-  [365, 443, 244, 593, 30, 41],
-  [105, 430, 194, 555, 32, 54],
-  [250, 211, 365, 396, 35, 36],
-  [335, 410, 302, 361, 37, 40],
-  [244, 575, 350, 435, 39, 55],
-  [205, 505, 205, 550, 42, 53],
-  [205, 115, 205, 84, 47, 64],
-  [189, 316, 195, 459, 10, 34],
-  // Integration Channels
-  [220, 315, 140, 322, 10, 20],
-  [220, 315, 76, 398, 10, 57],
-  [204, 246, 220, 480, 20, 34],
-  [220, 480, 76, 398, 34, 57],
+// Each gate's point in the bodygraph: [gate, x, y], where its line meets its center.
+const HD_BODYGRAPH_GATE_COORDS = [
+  [1, 220, 280],
+  [2, 220, 340],
+  [3, 220, 505],
+  [4, 237, 115],
+  [5, 203, 455],
+  [6, 314, 425],
+  [7, 203, 295],
+  [8, 220, 247],
+  [9, 237, 505],
+  [10, 189, 316],
+  [11, 237, 165],
+  [12, 248, 223],
+  [13, 237, 295],
+  [14, 220, 455],
+  [15, 203, 340],
+  [16, 192, 205],
+  [17, 203, 165],
+  [18, 78, 446],
+  [19, 252, 564],
+  [20, 190, 228],
+  [21, 286, 340],
+  [22, 350, 405],
+  [23, 220, 200],
+  [24, 220, 115],
+  [25, 244, 324],
+  [26, 264, 369],
+  [27, 194, 483],
+  [28, 92, 438],
+  [29, 237, 455],
+  [30, 365, 443],
+  [31, 203, 247],
+  [32, 105, 430],
+  [33, 237, 247],
+  [34, 195, 459],
+  [35, 248, 205],
+  [36, 365, 396],
+  [37, 335, 410],
+  [38, 188, 578],
+  [39, 252, 578],
+  [40, 302, 361],
+  [41, 252, 592],
+  [42, 203, 505],
+  [43, 220, 165],
+  [44, 112, 414],
+  [45, 246, 239],
+  [46, 237, 340],
+  [47, 203, 115],
+  [48, 77, 399],
+  [49, 335, 427],
+  [50, 121, 420],
+  [51, 270, 350],
+  [52, 237, 550],
+  [53, 203, 550],
+  [54, 188, 564],
+  [55, 350, 435],
+  [56, 237, 200],
+  [57, 95, 405],
+  [58, 188, 592],
+  [59, 246, 483],
+  [60, 220, 550],
+  [61, 220, 84],
+  [62, 203, 200],
+  [63, 237, 84],
+  [64, 203, 84],
 ];
-const HD_BODYGRAPH_GATE_POINTS = (() => {
+// The gate pairs that form the 36 channels. Order matters: a gate's line runs from its
+// point to the midpoint of the FIRST channel listing it, so the integration channels
+// come last (their gates are all placed by then), and gates 10 and 34 are then pointed
+// at channel 20–57's midpoint below.
+const HD_BODYGRAPH_CHANNELS = [
+  [1, 8],
+  [2, 14],
+  [3, 60],
+  [4, 63],
+  [5, 15],
+  [6, 59],
+  [7, 31],
+  [9, 52],
+  [11, 56],
+  [12, 22],
+  [13, 33],
+  [16, 48],
+  [17, 62],
+  [18, 58],
+  [19, 49],
+  [20, 57],
+  [21, 45],
+  [23, 43],
+  [24, 61],
+  [25, 51],
+  [26, 44],
+  [27, 50],
+  [28, 38],
+  [29, 46],
+  [30, 41],
+  [32, 54],
+  [35, 36],
+  [37, 40],
+  [39, 55],
+  [42, 53],
+  [47, 64],
+  [10, 34],
+  // Integration Channels
+  [10, 20],
+  [10, 57],
+  [20, 34],
+  [34, 57],
+];
+function hdGatePointsFrom(gateCoords) {
+  const coords = new Map(gateCoords.map(([gate, x, y]) => [gate, { x, y }]));
   const points = {};
-  HD_BODYGRAPH_CHANNEL_COORDS.slice(0, 32).forEach(
-    ([x1, y1, x2, y2, gateA, gateB]) => {
-      const midpointX = (x1 + x2) / 2;
-      const midpointY = (y1 + y2) / 2;
-      points[gateA] = { id: gateA, x1, y1, x2: midpointX, y2: midpointY };
-      points[gateB] = {
-        id: gateB,
-        x1: x2,
-        y1: y2,
-        x2: midpointX,
-        y2: midpointY,
-      };
-    },
-  );
+  HD_BODYGRAPH_CHANNELS.forEach(([gateA, gateB]) => {
+    if (points[gateA] || points[gateB]) return;
+    const a = coords.get(gateA), b = coords.get(gateB);
+    const midpointX = (a.x + b.x) / 2;
+    const midpointY = (a.y + b.y) / 2;
+    points[gateA] = { id: gateA, x1: a.x, y1: a.y, x2: midpointX, y2: midpointY };
+    points[gateB] = { id: gateB, x1: b.x, y1: b.y, x2: midpointX, y2: midpointY };
+  });
   points[10].x2 = points[34].x2 = points[20].x2;
   points[10].y2 = points[34].y2 = points[20].y2;
   return points;
-})();
+}
+const HD_BODYGRAPH_GATE_POINTS = hdGatePointsFrom(HD_BODYGRAPH_GATE_COORDS);
+// Where each gate's line ends and where its number sits, computed once from the
+// geometry. Gates are drawn UNDER the centers, so each line runs just far enough into
+// its center that its full width and round cap are hidden, whatever the angle. Each
+// number sits just inside the center, opposite the point where the gate's line
+// crosses the outline, stepped inward (away from that edge) until the whole label
+// fits inside with a margin and clears the center's other labels.
+const HD_GATE_TRACK_HALF_WIDTH = 5; // half of .channel-track's stroke-width
+const HD_GATE_LABEL_SIZE = { charWidth: 4.8, height: 6 }; // 8px DM Mono digits
+const HD_GATE_LABEL_MARGIN = 2; // from the outline's inner edge (stroke included)
+function hdGateGeometryFrom(gatePoints) {
+  const edgesOf = (polygon) => {
+    const cx = polygon.reduce((sum, [x]) => sum + x, 0) / polygon.length;
+    const cy = polygon.reduce((sum, [, y]) => sum + y, 0) / polygon.length;
+    return polygon.map((a, index) => {
+      const b = polygon[(index + 1) % polygon.length];
+      const length = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      let n = [(a[1] - b[1]) / length, (b[0] - a[0]) / length];
+      if ((cx - a[0]) * n[0] + (cy - a[1]) * n[1] < 0) n = [-n[0], -n[1]];
+      return { a, b, n, t: [(b[0] - a[0]) / length, (b[1] - a[1]) / length] };
+    });
+  };
+  const inset = (point, edges) => Math.min(...edges.map(({ a, n }) => (point[0] - a[0]) * n[0] + (point[1] - a[1]) * n[1]));
+  // First crossing of the ray origin + s·d with the outline: { s, edge }.
+  const entry = (origin, d, edges) => {
+    let best = null;
+    edges.forEach((edge) => {
+      const ex = edge.b[0] - edge.a[0], ey = edge.b[1] - edge.a[1];
+      const den = d[0] * ey - d[1] * ex;
+      if (Math.abs(den) < 1e-9) return;
+      const s = ((edge.a[0] - origin[0]) * ey - (edge.a[1] - origin[1]) * ex) / den;
+      const u = ((edge.a[0] - origin[0]) * d[1] - (edge.a[1] - origin[1]) * d[0]) / den;
+      if (s > 0 && u >= 0 && u <= 1 && (!best || s < best.s)) best = { s, edge };
+    });
+    return best;
+  };
+  const geometry = {};
+  const placed = new Map(); // center id → label boxes already placed there
+  const gates = Object.values(gatePoints).map((gate) => {
+    const center = HD_BODYGRAPH_CENTERS.find((item) => item.id === HD_GATE_CENTER[gate.id]);
+    const polygon = hdCenterPolygon(center);
+    const edges = edgesOf(polygon);
+    // Ray from the gate's outer end (the channel midpoint) toward the center.
+    const origin = [gate.x2, gate.y2];
+    const length = Math.hypot(gate.x1 - gate.x2, gate.y1 - gate.y2);
+    const d = [(gate.x1 - gate.x2) / length, (gate.y1 - gate.y2) / length];
+    const hit = entry(origin, d, edges);
+    // A gate whose line doesn't reach its center at all (possible while repositioning
+    // gates) is drawn as given, with its number at the center's middle.
+    if (!hit) return { gate, center, cornerDistance: Infinity };
+    const crossing = [origin[0] + d[0] * hit.s, origin[1] + d[1] * hit.s];
+    const cornerDistance = Math.min(...polygon.map(([x, y]) => Math.hypot(x - crossing[0], y - crossing[1])));
+    return { gate, center, edges, origin, d, hit, crossing, cornerDistance };
+  });
+  // Labels nearest a corner have the least room, so they claim their spot first; the
+  // rest then shift around them, which keeps labels in the same order as their gates.
+  gates.sort((first, second) => first.cornerDistance - second.cornerDistance);
+  gates.forEach(({ gate, center, edges, origin, d, hit, crossing }) => {
+    if (!hit) {
+      geometry[gate.id] = { ...gate, center: center.id, labelX: center.x, labelY: center.y };
+      return;
+    }
+    const side = [-d[1], d[0]];
+    // The line's last few units and its round cap must lie under the center (its
+    // outline stroke reaches 1 unit outside). Start at the deepest crossing among the
+    // centerline and both line edges plus the cap; near a corner, where going deeper
+    // pokes out through the next edge, search along the line for a depth that hides it.
+    const hidden = (s) => {
+      for (let back = -HD_GATE_TRACK_HALF_WIDTH; back <= 0; back += 1)
+        for (let k = -1; k <= 1; k += 0.5) {
+          const point = [origin[0] + d[0] * (s + back) + side[0] * k * HD_GATE_TRACK_HALF_WIDTH, origin[1] + d[1] * (s + back) + side[1] * k * HD_GATE_TRACK_HALF_WIDTH];
+          if (inset(point, edges) < -1) return false;
+        }
+      return true;
+    };
+    const deepest = Math.max(...[-1, 0, 1].map((k) => {
+      const offset = [origin[0] + side[0] * k * HD_GATE_TRACK_HALF_WIDTH, origin[1] + side[1] * k * HD_GATE_TRACK_HALF_WIDTH];
+      return entry(offset, d, edges)?.s ?? hit.s;
+    }));
+    let end = deepest + HD_GATE_TRACK_HALF_WIDTH + 1;
+    if (!hidden(end)) {
+      for (let s = hit.s; s <= hit.s + 40; s += 0.5)
+        if (hidden(s)) { end = s; break; }
+    }
+    const halfW = (String(gate.id).length * HD_GATE_LABEL_SIZE.charWidth) / 2 + 0.5;
+    const halfH = HD_GATE_LABEL_SIZE.height / 2;
+    const { n, t } = hit.edge;
+    const base = halfW * Math.abs(n[0]) + halfH * Math.abs(n[1]) + HD_GATE_LABEL_MARGIN;
+    const others = placed.get(center.id) || [];
+    const fits = ([x, y]) =>
+      [[x - halfW, y - halfH], [x + halfW, y - halfH], [x + halfW, y + halfH], [x - halfW, y + halfH]]
+        .every((corner) => inset(corner, edges) >= HD_GATE_LABEL_MARGIN) &&
+      others.every((box) => Math.abs(box.x - x) >= box.halfW + halfW + 1.5 || Math.abs(box.y - y) >= box.halfH + halfH + 1.5);
+    // Cheapest candidate first: straight in from the crossing, then deeper, then
+    // (only if needed, near corners) slid along the edge.
+    const candidates = [];
+    for (let deeper = 0; deeper <= 30; deeper += 0.5)
+      for (let slide = 0; slide <= 20; slide += 0.5)
+        candidates.push({ deeper, slide, cost: deeper + slide * 1.5 });
+    candidates.sort((first, second) => first.cost - second.cost);
+    let label = null;
+    for (const { deeper, slide } of candidates) {
+      for (const sign of slide ? [1, -1] : [1]) {
+        const depth = base + deeper;
+        const point = [crossing[0] + n[0] * depth + t[0] * slide * sign, crossing[1] + n[1] * depth + t[1] * slide * sign];
+        if (fits(point)) { label = point; break; }
+      }
+      if (label) break;
+    }
+    label = label || [center.x, center.y];
+    placed.set(center.id, [...others, { x: label[0], y: label[1], halfW, halfH }]);
+    geometry[gate.id] = {
+      ...gate,
+      x1: origin[0] + d[0] * end,
+      y1: origin[1] + d[1] * end,
+      center: center.id,
+      labelX: label[0],
+      labelY: label[1],
+    };
+  });
+  return geometry;
+}
+const HD_BODYGRAPH_GATE_GEOMETRY = hdGateGeometryFrom(HD_BODYGRAPH_GATE_POINTS);
 const HD_BODYGRAPH_SILHOUETTE =
   '<path class="hd-silhouette" d="M244 28 C218 15 187 24 171 48 C160 64 158 82 163 96 C166 105 161 112 151 118 L126 132 C119 136 121 143 130 147 L148 153 L139 160 L148 166 C143 177 146 191 154 202 C162 213 175 219 190 222 L190 247 C184 263 168 276 143 287 C110 302 87 330 75 365 C64 397 64 432 72 466 C81 505 99 542 111 589 L140 589 C145 550 155 518 171 490 C184 467 198 449 220 438 C243 449 257 467 270 490 C286 518 296 550 301 589 L330 589 C342 542 359 505 368 466 C376 432 376 397 365 365 C353 330 330 302 297 287 C274 276 257 263 250 247 L250 205 C260 187 266 164 264 139 C262 104 266 66 255 42 C252 35 249 31 244 28 Z"/>';
+
+// The four Variable arrows beside the head: Design on the left (accent), Personality on
+// the right (ink), each pair's top arrow from the Sun and bottom from the North Node.
+// Each points left for a tone of 1–3 and right for 4–6 (typology.variable).
+const HD_VARIABLE_ARROWS = [
+  { key: "digestion", x: 138, y: 58, color: "var(--accent)", source: "Design Sun", tone: (t) => ["Cognition 1", t.cognitions[0]], phs: (t) => `Digestion: ${t.phs.digestion.name} - ${t.phs.digestion.side}` },
+  { key: "environment", x: 138, y: 86, color: "var(--accent)", source: "Design Node", tone: (t) => ["Cognition 2", t.cognitions[1]], phs: (t) => `Environment: ${t.phs.environment.name} - ${t.phs.environment.side}` },
+  { key: "motivation", x: 302, y: 58, color: "var(--ink)", source: "Personality Sun", tone: (t) => ["Sense 1", t.senses[0]], phs: (t) => `Motivation: ${t.phs.motivation.name} - ${t.phs.motivation.side}` },
+  { key: "perspective", x: 302, y: 86, color: "var(--ink)", source: "Personality Node", tone: (t) => ["Sense 2", t.senses[1]], phs: (t) => `Perspective: ${t.phs.perspective.name} - ${t.phs.perspective.side}` },
+];
+const hdAttribute = (text) => String(text).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+// Drawn only for a single chart's state (a composite has no Variable).
+function hdVariableArrowsMarkup(state) {
+  const typology = state?.hd ? computeHumanDesignTypology(state.hd) : null;
+  if (!typology) return "";
+  const half = 16, head = 9, wing = 6;
+  return HD_VARIABLE_ARROWS.map((arrow) => {
+    const direction = typology.variable[arrow.key];
+    const toward = direction === "Left" ? -1 : 1;
+    const { x, y } = arrow;
+    const tip = x + toward * half, tail = x - toward * half, neck = tip - toward * head;
+    const [toneLabel, tone] = arrow.tone(typology);
+    const tooltip = [`${arrow.source} · tone ${tone.tone} · ${direction}`, arrow.phs(typology), `${toneLabel}: ${tone.name}`];
+    return `<g class="hd-variable-arrow" data-hd-arrow="${arrow.key}" data-direction="${direction.toLowerCase()}" data-tooltip="${hdAttribute(tooltip.join("\n"))}" style="color:${arrow.color}">
+      <rect x="${x - half - 4}" y="${y - wing - 4}" width="${half * 2 + 8}" height="${wing * 2 + 8}" class="hd-arrow-hit"/>
+      <line x1="${tail}" y1="${y}" x2="${neck}" y2="${y}"/>
+      <polygon points="${tip},${y} ${neck},${y - wing} ${neck},${y + wing}"/>
+    </g>`;
+  }).join("");
+}
+// One tooltip for every arrow on the page, whichever bodygraph it's in: a muted source
+// line, then the PHS reading and the cognition/sense.
+(() => {
+  let tooltip = null;
+  document.addEventListener("mousemove", (event) => {
+    const arrow = event.target.closest?.("[data-hd-arrow]");
+    if (!arrow) {
+      if (tooltip) tooltip.hidden = true;
+      return;
+    }
+    if (!tooltip) {
+      tooltip = document.createElement("div");
+      tooltip.className = "wheel-tooltip";
+      document.body.appendChild(tooltip);
+    }
+    const [source, ...lines] = arrow.dataset.tooltip.split("\n");
+    tooltip.innerHTML = `<div class="wheel-tooltip-sub">${hdAttribute(source)}</div>${lines.map((line) => `<div class="wheel-tooltip-main">${hdAttribute(line)}</div>`).join("")}`;
+    tooltip.hidden = false;
+    const x = event.clientX + 14 + tooltip.offsetWidth > window.innerWidth ? event.clientX - 14 - tooltip.offsetWidth : event.clientX + 14;
+    const y = event.clientY + 14 + tooltip.offsetHeight > window.innerHeight ? event.clientY - 14 - tooltip.offsetHeight : event.clientY + 14;
+    tooltip.style.left = `${x}px`;
+    tooltip.style.top = `${y}px`;
+  });
+})();
 
 function hdContrastTextColor(hex) {
   const value = hex.replace("#", "");
@@ -454,24 +724,25 @@ function hdContrastTextColor(hex) {
     b = parseInt(value.substring(4, 6), 16);
   return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.6 ? "#242622" : "#fff";
 }
+// Each center's outline as polygon vertices — the single source for drawing the
+// center and for fitting gate ends and labels inside it.
+function hdCenterPolygon(center) {
+  const { x, y } = center;
+  switch (center.shape) {
+    case "square": return [[x - 32, y - 25], [x + 32, y - 25], [x + 32, y + 25], [x - 32, y + 25]];
+    case "up-triangle":
+    case "triangle": return [[x, y - 30], [x + 35, y + 27], [x - 35, y + 27]];
+    case "down-triangle": return [[x - 35, y - 27], [x + 35, y - 27], [x, y + 30]];
+    case "left-triangle": return [[x + 34, y], [x - 27, y - 31], [x - 27, y + 31]];
+    case "right-triangle": return [[x - 34, y], [x + 27, y - 31], [x + 27, y + 31]];
+    case "scalene": return [[x - 34, y + 24], [x + 25, y + 11], [x + 8, y - 32]];
+    default: return [[x, y - 37], [x + 37, y], [x, y + 37], [x - 37, y]];
+  }
+}
 function hdCenterShape(center, defined) {
   const fill = defined ? center.color : "var(--panel)";
-  const style = `style="fill:${fill};stroke:${center.color}"`;
-  if (center.shape === "square")
-    return `<rect ${style} x="${center.x - 32}" y="${center.y - 25}" width="64" height="50"/>`;
-  if (center.shape === "up-triangle")
-    return `<polygon ${style} points="${center.x},${center.y - 30} ${center.x + 35},${center.y + 27} ${center.x - 35},${center.y + 27}"/>`;
-  if (center.shape === "down-triangle")
-    return `<polygon ${style} points="${center.x - 35},${center.y - 27} ${center.x + 35},${center.y - 27} ${center.x},${center.y + 30}"/>`;
-  if (center.shape === "left-triangle")
-    return `<polygon ${style} points="${center.x + 34},${center.y} ${center.x - 27},${center.y - 31} ${center.x - 27},${center.y + 31}"/>`;
-  if (center.shape === "right-triangle")
-    return `<polygon ${style} points="${center.x - 34},${center.y} ${center.x + 27},${center.y - 31} ${center.x + 27},${center.y + 31}"/>`;
-  if (center.shape === "scalene")
-    return `<polygon ${style} points="${center.x - 34},${center.y + 24} ${center.x + 25},${center.y + 11} ${center.x + 8},${center.y - 32}"/>`;
-  if (center.shape === "triangle")
-    return `<polygon ${style} points="${center.x},${center.y - 30} ${center.x + 35},${center.y + 27} ${center.x - 35},${center.y + 27}"/>`;
-  return `<polygon ${style} points="${center.x},${center.y - 37} ${center.x + 37},${center.y} ${center.x},${center.y + 37} ${center.x - 37},${center.y}"/>`;
+  const points = hdCenterPolygon(center).map((point) => point.join(",")).join(" ");
+  return `<polygon style="fill:${fill};stroke:${center.color}" points="${points}"/>`;
 }
 // A gate-half is a single SVG line, but a gate can be lit by both sides at
 // once — offsetSegment nudges a copy of the line perpendicular to itself so
@@ -502,7 +773,7 @@ function hdGateFillMarkup(g, side) {
   return `<line x1="${g.x1}" y1="${g.y1}" x2="${g.x2}" y2="${g.y2}" class="channel-fill hd-half-channel ${sides[0]}"/>`;
 }
 function hdBodygraphGateMarkup(state) {
-  return Object.values(HD_BODYGRAPH_GATE_POINTS)
+  return Object.values(HD_BODYGRAPH_GATE_GEOMETRY)
     .map((g) => {
       const side = state ? state.gateSide(g.id) : null;
       // Optional extras a state may provide (the Pair Explorer composite does): a
@@ -513,8 +784,7 @@ function hdBodygraphGateMarkup(state) {
       const title = state?.gateTitle?.(g.id) || `Gate ${g.id}`;
       return `<g class="hd-gate-half" tabindex="0" id="gate-pipe-${g.id}" data-gate="${g.id}">
     <title>${title}</title>${halo}<line x1="${g.x1}" y1="${g.y1}" x2="${g.x2}" y2="${g.y2}" class="channel-track hd-half-channel"/>
-    ${hdGateFillMarkup(g, side)}</g>
-    <text x="${g.x1 + 7}" y="${g.y1}" class="hd-gate-label">${g.id}</text>`;
+    ${hdGateFillMarkup(g, side)}</g>`;
     })
     .join("");
 }
@@ -524,6 +794,47 @@ function hdBodygraphCenterMarkup(state) {
     return `<g id="${center.id}" class="design-center ${defined ? "defined" : "undefined"}"
     tabindex="0" data-center="${center.name}">${hdCenterShape(center, defined)}</g>`;
   }).join("");
+}
+// Gate numbers, colored for what's under them: a defined center's own (theme-
+// independent) color, or the undefined center's theme panel fill.
+function hdBodygraphLabelMarkup(state) {
+  return Object.values(HD_BODYGRAPH_GATE_GEOMETRY)
+    .map((g) => {
+      const center = HD_BODYGRAPH_CENTERS.find((item) => item.id === g.center);
+      const defined = state ? state.centerDefined(center.id) : false;
+      const tone = !defined ? "on-undefined" : hdContrastTextColor(center.color) === "#fff" ? "on-dark" : "on-light";
+      return `<text x="${g.labelX.toFixed(2)}" y="${g.labelY.toFixed(2)}" class="hd-gate-label ${tone}">${g.id}</text>`;
+    })
+    .join("");
+}
+// One path per channel (36), running along its two gates' lines: gate A's inner end →
+// the shared midpoint → gate B's inner end (the integration gates 10/20/34/57 all meet
+// at channel 20–57's midpoint, so their channels follow the same rule). A channel whose
+// two gates are both active in `state` is defined: its path is live — hoverable, with
+// a highlight — and carries data-channel for tooltips and clicks. Undefined channels
+// stay hidden and ignore the pointer. The path is transparent, so the gate colors
+// (personality/design, or person A/B) show through.
+function hdBodygraphChannelMarkup(state) {
+  const point = (x, y) => `${x.toFixed(2)} ${y.toFixed(2)}`;
+  return HD_BODYGRAPH_CHANNELS.map(([gateA, gateB]) => {
+    const a = HD_BODYGRAPH_GATE_GEOMETRY[gateA], b = HD_BODYGRAPH_GATE_GEOMETRY[gateB];
+    const defined = Boolean(state && state.gateSide(gateA) && state.gateSide(gateB));
+    const info = hdChannelInfo([gateA, gateB]);
+    return `<path id="${hdChannelId([gateA, gateB])}" class="hd-channel${defined ? " defined" : ""}" data-channel="${hdChannelKey([gateA, gateB])}" d="M ${point(a.x1, a.y1)} L ${point(a.x2, a.y2)} L ${point(b.x1, b.y1)}"><title>Channel ${info.gates} · ${info.name}</title></path>`;
+  }).join("");
+}
+// Draw order: gates, then channels (above the gates), then centers (hiding the gates'
+// and channels' inner ends), then gate numbers.
+function hdBodygraphLayersMarkup(state) {
+  return `<g data-gate-layer>${hdBodygraphGateMarkup(state)}</g><g data-channel-layer>${hdBodygraphChannelMarkup(state)}</g><g data-center-layer>${hdBodygraphCenterMarkup(state)}</g><g data-label-layer>${hdBodygraphLabelMarkup(state)}</g><g data-variable-layer>${hdVariableArrowsMarkup(state)}</g>`;
+}
+// Redraws every bodygraph inside `root` (the Chart Explorer's, or the mandala's) for `state`.
+function refreshHdBodygraphLayers(root, state) {
+  root.querySelectorAll("[data-bodygraph-layers]").forEach((layers) => {
+    layers.innerHTML = hdBodygraphLayersMarkup(state);
+    bindHdGateClicks(layers);
+    bindHdCenterClicks(layers);
+  });
 }
 function bindHdGateClicks(container) {
   container.querySelectorAll(".hd-gate-half").forEach((node) =>
@@ -594,23 +905,16 @@ function hdTypologyDetailsMarkup(typology) {
     </div>
     <div class="hd-typology">
       <div class="hd-typology-card">
-        <h3>Variable <small>${variable.notation}</small></h3>
-        ${row("Digestion", variable.digestion, "Design Sun tone · top left")}
-        ${row("Environment", variable.environment, "Design Node tone · bottom left")}
-        ${row("Motivation", variable.motivation, "Personality Sun tone · top right")}
-        ${row("Perspective", variable.perspective, "Personality Node tone · bottom right")}
-      </div>
-      <div class="hd-typology-card">
-        <h3>PHS</h3>
+        <h3>Variable/PHS <small>${variable.notation}</small></h3>
         ${row("Digestion", `${phs.digestion.name} · ${phs.digestion.side}`, `Design Sun · color ${phs.digestion.color}`)}
         ${row("Environment", `${phs.environment.name} · ${phs.environment.side}`, `Design Node · color ${phs.environment.color}`)}
-        ${row("Motivation", phs.motivation.name, `Personality Sun · color ${phs.motivation.color}`)}
-        ${row("Perspective", phs.perspective.name, `Personality Node · color ${phs.perspective.color}`)}
+        ${row("Motivation", `${phs.motivation.name} · ${phs.motivation.side}`, `Personality Sun · color ${phs.motivation.color}`)}
+        ${row("Perspective", `${phs.perspective.name} · ${phs.perspective.side}`, `Personality Node · color ${phs.perspective.color}`)}
       </div>
       <div class="hd-typology-card">
         <h3>Senses &amp; Cognitions</h3>
-        ${typology.senses.map((sense) => row("Sense", sense.name, `${sense.source} · tone ${sense.tone}`)).join("")}
-        ${typology.cognitions.map((cognition) => row("Cognition", cognition.name, `${cognition.source} · tone ${cognition.tone}`)).join("")}
+        ${typology.cognitions.map((cognition, index) => row(`Cognition ${index + 1}`, cognition.name, `${cognition.source} · tone ${cognition.tone}`)).join("")}
+        ${typology.senses.map((sense, index) => row(`Sense ${index + 1}`, sense.name, `${sense.source} · tone ${sense.tone}`)).join("")}
       </div>
     </div>
     <div class="hd-bases">
@@ -653,10 +957,7 @@ function renderBodygraph(surface, chart) {
             ? hd.design[index]
             : hd.personality[index]
           : null;
-        const label =
-          influence && influence.label
-            ? `${influence.gate}.${influence.line}`
-            : "—";
+        const label = hdInfluenceText(influence);
         return `
       <div class="hd-planet ${side}" style="--row:${index};color:${color}">
         <span>${planets[index]}</span>
@@ -664,25 +965,6 @@ function renderBodygraph(surface, chart) {
       </div>`;
       })
       .join("");
-  const influenceRow = (setName, planetIndex, influence) => `
-    <div class="hd-influence-row">
-      <span class="hd-influence-glyph">${planets[planetIndex]}</span>
-      <span class="hd-influence-name">${influence.planet}</span>
-      <span class="hd-influence-label" data-hd-set="${setName}" data-hd-index="${planetIndex}">${influence.label || "—"}</span>
-    </div>`;
-  const influencesMarkup = hd
-    ? `
-    <div class="hd-influences">
-      <div class="hd-influence-group">
-        <h3>Personality influences</h3>
-        <div class="hd-influence-list">${hd.personality.map((influence, index) => influenceRow("personality", index, influence)).join("")}</div>
-      </div>
-      <div class="hd-influence-group">
-        <h3>Design influences</h3>
-        <div class="hd-influence-list">${hd.design.map((influence, index) => influenceRow("design", index, influence)).join("")}</div>
-      </div>
-    </div>`
-    : "";
   const hdTimelineMarkup = hdTimelineControlMarkup(chart, 0);
   const filterClass = activeSystemFilter.toLowerCase().replace(" ", "-");
   surface.innerHTML = `
@@ -694,12 +976,14 @@ function renderBodygraph(surface, chart) {
       <div class="system-visual hd-visual">
         <div class="system-toolbar">
           <span class="eyebrow">BODYGRAPH / ${activeSystemTab.toUpperCase()} / ${activeSystemFilter.toUpperCase()}</span>
-          <span class="sample-badge" data-hd-channel-badge></span>
+          <div class="hd-toolbar-right">
+            <label class="fix-zodiac-toggle hd-precision-toggle" title="Show gate.line.color.tone.base for every planet"><input type="checkbox" data-hd-precision ${hdFullPrecision ? "checked" : ""}>Full precision</label>
+            <span class="sample-badge" data-hd-channel-badge></span>
+          </div>
         </div>
         <svg class="bodygraph hd-bodygraph" viewBox="0 0 440 640" role="img" aria-label="Sample Human Design bodygraph">
           ${HD_BODYGRAPH_SILHOUETTE}
-          <g data-center-layer>${hdBodygraphCenterMarkup(state)}</g>
-          <g data-gate-layer>${hdBodygraphGateMarkup(state)}</g>
+          <g data-bodygraph-layers>${hdBodygraphLayersMarkup(state)}</g>
         </svg>
         ${hdTimelineMarkup}
       </div>
@@ -709,11 +993,15 @@ function renderBodygraph(surface, chart) {
       </div>
     </div>
     <aside class="system-info hd-info" data-hd-typology></aside>
-    ${influencesMarkup}
     <div data-hd-typology-details></div>`;
   bindBodygraphHoverDebug(surface.querySelector(".hd-bodygraph"));
   bindHdCenterClicks(surface);
   bindHdGateClicks(surface);
+  if (hd) surface._hdInfluences = hd;
+  surface.querySelector("[data-hd-precision]")?.addEventListener("change", (event) => {
+    hdFullPrecision = event.target.checked;
+    if (surface._hdInfluences) hdUpdateInfluenceLabels(surface, surface._hdInfluences);
+  });
   updateHdTypology(surface, hd);
   const timelineContainer = surface.querySelector(
     ".hd-visual .timeline-control",
@@ -742,32 +1030,8 @@ function updateHdDefinedCentersStat(surface, state) {
 function updateHumanDesignInfluences(surface, chart, offsetMinutes) {
   const state = computeBodygraphState(chart, offsetMinutes);
   const hd = state.hd;
-  ["personality", "design"].forEach((setName) => {
-    hd[setName].forEach((influence, index) => {
-      const shortLabel = influence.label
-        ? `${influence.gate}.${influence.line}`
-        : "—";
-      surface
-        .querySelectorAll(
-          `[data-hd-set="${setName}"][data-hd-index="${index}"]`,
-        )
-        .forEach((node) => {
-          node.textContent = node.classList.contains("hd-influence-label")
-            ? influence.label || "—"
-            : shortLabel;
-        });
-    });
-  });
-  const gateLayer = surface.querySelector("[data-gate-layer]");
-  if (gateLayer) {
-    gateLayer.innerHTML = hdBodygraphGateMarkup(state);
-    bindHdGateClicks(gateLayer);
-  }
-  const centerLayer = surface.querySelector("[data-center-layer]");
-  if (centerLayer) {
-    centerLayer.innerHTML = hdBodygraphCenterMarkup(state);
-    bindHdCenterClicks(centerLayer);
-  }
+  hdUpdateInfluenceLabels(surface, hd);
+  refreshHdBodygraphLayers(surface, state);
   updateHdTypology(surface, hd);
 }
 
@@ -857,8 +1121,7 @@ function hdMandalaSvgMarkup(state, glyphMap = null) {
           <circle cx="${MANDALA_CENTER}" cy="${MANDALA_CENTER}" r="128" class="mandala-core"/>
           <svg class="mandala-bodygraph" x="${MANDALA_CENTER - MANDALA_BODYGRAPH_WIDTH / 2}" y="${MANDALA_CENTER - MANDALA_BODYGRAPH_HEIGHT / 2}" width="${MANDALA_BODYGRAPH_WIDTH}" height="${MANDALA_BODYGRAPH_HEIGHT}" viewBox="0 0 440 640" role="img" aria-label="Bodygraph">
             ${HD_BODYGRAPH_SILHOUETTE}
-            <g data-center-layer>${hdBodygraphCenterMarkup(state)}</g>
-            <g data-gate-layer>${hdBodygraphGateMarkup(state)}</g>
+            <g data-bodygraph-layers>${hdBodygraphLayersMarkup(state)}</g>
           </svg>
         </svg>`;
 }
@@ -886,12 +1149,15 @@ function renderHumanDesignMandala(surface, chart, offsetMinutes = 0) {
         <div class="system-stat"><span>DEFINED CENTERS</span><strong data-hd-defined-centers>0 / 9</strong></div>
         <div class="system-note">Personality influences appear in ink; design influences appear in the accent color, matching the bodygraph.</div>
       </aside>
-    </div>`;
+    </div>
+    <aside class="system-info hd-info" data-hd-typology></aside>
+    <div data-hd-typology-details></div>`;
   bindMandalaHoverDebug(surface.querySelector(".hd-mandala"));
   bindBodygraphHoverDebug(surface.querySelector(".mandala-bodygraph"));
   bindHdCenterClicks(surface);
   bindHdGateClicks(surface);
   updateHdDefinedCentersStat(surface, state);
+  updateHdTypology(surface, state?.hd || null);
   const timelineContainer = surface.querySelector(
     ".hd-mandala-visual .timeline-control",
   );
@@ -910,17 +1176,9 @@ function renderHumanDesignMandala(surface, chart, offsetMinutes = 0) {
           bindMandalaGlyphClicks(layer);
         }
         const bodygraphState = computeBodygraphState(chart, offset);
-        const gateLayer = surface.querySelector("[data-gate-layer]");
-        if (gateLayer) {
-          gateLayer.innerHTML = hdBodygraphGateMarkup(bodygraphState);
-          bindHdGateClicks(gateLayer);
-        }
-        const centerLayer = surface.querySelector("[data-center-layer]");
-        if (centerLayer) {
-          centerLayer.innerHTML = hdBodygraphCenterMarkup(bodygraphState);
-          bindHdCenterClicks(centerLayer);
-        }
+        refreshHdBodygraphLayers(surface, bodygraphState);
         updateHdDefinedCentersStat(surface, bodygraphState);
+        updateHdTypology(surface, bodygraphState.hd);
       },
     });
   }
@@ -935,6 +1193,8 @@ function renderHumanDesignMandala(surface, chart, offsetMinutes = 0) {
 const GK_BLUE = "#577891";
 const GK_RED = "#a4433c";
 const GK_GREEN = "#4f8f6a";
+const GK_NAVY = "#2c3a86"; // the Star Pearl spheres
+const GK_STAR_BLUE = "#3f74d4"; // the Star Pearl paths
 // Every sphere below has a set/planet mapping (personality/design × one of the 10
 // bodies computeHumanDesignChart already derives), so all 11 read real, live gates —
 // not just the 4 Activation Sequence spheres the old Golden Path view below covers.
@@ -984,7 +1244,7 @@ const GENE_KEYS_ALL_SPHERES = [
     name: "Attraction",
     x: 390,
     y: 430,
-    r: 20,
+    r: 30,
     color: GK_RED,
     set: "design",
     planet: "Moon",
@@ -1014,7 +1274,7 @@ const GENE_KEYS_ALL_SPHERES = [
     name: "SQ",
     x: 390,
     y: 300,
-    r: 32,
+    r: 30,
     color: GK_RED,
     set: "design",
     planet: "Venus",
@@ -1044,7 +1304,7 @@ const GENE_KEYS_ALL_SPHERES = [
     name: "Pearl",
     x: 390,
     y: 175,
-    r: 32,
+    r: 30,
     color: GK_BLUE,
     set: "personality",
     planet: "Jupiter",
@@ -1114,15 +1374,46 @@ function geneKeysEdgesMarkup(activeIndexes) {
 // Paths" view). Everything outside the set renders greyed-out and inert — no
 // tabindex, no click/hover (see the .gk-sphere.disabled / .gk-path.disabled CSS,
 // which also sets pointer-events:none).
-function geneKeysSpheresMarkup(hd, activeIndexes) {
-  return GENE_KEYS_ALL_SPHERES.map((sphere, index) => {
+// Sphere colors per view. A single path's view paints every sphere in that path's
+// color. All Paths keeps each sphere's own color, except the three spheres two paths
+// share, which blend both colors from bottom left to top right.
+const GENE_KEYS_VIEW_COLORS = { "Golden Path": GK_GREEN, "Venus Path": GK_RED, "Pearl Path": GK_BLUE };
+const GENE_KEYS_SHARED_SPHERE_BLENDS = {
+  purpose: [GK_GREEN, GK_RED], // Golden ∩ Venus
+  vocation: [GK_RED, GK_BLUE], // Venus ∩ Pearl
+  lifeswork: [GK_BLUE, GK_GREEN], // Pearl ∩ Golden
+};
+// Gradient ids must be unique per diagram: the Pair Explorer shows two at once, and
+// the sphere layer is redrawn as the timeline moves.
+let geneKeysBlendCount = 0;
+// Cycle Explorer: the gate a sphere's planet is transiting at the cycle moment (the
+// planet itself, whichever side the sphere reads natally), drawn below the sphere.
+function geneKeysCycleLabel(sphere, cycleHd) {
+  const influence = cycleHd?.personality.find((item) => item.planet === sphere.planet);
+  return influence && influence.label ? `${influence.gate}.${influence.line}` : "—";
+}
+function geneKeysCycleLabelMarkup(sphere, r, cycleHd, active = true) {
+  if (!cycleHd || !active) return "";
+  return `<text x="${sphere.x}" y="${sphere.y + r + 15}" text-anchor="middle" class="gk-sphere-cycle">${geneKeysCycleLabel(sphere, cycleHd)}</text>`;
+}
+function geneKeysSpheresMarkup(hd, activeIndexes, tab = "All Paths", cycleHd = null) {
+  const viewColor = GENE_KEYS_VIEW_COLORS[tab];
+  const prefix = `gk-blend-${(geneKeysBlendCount += 1)}`;
+  const defs = viewColor
+    ? ""
+    : `<defs>${Object.entries(GENE_KEYS_SHARED_SPHERE_BLENDS)
+        .map(([id, [from, to]]) => `<linearGradient id="${prefix}-${id}" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="${from}"/><stop offset="1" stop-color="${to}"/></linearGradient>`)
+        .join("")}</defs>`;
+  const fill = (sphere) => viewColor || (GENE_KEYS_SHARED_SPHERE_BLENDS[sphere.id] ? `url(#${prefix}-${sphere.id})` : sphere.color);
+  return defs + GENE_KEYS_ALL_SPHERES.map((sphere, index) => {
     const label = geneKeysGateLabel(sphere, hd);
     const active = !activeIndexes || activeIndexes.has(index);
     return `
       <g class="gk-sphere${active ? "" : " disabled"}" tabindex="${active ? "0" : "-1"}" id="gk-sphere-${sphere.id}" data-sphere="${sphere.name}" data-gate="${label}">
-        <circle cx="${sphere.x}" cy="${sphere.y}" r="${sphere.r}" fill="${sphere.color}"/>
+        <circle cx="${sphere.x}" cy="${sphere.y}" r="${sphere.r}" fill="${fill(sphere)}"/>
         <text x="${sphere.x}" y="${sphere.y - 5}" text-anchor="middle" class="gk-sphere-name">${sphere.name}</text>
         <text x="${sphere.x}" y="${sphere.y + 13}" text-anchor="middle" class="gk-sphere-gate">${label}</text>
+        ${geneKeysCycleLabelMarkup(sphere, sphere.r, cycleHd, active)}
       </g>`;
   }).join("");
 }
@@ -1146,6 +1437,50 @@ function bindGeneKeysAllPathsClicks(container) {
     }),
   );
 }
+// ── Sphere reading tooltip ────────────────────────────────────────────────
+// Hovering an active sphere (any Gene Keys diagram) shows what the sphere represents,
+// its gate's Shadow / Gift / Siddhi and meaning, and its line in this sphere's context
+// — text from gene-keys-data.js. A gate's own line name (GENE_KEYS_LINE_NAMES) is shown
+// when listed; otherwise the line's general name.
+function geneKeysTooltipHtml(sphereId, sphereName, gateLabel) {
+  const sphere = GENE_KEYS_SPHERE_INFO[sphereId];
+  const [gate, line] = String(gateLabel).split(".").map(Number);
+  const key = GENE_KEYS[gate];
+  const lineInfo = GENE_KEYS_LINES[line];
+  const section = (title, text) => `<div class="gk-tip-title">${title}</div>${text ? `<div class="gk-tip-text">${text}</div>` : ""}`;
+  let html = section(sphereName, sphere?.summary);
+  if (key) html += section(`Gate ${gate} (${key.shadow} / ${key.gift} / ${key.siddhi})`, key.summary);
+  if (key && lineInfo) {
+    html += section(`Line ${line} - ${GENE_KEYS_LINE_NAMES[`${gate}.${line}`] || lineInfo.name}`, lineInfo.meaning(sphere?.focus || "this sphere"));
+  }
+  return html;
+}
+(() => {
+  let tooltip = null;
+  document.addEventListener("mousemove", (event) => {
+    const sphere = event.target.closest?.(".gk-sphere:not(.disabled)");
+    if (!sphere) {
+      if (tooltip) tooltip.hidden = true;
+      return;
+    }
+    if (!tooltip) {
+      tooltip = document.createElement("div");
+      tooltip.className = "wheel-tooltip gk-tooltip";
+      document.body.appendChild(tooltip);
+    }
+    const id = sphere.id.replace("gk-sphere-", "");
+    if (tooltip.dataset.for !== `${id}:${sphere.dataset.gate}`) {
+      tooltip.dataset.for = `${id}:${sphere.dataset.gate}`;
+      tooltip.innerHTML = geneKeysTooltipHtml(id, sphere.dataset.sphere, sphere.dataset.gate);
+    }
+    tooltip.hidden = false;
+    const x = event.clientX + 14 + tooltip.offsetWidth > window.innerWidth ? event.clientX - 14 - tooltip.offsetWidth : event.clientX + 14;
+    const y = event.clientY + 14 + tooltip.offsetHeight > window.innerHeight ? event.clientY - 14 - tooltip.offsetHeight : event.clientY + 14;
+    tooltip.style.left = `${Math.max(8, x)}px`;
+    tooltip.style.top = `${Math.max(8, y)}px`;
+  });
+})();
+
 // Debug aid: hovering the Gene Keys diagram shows which sphere/path id is under the
 // pointer and its x,y coordinates in the SVG's own space — same pattern as the
 // mandala's and bodygraph's own hover-debug helpers.
@@ -1165,6 +1500,11 @@ function bindGeneKeysHoverDebug(svg) {
   svg.dataset.hoverDebugBound = "true";
   const tooltip = ensureGeneKeysHoverTooltip();
   svg.addEventListener("mousemove", (event) => {
+    // Active spheres have their own reading tooltip (below), so this steps aside.
+    if (event.target.closest("[data-hd-arrow], .gk-sphere:not(.disabled)")) {
+      tooltip.style.display = "none";
+      return;
+    }
     const point = svg.createSVGPoint();
     point.x = event.clientX;
     point.y = event.clientY;
@@ -1185,7 +1525,7 @@ function bindGeneKeysHoverDebug(svg) {
     tooltip.style.display = "none";
   });
 }
-// Sub-path tabs (Golden Path, Venus Path, Pearl Path, Star Pearl) reuse this exact
+// Sub-path tabs (Golden Path, Venus Path, Pearl Path) reuse this exact
 // same 11-sphere/14-path diagram, just with everything outside their own sphere
 // subset greyed out and inert — the geometry and gate data are never redrawn,
 // only which nodes/edges count as "active" changes. Indexes are into
@@ -1196,44 +1536,105 @@ const GENE_KEYS_TAB_ACTIVE_INDEXES = {
   "Golden Path": new Set([0, 1, 2, 3]),
   "Venus Path": new Set([3, 4, 5, 6, 7, 8]),
   "Pearl Path": new Set([8, 9, 10, 0]),
-  "Star Pearl": new Set([10]),
+  "Star Pearl": null, // its own diagram — see GENE_KEYS_STAR_PEARL
 };
-function renderGeneKeysDiagram(surface, chart, offsetMinutes, activeIndexes) {
+
+// ── Star Pearl: its own diagram ──────────────────────────────────────────
+// Only the seven Pearl-sequence spheres, in a regular hexagon: the Pearl at the center
+// and six around it, clockwise from the top. Brand is Life's Work's sphere (Personality
+// Sun) under its Pearl-sequence name. The 18 paths are the hexagon's six sides, the six
+// spokes to the Pearl, and the six-pointed star's two triangles (Brand–Culture–Vocation,
+// the Pearl Path's own, and Relating–Stability–Creativity).
+const GENE_KEYS_STAR_PEARL = {
+  center: { x: 390, y: 310 },
+  radius: 205,
+  sphereRadius: 46,
+  pearl: { id: "pearl", name: "Pearl", set: "personality", planet: "Jupiter" },
+  ring: [
+    { id: "brand", name: "Brand", set: "personality", planet: "Sun" },
+    { id: "relating", name: "Relating", set: "personality", planet: "Mercury" },
+    { id: "culture", name: "Culture", set: "design", planet: "Jupiter" },
+    { id: "stability", name: "Stability", set: "design", planet: "Saturn" },
+    { id: "vocation", name: "Vocation", set: "design", planet: "Mars" },
+    { id: "creativity", name: "Creativity", set: "design", planet: "Uranus" },
+  ],
+};
+const GENE_KEYS_STAR_PEARL_SPHERES = (() => {
+  const { center, radius, pearl, ring } = GENE_KEYS_STAR_PEARL;
+  return [
+    { ...pearl, ...center },
+    ...ring.map((sphere, index) => {
+      const angle = ((-90 + index * 60) * Math.PI) / 180;
+      return { ...sphere, x: center.x + radius * Math.cos(angle), y: center.y + radius * Math.sin(angle) };
+    }),
+  ];
+})();
+const GENE_KEYS_STAR_PEARL_EDGES = (() => {
+  const ring = GENE_KEYS_STAR_PEARL.ring.map((sphere) => sphere.id);
+  return ring.flatMap((id, index) => [
+    [id, ring[(index + 1) % 6]], // hexagon side
+    ["pearl", id], // spoke
+    [id, ring[(index + 2) % 6]], // star triangle
+  ]);
+})();
+function geneKeysStarPearlSpheresMarkup(hd, cycleHd = null) {
+  const r = GENE_KEYS_STAR_PEARL.sphereRadius;
+  return GENE_KEYS_STAR_PEARL_SPHERES.map((sphere) => {
+    const label = geneKeysGateLabel(sphere, hd);
+    return `
+      <g class="gk-sphere" tabindex="0" id="gk-sphere-${sphere.id}" data-sphere="${sphere.name}" data-gate="${label}">
+        <circle cx="${sphere.x}" cy="${sphere.y}" r="${r}" fill="${GK_NAVY}"/>
+        <text x="${sphere.x}" y="${sphere.y - 9}" text-anchor="middle" class="gk-sphere-name">${sphere.name}</text>
+        <text x="${sphere.x}" y="${sphere.y + 17}" text-anchor="middle" class="gk-sphere-gate">${label}</text>
+        ${geneKeysCycleLabelMarkup(sphere, r, cycleHd)}
+      </g>`;
+  }).join("");
+}
+function geneKeysStarPearlEdgesMarkup() {
+  const byId = new Map(GENE_KEYS_STAR_PEARL_SPHERES.map((sphere) => [sphere.id, sphere]));
+  return GENE_KEYS_STAR_PEARL_EDGES.map(([a, b]) => {
+    const from = byId.get(a), to = byId.get(b);
+    return `
+      <g class="gk-path" tabindex="0" id="gk-path-${a}-${b}" data-path="Star Pearl" data-from="${from.name}" data-to="${to.name}" style="--gk-path-color:${GK_STAR_BLUE}">
+        <line x1="${from.x}" y1="${from.y}" x2="${to.x}" y2="${to.y}" class="gk-path-track"/>
+      </g>`;
+  }).join("");
+}
+// The diagram SVG for a Gene Keys tab: Star Pearl's own, or the full profile with the
+// tab's spheres active. Shared by the Chart Explorer and the Pair Explorer.
+// `cycleHd` (Cycle Explorer only) adds each sphere's cycle-moment gate below it.
+function geneKeysDiagramSvg(hd, tab, ariaLabel, cycleHd = null) {
+  const edges = tab === "Star Pearl" ? geneKeysStarPearlEdgesMarkup() : geneKeysEdgesMarkup(GENE_KEYS_TAB_ACTIVE_INDEXES[tab]);
+  return `<svg class="gene-all-paths${tab === "Star Pearl" ? " gene-star-pearl" : ""}" viewBox="0 0 780 ${cycleHd ? 640 : 620}" role="img" aria-label="${ariaLabel}">
+      <g data-gene-edges>${edges}</g>
+      <g data-gene-spheres>${geneKeysSpheresLayerMarkup(hd, tab, cycleHd)}</g>
+    </svg>`;
+}
+function geneKeysSpheresLayerMarkup(hd, tab, cycleHd = null) {
+  return tab === "Star Pearl" ? geneKeysStarPearlSpheresMarkup(hd, cycleHd) : geneKeysSpheresMarkup(hd, GENE_KEYS_TAB_ACTIVE_INDEXES[tab], tab, cycleHd);
+}
+function renderGeneKeysDiagram(surface, chart, offsetMinutes, tab) {
   const hd = chart ? computeHumanDesignChart(chart, offsetMinutes) : null;
   const timelineMarkup = chart
     ? timelineSliderMarkup("PROFILE MOMENT", offsetMinutes)
     : "";
-  const liveCount = GENE_KEYS_ALL_SPHERES.filter((sphere) => sphere.set).length;
-  const activeSphereCount = activeIndexes
-    ? activeIndexes.size
-    : GENE_KEYS_ALL_SPHERES.length;
-  const activeEdgeCount = GENE_KEYS_ALL_EDGES.filter(
-    (edge) =>
-      !activeIndexes ||
-      (activeIndexes.has(GENE_KEYS_SPHERE_INDEX_BY_ID.get(edge.a)) &&
-        activeIndexes.has(GENE_KEYS_SPHERE_INDEX_BY_ID.get(edge.b))),
-  ).length;
+  const star = tab === "Star Pearl";
+  const spheres = star ? GENE_KEYS_STAR_PEARL_SPHERES : GENE_KEYS_ALL_SPHERES;
+  const sphereCount = spheres.length;
+  const liveCount = spheres.filter((sphere) => sphere.set).length;
   surface.innerHTML = `
     <div class="system-layout">
       <div class="system-visual gene-visual">
         <div class="system-toolbar">
           <span class="eyebrow">${activeSystemTab.toUpperCase()}</span>
-          <span class="sample-badge">${liveCount} LIVE · ${GENE_KEYS_ALL_SPHERES.length - liveCount} SAMPLE SPHERES</span>
+          <span class="sample-badge">${liveCount} LIVE · ${sphereCount - liveCount} SAMPLE SPHERES</span>
         </div>
-        <svg class="gene-all-paths" viewBox="0 0 780 620" role="img" aria-label="Gene Keys full profile: Activation, Venus, and Pearl sequences">
-          <g data-gene-edges>${geneKeysEdgesMarkup(activeIndexes)}</g>
-          <g data-gene-spheres>${geneKeysSpheresMarkup(hd, activeIndexes)}</g>
-        </svg>
+        ${geneKeysDiagramSvg(hd, tab, star ? "Gene Keys Star Pearl" : "Gene Keys full profile: Activation, Venus, and Pearl sequences")}
         ${timelineMarkup}
       </div>
       <aside class="system-info">
         <span class="eyebrow">PROFILE READING</span>
         <h3>${activeSystemTab}</h3>
-        <p>The full Gene Keys profile for ${chart?.name || "the selected chart"}: all ${GENE_KEYS_ALL_SPHERES.length} spheres across the Activation, Venus, and Pearl Sequences, each reading a real gate from the same Personality/Design chart Human Design uses.</p>
-        <div class="system-stat"><span>ACTIVE SPHERES</span><strong>${activeSphereCount} / ${GENE_KEYS_ALL_SPHERES.length}</strong></div>
-        <div class="system-stat"><span>ACTIVE PATHS</span><strong>${activeEdgeCount} / ${GENE_KEYS_ALL_EDGES.length}</strong></div>
-        <div class="system-stat"><span>LIVE GATES</span><strong>${liveCount} / ${GENE_KEYS_ALL_SPHERES.length}</strong></div>
-        <div class="system-note">Active spheres and paths are interactive (hover shows its id, click shows a toast); greyed-out ones aren't part of this sequence.${liveCount < GENE_KEYS_ALL_SPHERES.length ? ` Spheres still showing "—" don't have a planet/gate mapping wired up yet.` : ""}</div>
       </aside>
     </div>`;
   bindGeneKeysAllPathsClicks(surface);
@@ -1249,7 +1650,7 @@ function renderGeneKeysDiagram(surface, chart, offsetMinutes, activeIndexes) {
         const hd2 = computeHumanDesignChart(chart, offsetMinutes2);
         const layer = surface.querySelector("[data-gene-spheres]");
         if (layer) {
-          layer.innerHTML = geneKeysSpheresMarkup(hd2, activeIndexes);
+          layer.innerHTML = geneKeysSpheresLayerMarkup(hd2, tab);
           bindGeneKeysAllPathsClicks(layer);
         }
       },
@@ -1306,12 +1707,7 @@ function bindGeneSphereClicks(container) {
 }
 function renderGeneKeys(surface, chart) {
   if (Object.prototype.hasOwnProperty.call(GENE_KEYS_TAB_ACTIVE_INDEXES, activeSystemTab))
-    return renderGeneKeysDiagram(
-      surface,
-      chart,
-      0,
-      GENE_KEYS_TAB_ACTIVE_INDEXES[activeSystemTab],
-    );
+    return renderGeneKeysDiagram(surface, chart, 0, activeSystemTab);
   const hd = chart ? computeHumanDesignChart(chart, 0) : null;
   const timelineMarkup = chart
     ? timelineSliderMarkup("GENE KEYS MOMENT", 0)
@@ -1332,10 +1728,6 @@ function renderGeneKeys(surface, chart) {
       <aside class="system-info">
         <span class="eyebrow">PATH READING</span>
         <h3>${activeSystemTab}</h3>
-        <p>Golden Path gates for ${chart?.name || "the selected chart"}, derived from the same Personality/Design Sun and Earth placements Human Design uses for its own gates.</p>
-        <div class="system-stat"><span>ACTIVE SPHERES</span><strong>4</strong></div>
-        <div class="system-stat"><span>SEQUENCE</span><strong>Activation</strong></div>
-        <div class="system-note">Each sphere is interactive. The five path views share this same gate data.</div>
       </aside>
     </div>`;
   bindGeneSphereClicks(surface);
@@ -1391,10 +1783,9 @@ function switchExplorerSystem(system) {
     chartAstrologyNodes = null;
     // While detached, these controls missed any change made from the Pair Explorer
     // (the settings are shared), so bring them back in step.
-    surface.querySelectorAll("[data-all-aspects]").forEach((input) => { input.checked = aspectMode === "all"; });
     const fixZodiac = surface.querySelector("#fixZodiacToggleChart");
     if (fixZodiac) fixZodiac.checked = astroWheelFixedToAries;
-    surface.querySelectorAll("[data-wheel-body]").forEach((input) => { input.checked = !wheelHiddenBodies.has(input.dataset.wheelBody); });
+    syncWheelFilterInputs(surface);
     if (typeof renderExplorer === "function") renderExplorer();
   } else {
     renderSystemPanel(surface, system, systemChart());
@@ -1435,7 +1826,6 @@ let geneKeysPairTab = "All Paths";
 function renderGeneKeysPair(container, entries) {
   const tabs = Object.keys(GENE_KEYS_TAB_ACTIVE_INDEXES);
   if (!tabs.includes(geneKeysPairTab)) geneKeysPairTab = tabs[0];
-  const activeIndexes = GENE_KEYS_TAB_ACTIVE_INDEXES[geneKeysPairTab];
   container.innerHTML = `
     <div class="system-tabs">${tabs.map((tab) => `<button type="button" class="${tab === geneKeysPairTab ? "active" : ""}" data-gk-pair-tab="${tab}">${tab}</button>`).join("")}</div>
     <div class="system-surface">
@@ -1445,10 +1835,7 @@ function renderGeneKeysPair(container, entries) {
             ({ chart, label }) => `
           <div class="system-visual gene-visual">
             <div class="system-toolbar"><span class="eyebrow">${label}</span><span class="sample-badge">${geneKeysPairTab.toUpperCase()}</span></div>
-            <svg class="gene-all-paths" viewBox="0 0 780 620" role="img" aria-label="Gene Keys profile for ${chart.name}">
-              <g data-gene-edges>${geneKeysEdgesMarkup(activeIndexes)}</g>
-              <g data-gene-spheres>${geneKeysSpheresMarkup(computeHumanDesignChart(chart, 0), activeIndexes)}</g>
-            </svg>
+            ${geneKeysDiagramSvg(computeHumanDesignChart(chart, 0), geneKeysPairTab, `Gene Keys ${geneKeysPairTab} for ${chart.name}`)}
           </div>`,
           )
           .join("")}

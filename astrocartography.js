@@ -829,12 +829,47 @@ function acgLabelsMarkup(placements) {
   return ticks + labels;
 }
 
+// Section checkboxes (Planets Primary / Secondary, and all Lines) tick or untick every
+// item under them, and show a dash when only some are ticked — like the astrology filters.
+function acgFilterMembers(kind, group) {
+  return kind === "bodies" ? ACG_BODIES.filter((body) => body.group === group).map((body) => body.key) : ACG_LINE_TYPES.map((line) => line.key);
+}
+function acgGroupToggle(kind, group, label = group) {
+  return `<label class="acg-filter wheel-filter-group-toggle"><input type="checkbox" data-acg-group="${kind}:${group}"><span>${label}</span></label>`;
+}
+// Brings every ACG filter checkbox under `root` in line with acgFilters (the shown sets).
+function syncAcgFilterInputs(root = document) {
+  root.querySelectorAll("[data-acg-body]").forEach((input) => { input.checked = acgFilters.bodies.has(input.dataset.acgBody); });
+  root.querySelectorAll("[data-acg-line]").forEach((input) => { input.checked = acgFilters.lines.has(input.dataset.acgLine); });
+  root.querySelectorAll("[data-acg-group]").forEach((input) => {
+    const [kind, group] = input.dataset.acgGroup.split(":");
+    const members = acgFilterMembers(kind, group);
+    const shown = members.filter((member) => acgFilters[kind].has(member)).length;
+    input.checked = shown === members.length;
+    input.indeterminate = shown > 0 && shown < members.length;
+  });
+}
+// Applies a planet / line / section checkbox change and re-syncs every ACG filter panel
+// on the page (they share acgFilters). Returns false for anything else.
+function applyAcgFilterChange(input) {
+  const { acgBody, acgLine, acgGroup } = input.dataset;
+  let set, keys;
+  if (acgBody) [set, keys] = [acgFilters.bodies, [acgBody]];
+  else if (acgLine) [set, keys] = [acgFilters.lines, [acgLine]];
+  else if (acgGroup) {
+    const [kind, group] = acgGroup.split(":");
+    [set, keys] = [acgFilters[kind], acgFilterMembers(kind, group)];
+  } else return false;
+  keys.forEach((key) => (input.checked ? set.add(key) : set.delete(key)));
+  syncAcgFilterInputs(document);
+  return true;
+}
 function acgFiltersMarkup() {
   const bodyOption = (body) =>
     `<label class="acg-filter"><input type="checkbox" data-acg-body="${body.key}" ${acgFilters.bodies.has(body.key) ? "checked" : ""}><i style="background:${body.color}"></i><span>${body.glyph} ${body.key}</span></label>`;
   const group = (name) => `
     <div class="acg-filter-group">
-      <span class="acg-filter-subhead">${name}</span>
+      ${acgGroupToggle("bodies", name)}
       ${ACG_BODIES.filter((body) => body.group === name).map(bodyOption).join("")}
     </div>`;
   return `
@@ -844,6 +879,7 @@ function acgFiltersMarkup() {
     <div data-acg-line-filters>
       <span class="eyebrow">LINES</span>
       <div class="acg-filter-group">
+        ${acgGroupToggle("lines", "All", "All lines")}
         ${ACG_LINE_TYPES.map((line) => `<label class="acg-filter"><input type="checkbox" data-acg-line="${line.key}" ${acgFilters.lines.has(line.key) ? "checked" : ""}><span>${line.label}</span></label>`).join("")}
       </div>
     </div>
@@ -968,14 +1004,9 @@ function renderAstrocartographyPanel(container, chart) {
       showView();
       return;
     }
-    const { acgBody, acgLine } = event.target.dataset;
-    const set = acgBody ? acgFilters.bodies : acgLine ? acgFilters.lines : null;
-    if (!set) return;
-    const key = acgBody || acgLine;
-    if (event.target.checked) set.add(key);
-    else set.delete(key);
-    showView();
+    if (applyAcgFilterChange(event.target)) showView();
   });
+  syncAcgFilterInputs(container.querySelector("[data-acg-filters]"));
   const map = bindAcgMap(container.querySelector(".acg-map-wrap"));
   container.querySelector("[data-acg-origin-center]").addEventListener("click", () => setOrigin(map.viewCenter()));
   container.querySelector("[data-acg-origin-reset]").addEventListener("click", () => setOrigin(null));
@@ -1062,15 +1093,11 @@ function renderAstrocartographyPairPanel(container, entries) {
     }),
   );
   container.querySelector("[data-acg-filters]").addEventListener("change", (event) => {
-    const { acgBody, acgLine, acgDirections } = event.target.dataset;
+    const { acgDirections } = event.target.dataset;
     if (acgDirections) acgLocalSpaceDirections = acgDirections;
-    else {
-      const set = acgBody ? acgFilters.bodies : acgLine ? acgFilters.lines : null;
-      if (!set) return;
-      if (event.target.checked) set.add(acgBody || acgLine);
-      else set.delete(acgBody || acgLine);
-    }
+    else if (!applyAcgFilterChange(event.target)) return;
     showView();
   });
+  syncAcgFilterInputs(container.querySelector("[data-acg-filters]"));
   showView();
 }
