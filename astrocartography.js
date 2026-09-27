@@ -13,8 +13,11 @@
 const ACG_WORLD_SIZE = 3600;
 // Web-Mercator's latitude cutoff, where the projected map becomes exactly square.
 const ACG_MAX_LAT = 85.05113;
-const ACG_MAX_ZOOM = 64;
 const ACG_BUTTON_ZOOM_STEP = 1.6;
+// Three ＋ clicks past 64× (about 262×, a view some 150 km wide), for small screens.
+const ACG_MAX_ZOOM = 64 * ACG_BUTTON_ZOOM_STEP ** 3;
+// Two taps or clicks this close in time (ms) and place (px) are a double-click.
+const ACG_DOUBLE_TAP_MS = 320, ACG_DOUBLE_TAP_PX = 24;
 
 // Swapping this for another projection (or a 3D globe) is the intended extension
 // point: everything else only deals in world-unit coordinates.
@@ -152,6 +155,10 @@ let acgMapCounter = 0;
 // tiles because a line's longitudes are kept continuous rather than wrapped: a
 // Local Space great circle can span a full 360° starting anywhere in [-180, 180),
 // i.e. up to x = 2W, and the viewBox can sit anywhere in [-W/2, 2W).
+// The place search above each Astrocartography map (bindPlaceSearch, place-search.js).
+function acgSearchMarkup() {
+  return `<div class="acg-search"><input type="search" data-acg-search placeholder="Find a city or town…" aria-label="Find a city or town on the map" enterkeyhint="search"></div>`;
+}
 function acgMapMarkup() {
   const worldId = `acgWorld${acgMapCounter}`;
   const overlayId = `acgOverlay${acgMapCounter++}`;
@@ -260,8 +267,10 @@ function acgCityLabels(view, screen, blocked) {
 // `onViewportChange` fires after this map pans or zooms, so paired maps (Pair
 // Explorer) can follow along via their own refresh().
 // `onMapClick({lat, lon})` fires for a click that didn't pan the map; `setPins` draws
-// numbered markers (saved locations) above it.
-function bindAcgMap(wrap, { onViewportChange, onMapClick } = {}) {
+// numbered markers (saved locations) above it. While `doubleClickActive()` is true, a
+// double-click or double-tap calls `onMapDoubleClick({lat, lon})` instead, and a
+// single click waits ACG_DOUBLE_TAP_MS to be sure it isn't the first of two.
+function bindAcgMap(wrap, { onViewportChange, onMapClick, onMapDoubleClick, doubleClickActive = () => !!onMapDoubleClick } = {}) {
   const svg = wrap.querySelector(".acg-map");
   const labelGroup = wrap.querySelector("[data-acg-labels]");
   const originMarker = wrap.querySelector("[data-acg-origin]");
@@ -455,15 +464,32 @@ function bindAcgMap(wrap, { onViewportChange, onMapClick } = {}) {
     drag = null;
     press = null;
   };
+  const pointAt = (clientX, clientY) => {
+    const screen = size();
+    const rect = svg.getBoundingClientRect();
+    const view = currentView(screen);
+    const [lon, lat] = acgUnproject(view.left + ((clientX - rect.left) * view.vw) / screen.w, view.top + ((clientY - rect.top) * view.vh) / screen.h);
+    return { lat, lon: ((((lon + 180) % 360) + 360) % 360) - 180 };
+  };
+  // Pointer events cover mouse, touch and pen alike, so double-tap works like double-click.
+  let pendingClick = null;
   svg.addEventListener("pointerup", (event) => {
-    if (press && onMapClick && Math.hypot(event.clientX - press.x, event.clientY - press.y) < 5) {
-      const screen = size();
-      const rect = svg.getBoundingClientRect();
-      const view = currentView(screen);
-      const [lon, lat] = acgUnproject(view.left + ((event.clientX - rect.left) * view.vw) / screen.w, view.top + ((event.clientY - rect.top) * view.vh) / screen.h);
-      onMapClick({ lat, lon });
-    }
+    const tapped = press && Math.hypot(event.clientX - press.x, event.clientY - press.y) < 5;
     endDrag();
+    if (!tapped) return;
+    const point = pointAt(event.clientX, event.clientY);
+    const second = pendingClick && event.timeStamp - pendingClick.time < ACG_DOUBLE_TAP_MS
+      && Math.hypot(event.clientX - pendingClick.x, event.clientY - pendingClick.y) < ACG_DOUBLE_TAP_PX;
+    if (second && doubleClickActive()) {
+      clearTimeout(pendingClick.timer);
+      pendingClick = null;
+      onMapDoubleClick(point);
+      return;
+    }
+    if (pendingClick) clearTimeout(pendingClick.timer);
+    const click = () => { pendingClick = null; onMapClick?.(point); };
+    pendingClick = { time: event.timeStamp, x: event.clientX, y: event.clientY, timer: doubleClickActive() ? setTimeout(click, ACG_DOUBLE_TAP_MS) : null };
+    if (!pendingClick.timer) click();
   });
   svg.addEventListener("pointercancel", endDrag);
 
@@ -531,9 +557,9 @@ function bindAcgMap(wrap, { onViewportChange, onMapClick } = {}) {
     // Pans so this point is in the middle of the map, zooming in to at least continent
     // level if needed (zoomed all the way out, the whole world height is on screen and
     // the map couldn't center the point vertically).
-    centerOn({ lat, lon }) {
+    centerOn({ lat, lon }, minZoom = 3) {
       const [x, y] = acgProject(lon, lat);
-      acgViewport.zoom = Math.max(acgViewport.zoom, 3);
+      acgViewport.zoom = Math.min(ACG_MAX_ZOOM, Math.max(acgViewport.zoom, minZoom));
       acgViewport.cx = x;
       acgViewport.cy = y;
       apply();
@@ -778,7 +804,7 @@ function acgNearestLinesMarkup(nearest, nearestCrossings, zenithZones = []) {
 }
 function acgSegmentsPath(segments) {
   return segments
-    .map((segment) => segment.points.map(([x, y], index) => `${index ? "L" : "M"}${x.toFixed(1)},${y.toFixed(1)}`).join(""))
+    .map((segment) => segment.points.map(([x, y], index) => `${index ? "L" : "M"}${x.toFixed(3)},${y.toFixed(3)}`).join(""))
     .join("");
 }
 
@@ -796,7 +822,7 @@ function acgZenithPath(lon0, lat0) {
     const lat = Math.asin(sinLat0 * Math.cos(arc) + cosLat0 * Math.sin(arc) * Math.cos(b));
     const lon = lon0 + Math.atan2(Math.sin(b) * Math.sin(arc) * cosLat0, Math.cos(arc) - sinLat0 * Math.sin(lat)) / rad;
     const [x, y] = acgProject(lon, lat / rad);
-    points.push(`${points.length ? "L" : "M"}${x.toFixed(1)},${y.toFixed(1)}`);
+    points.push(`${points.length ? "L" : "M"}${x.toFixed(3)},${y.toFixed(3)}`);
   }
   return points.join("") + "Z";
 }
@@ -1185,7 +1211,7 @@ const ACG_VIEW_DESCRIPTIONS = {
   "ACG Travel":
     "Planetary lines across the whole globe: where each planet was rising (AS), setting (DS), culminating (MC) or anti-culminating (IC) at the moment on the timeline.",
   "ACG Local Space":
-    "The compass direction to each planet at the moment on the timeline, drawn as the full great circle through the origin (◉, the birthplace unless you drag it elsewhere). Relocated directions are seen from the origin itself; natal directions keep the ones seen from the birthplace.",
+    "The compass direction to each planet at the moment on the timeline, drawn as the full great circle through the origin (◉, the birthplace unless you drag it, or double-click or double-tap the map, to move it elsewhere). Relocated directions are seen from the origin itself; natal directions keep the ones seen from the birthplace.",
 };
 
 function acgCoordinate(value, positive, negative) {
@@ -1206,7 +1232,7 @@ function acgInfoMarkup(chart, view, linesText, originText) {
     ${originText ? `<div class="system-stat"><span>ORIGIN</span><strong>${originText}</strong></div>` : ""}
     <div class="system-stat"><span>PROJECTION</span><strong>Mercator</strong></div>
     <div class="system-stat"><span>PLANETARY LINES</span><strong>${linesText}</strong></div>
-    <div class="system-note">Drag to pan, scroll or use the ＋/− buttons to zoom. The map wraps east–west.</div>`;
+    <div class="system-note">Drag to pan, scroll or use the ＋/− buttons to zoom. The map wraps east–west.${view === "ACG Local Space" ? " Double-click or double-tap the map to move the origin there." : ""}</div>`;
 }
 
 // Remembered across re-renders, like the map viewport and filters above.
@@ -1224,6 +1250,8 @@ let acgActiveView = SYSTEM_TABS.Astrocartography[0];
 // lines shown: in Travel, the nearest intersections and lines (and any zenith zone it's
 // in); in Local Space, the nearest lines and a button to center the map on it.
 const ACG_MAX_LOCATIONS = 20;
+// How far a place search zooms in (at least): a region about 1,500 km across.
+const ACG_SEARCH_ZOOM = 24;
 const ACG_LOCATION_ROWS = 3;
 // The place to name a spot by: the most populous place within ACG_CITY_RADIUS_KM (so a
 // spot in a city reads as the city, not the district it's in), else simply the nearest.
@@ -1320,6 +1348,7 @@ function acgLocationsMarkup(locations, lines, travel, intersections, origin, tip
     return `<button type="button" class="acg-chip" data-acg-tip="${tips.length - 1}" aria-label="${escapeHtml(label)}, ${acgKm(km)}">${swatch}${text}<span class="acg-chip-km">${acgKm(km)}</span></button>`;
   };
   const glyph = (line) => `<b style="color:${line.color}">${line.glyph}</b>`;
+  const isOrigin = (location) => !!origin && Math.abs(origin.lat - location.lat) < 1e-4 && Math.abs(origin.lon - location.lon) < 1e-4;
   const lineText = (line) => `${glyph(line)}${line.short || ""}`;
   const block = (title, items) => `<div class="acg-location-block"><span class="acg-location-subhead">${title}</span><div class="acg-chips">${items || `<span class="acg-chip-none">None among the shown lines</span>`}</div></div>`;
   return `<ol class="acg-location-list">${locations.map((location, index) => {
@@ -1332,7 +1361,10 @@ function acgLocationsMarkup(locations, lines, travel, intersections, origin, tip
       <div class="acg-location-head">
         <span class="acg-location-number">${index + 1}</span>
         <div><strong>${city}</strong><small>${acgCoordinate(location.lat, "N", "S")}, ${acgCoordinate(location.lon, "E", "W")}</small></div>
-        ${travel ? "" : `<button type="button" class="acg-origin-button" data-acg-location-center="${index}">Center map</button>`}
+        <button type="button" class="acg-origin-button" data-acg-location-center="${index}">Go to</button>
+        ${travel ? "" : isOrigin(location)
+          ? `<button type="button" class="acg-origin-button" disabled title="This spot is the Local Space origin">Relocate</button>`
+          : `<button type="button" class="acg-origin-button" data-acg-location-relocate="${index}" title="Make this spot the Local Space origin">Relocate</button>`}
         <button type="button" class="acg-location-remove" data-acg-location-remove="${index}" aria-label="Remove location ${index + 1}" title="Remove">×</button>
       </div>
       <div class="acg-location-body">
@@ -1404,6 +1436,7 @@ function renderAstrocartographyPanel(container, chart) {
             <span class="sample-badge" data-acg-badge></span>
           </div>
           ${acgMapMarkup()}
+          ${acgSearchMarkup()}
           ${chart ? timelineSliderMarkup("MAP MOMENT", 0) : ""}
         </div>
         <div class="acg-filters" data-acg-filters>${acgFiltersMarkup()}</div>
@@ -1468,7 +1501,7 @@ function renderAstrocartographyPanel(container, chart) {
     const intersections = travel && locations.length ? acgLineIntersections(visible) : [];
     locationTips = [];
     hideLocationTip();
-    locationsList.innerHTML = acgLocationsMarkup(locations, visible, travel, intersections, travel ? null : localSpaceOrigin(), locationTips);
+    locationsList.innerHTML = acgLocationsMarkup(locations, visible, travel, intersections, localSpaceOrigin(), locationTips);
     container.querySelector("[data-acg-locations-count]").textContent = locations.length ? `${locations.length} / ${ACG_MAX_LOCATIONS}` : "";
     map.setPins(locations.map((location, index) => ({ ...location, label: index + 1 })));
   };
@@ -1487,6 +1520,7 @@ function renderAstrocartographyPanel(container, chart) {
   locationsList?.addEventListener("click", (event) => {
     const remove = event.target.closest("[data-acg-location-remove]");
     const center = event.target.closest("[data-acg-location-center]");
+    const relocate = event.target.closest("[data-acg-location-relocate]");
     if (remove) {
       chart.acgLocations.splice(Number(remove.dataset.acgLocationRemove), 1);
       if (!chart.acgLocations.length) delete chart.acgLocations;
@@ -1494,6 +1528,9 @@ function renderAstrocartographyPanel(container, chart) {
       showLocations();
     } else if (center) {
       map.centerOn(chart.acgLocations[Number(center.dataset.acgLocationCenter)]);
+    } else if (relocate) {
+      // Local Space only: makes the spot the origin.
+      setOrigin(chart.acgLocations[Number(relocate.dataset.acgLocationRelocate)]);
     }
   });
   // The nearest-place names arrive with places.js.
@@ -1514,7 +1551,20 @@ function renderAstrocartographyPanel(container, chart) {
     if (applyAcgFilterChange(event.target)) showView();
   });
   syncAcgFilterInputs(container.querySelector("[data-acg-filters]"));
-  const map = bindAcgMap(container.querySelector(".acg-map-wrap"), { onMapClick: chart ? addLocation : null });
+  // Double-click / double-tap in Local Space moves the origin there; in Travel it
+  // saves the spot once (not twice, as two single clicks would).
+  const map = bindAcgMap(container.querySelector(".acg-map-wrap"), {
+    onMapClick: chart ? addLocation : null,
+    onMapDoubleClick: chart ? (point) => (acgActiveView === "ACG Local Space" ? setOrigin(point) : addLocation(point)) : null,
+  });
+  // Choosing a place saves it (unless it's already saved) and goes there; with no chart
+  // (the Timeline Explorer's sky), it only goes there.
+  bindPlaceSearch(container.querySelector("[data-acg-search]"), (place) => {
+    const point = { lat: Number(place.lat), lon: Number(place.lon) };
+    const saved = (chart?.acgLocations || []).some((location) => acgAngle(acgUnitVector(location.lon, location.lat), acgUnitVector(point.lon, point.lat)) * ACG_EARTH_RADIUS_KM < 1);
+    if (chart && !saved) addLocation(point);
+    map.centerOn(point, ACG_SEARCH_ZOOM);
+  });
   container.querySelector("[data-acg-origin-center]").addEventListener("click", () => setOrigin(map.viewCenter()));
   container.querySelector("[data-acg-origin-reset]").addEventListener("click", () => setOrigin(null));
   const timelineContainer = container.querySelector(".acg-visual .timeline-control");
@@ -1551,6 +1601,7 @@ function renderAstrocartographyPairPanel(container, entries) {
               <div class="system-toolbar"><span class="eyebrow">${entry.label}</span><span class="sample-badge" data-acg-badge></span></div>
               ${acgMapMarkup()}
             </div>`).join("")}
+          <div class="system-visual acg-pair-search">${acgSearchMarkup()}</div>
         </div>
         <div class="acg-filters" data-acg-filters>${acgFiltersMarkup()}</div>
       </div>
@@ -1563,8 +1614,18 @@ function renderAstrocartographyPairPanel(container, entries) {
   cards.forEach((card, index) => {
     maps[index] = bindAcgMap(card.querySelector(".acg-map-wrap"), {
       onViewportChange: () => maps.forEach((map, other) => other !== index && map && map.refresh()),
+      // Double-click / double-tap in Local Space moves this chart's origin there.
+      onMapDoubleClick: (point) => {
+        entries[index].chart.localSpaceOrigin = { lat: Number(point.lat.toFixed(4)), lon: Number(point.lon.toFixed(4)) };
+        acgSaveSoon();
+        showView();
+      },
+      doubleClickActive: () => acgActiveView === "ACG Local Space",
     });
   });
+  // The place search moves both maps (they share one viewport); the Pair Explorer has
+  // no saved locations, so nothing is added.
+  bindPlaceSearch(container.querySelector("[data-acg-search]"), (place) => maps[0].centerOn({ lat: Number(place.lat), lon: Number(place.lon) }, ACG_SEARCH_ZOOM));
   const showView = () => {
     const travel = acgActiveView === "ACG Travel";
     container.querySelector("[data-acg-line-filters]").hidden = !travel;

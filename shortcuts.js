@@ -11,6 +11,7 @@
 //   Z   Fix Zodiac on the astrology wheel
 //   P / D / X   Human Design: Personality / Design / Incarnation Cross only (again: all)
 //   M   Human Design: Mandala ↔ Bodygraph
+//   T   Astrocartography: ACG Travel ↔ ACG Local Space
 //   0   Center the timeline slider
 //   ← / →, Shift+← / →   On a timeline slider: step by the zoom's units (timelineKeySteps, timeline.js)
 //   R   Pair Explorer: swap the two charts
@@ -72,6 +73,10 @@ document.addEventListener("keydown", (event) => {
         ? shortcutPress('[data-panel-tab="Bodygraph"], [data-pair-view] [data-value="bodygraph"], [data-cycle-hd-view] [data-value="bodygraph"]')
         : shortcutPress('[data-panel-tab="Mandala"], [data-pair-view] [data-value="mandala"], [data-cycle-hd-view] [data-value="mandala"]');
     }
+  } else if (key === "t") {
+    // Astrocartography: ACG Travel ↔ ACG Local Space.
+    const other = [...document.querySelectorAll("[data-acg-view]")].find((button) => button.getClientRects().length > 0 && !button.classList.contains("active"));
+    if (other) { other.click(); handled = true; }
   } else if (key === "0") {
     handled = shortcutPress("[data-timeline-center]");
   } else if (key === "e") {

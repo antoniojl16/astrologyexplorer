@@ -89,8 +89,10 @@ function placeCoordinates(place) {
 }
 
 // ── The combobox ────────────────────────────────────────────────────────
+// With `onChoose(place)`, choosing a place calls it and clears the field (the
+// Astrocartography map search); without, it fills in the chart form around `input`.
 let placeListCounter = 0;
-function bindPlaceSearch(input) {
+function bindPlaceSearch(input, onChoose) {
   if (input.dataset.placeSearch) return;
   input.dataset.placeSearch = "true";
   const form = input.form;
@@ -133,7 +135,7 @@ function bindPlaceSearch(input) {
       results = searchPlaces(query);
       if (!results.length) {
         if (placeFold(query).length < 2) return close();
-        list.innerHTML = `<div class="place-status">No match in the place list — type the place and enter its coordinates and time zone below.</div>`;
+        list.innerHTML = `<div class="place-status">${onChoose ? "No match in the place list." : "No match in the place list — type the place and enter its coordinates and time zone below."}</div>`;
       } else {
         list.innerHTML = results.map((place, index) => `<div class="place-option" role="option" id="${list.id}-${index}" aria-selected="false" data-index="${index}"><b>${escapeHtml(placeLabel(place))}</b><small>${placeCoordinates(place)} · ${escapeHtml(place.zone)}</small></div>`).join("");
       }
@@ -143,6 +145,12 @@ function bindPlaceSearch(input) {
     highlight(-1);
   };
   const choose = (place) => {
+    if (onChoose) {
+      input.value = "";
+      close();
+      onChoose(place);
+      return;
+    }
     input.value = placeLabel(place);
     form.elements.latitude.value = Number(place.lat).toFixed(4);
     form.elements.longitude.value = Number(place.lon).toFixed(4);
@@ -180,7 +188,7 @@ function bindPlaceSearch(input) {
     if (option) choose(results[Number(option.dataset.index)]);
   });
   input.addEventListener("blur", close);
-  form.addEventListener("reset", close);
+  form?.addEventListener("reset", close);
 }
 // The Edit dialog is built on first use, so bind whenever a location field gets focus.
 document.addEventListener("focusin", (event) => {
