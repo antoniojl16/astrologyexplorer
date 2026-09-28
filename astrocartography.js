@@ -270,9 +270,14 @@ function acgCityLabels(view, screen, blocked) {
 // numbered markers (saved locations) above it. While `doubleClickActive()` is true, a
 // double-click or double-tap calls `onMapDoubleClick({lat, lon})` instead, and a
 // single click waits ACG_DOUBLE_TAP_MS to be sure it isn't the first of two.
-function bindAcgMap(wrap, { onViewportChange, onMapClick, onMapDoubleClick, doubleClickActive = () => !!onMapDoubleClick } = {}) {
+// `onPinClick(id)` fires when a saved-location pin is clicked.
+function bindAcgMap(wrap, { onViewportChange, onMapClick, onMapDoubleClick, doubleClickActive = () => !!onMapDoubleClick, onPinClick } = {}) {
   const svg = wrap.querySelector(".acg-map");
   const labelGroup = wrap.querySelector("[data-acg-labels]");
+  labelGroup.addEventListener("click", (event) => {
+    const pin = event.target.closest("[data-acg-pin]");
+    if (pin && onPinClick) onPinClick(pin.dataset.acgPin);
+  });
   const originMarker = wrap.querySelector("[data-acg-origin]");
   const measureText = wrap.querySelector("[data-acg-measure]");
   const zoomControls = wrap.querySelector(".acg-zoom");
@@ -346,8 +351,9 @@ function bindAcgMap(wrap, { onViewportChange, onMapClick, onMapDoubleClick, doub
       const tiledX = x + Math.round((acgViewport.cx - x) / W) * W;
       const sx = ((tiledX - view.left) * screen.w) / view.vw, sy = ((y - view.top) * screen.h) / view.vh;
       if (sx < -10 || sy < -10 || sx > screen.w + 10 || sy > screen.h + 10) return;
-      blocked.push({ x: sx - 9, y: sy - 9, w: 18, h: 18 });
-      pinMarkup += `<g class="acg-pin" transform="translate(${sx.toFixed(1)},${sy.toFixed(1)})"><circle r="8"/><text text-anchor="middle" dominant-baseline="central">${pin.label}</text></g>`;
+      blocked.push({ x: sx - 6, y: sy - 6, w: 12, h: 12 });
+      // Birth's ring has a dot in the middle (☉-like).
+      pinMarkup += `<g class="acg-pin${pin.active ? " active" : ""}${pin.birth ? " birth" : ""}" data-acg-pin="${escapeHtml(pin.id)}" transform="translate(${sx.toFixed(1)},${sy.toFixed(1)})"><title>${escapeHtml(pin.title)}</title><circle class="acg-pin-hit" r="8"/><circle class="acg-pin-ring" r="${pin.active ? 5.5 : 4}"/>${pin.birth ? `<circle class="acg-pin-dot" r="1.6"/>` : ""}</g>`;
     });
     const placements = acgPlaceLabels(labelLines, view, screen, (text) => acgMeasureLabel(measureText, text), blocked);
     const cities = acgCityLabels(view, screen, [...blocked, ...placements.map((placement) => placement.box)]);
@@ -576,8 +582,10 @@ function bindAcgMap(wrap, { onViewportChange, onMapClick, onMapDoubleClick, doub
 }
 
 // ── Planet palette and filters ──────────────────────────────────────────
-// One color per planet (every line a planet draws shares it). Lunar Nodes is a
-// single filter covering both nodes; each node still labels its own lines.
+// One color per planet (every line a planet draws shares it). Only the North Node is
+// drawn: the South Node is always exactly opposite, so its lines are the North Node's
+// own (its AS is the North Node's DS, its MC the North Node's IC, and its Local Space
+// line the same great circle), and would only repeat them.
 const ACG_BODIES = [
   { key: "Sun", glyph: "☉", color: "#e3a008", group: "Primary" },
   { key: "Moon", glyph: "☽", color: "#6f8fb3", group: "Primary" },
@@ -590,16 +598,7 @@ const ACG_BODIES = [
   { key: "Neptune", glyph: "♆", color: "#2a9d8f", group: "Primary" },
   { key: "Pluto", glyph: "♇", color: "#b0406f", group: "Primary" },
   { key: "Chiron", glyph: "⚷", color: "#7d9b2e", group: "Secondary" },
-  {
-    key: "Lunar Nodes",
-    glyph: "☊",
-    color: "#8a8a8a",
-    group: "Secondary",
-    members: [
-      { name: "North Node", glyph: "☊" },
-      { name: "South Node", glyph: "☋" },
-    ],
-  },
+  { key: "North Node", glyph: "☊", color: "#8a8a8a", group: "Secondary" },
 ];
 const ACG_LINE_TYPES = [
   { key: "ASC", label: "Ascendant", short: "AS" },
@@ -728,8 +727,7 @@ function acgNearestLines(lines, lat, lon, count = 4) {
 // wrapped to ±180°, changes sign. Walking the union of both lines' own sample
 // latitudes makes both lines linear within each step, so each crossing is solved
 // exactly for the lines as drawn. A body's own lines are skipped (its AS/DS meet
-// its MC/IC at the critical latitudes by construction), and so are the two nodes
-// against each other (North Node DS is South Node AS, etc. — coincident, not crossing).
+// its MC/IC at the critical latitudes by construction).
 function acgLatitudeProfile(line) {
   return line.segments[0].lonLat.map(([lon, lat]) => [lat, lon]).sort((a, b) => a[0] - b[0]);
 }
@@ -744,30 +742,71 @@ function acgLonAtLatitude(profile, lat) {
   const [lat0, lon0] = profile[lo], [lat1, lon1] = profile[hi];
   return lat1 === lat0 ? lon0 : lon0 + ((lat - lat0) / (lat1 - lat0)) * (lon1 - lon0);
 }
+// MC and IC lines are meridians (one longitude, pole to pole), which makes most pairs
+// simple: two meridians never cross (distinct longitudes), and a curve meets a meridian
+// wherever its own longitude passes the meridian's, solved on the curve's own samples.
+// Only two AS/DS curves need the walk over both lines' latitudes; the walk reads each
+// line's longitude with a cursor that only moves forward, since latitudes only rise.
+const acgIsMeridian = (line) => line.lineKey === "MC" || line.lineKey === "IC";
 function acgLineIntersections(lines) {
   const profiles = lines.map(acgLatitudeProfile);
   const wrap = (degrees) => ((((degrees + 180) % 360) + 360) % 360) - 180;
+  // A sign change near zero is a crossing; one near ±180° is just the wrap.
+  const crosses = (gapA, gapB) => Math.abs(gapA) < 90 && Math.abs(gapB) < 90 && ((gapA < 0 && gapB >= 0) || (gapA > 0 && gapB <= 0));
   const found = [];
+  const curveMeetsMeridian = (curve, profile, meridian) => {
+    const meridianLon = meridian.segments[0].lonLat[0][0];
+    let previous = null;
+    profile.forEach(([lat, lon]) => {
+      const gap = wrap(lon - meridianLon);
+      if (previous && crosses(previous.gap, gap)) {
+        const t = previous.gap / (previous.gap - gap);
+        found.push({ lat: previous.lat + t * (lat - previous.lat), lon: wrap(meridianLon), a: curve, b: meridian });
+      }
+      previous = { lat, gap };
+    });
+  };
+  // Longitude along a latitude-sorted profile, for latitudes asked in rising order.
+  const cursor = (profile) => {
+    let index = 0;
+    return (lat) => {
+      while (index < profile.length - 2 && profile[index + 1][0] <= lat) index += 1;
+      const [lat0, lon0] = profile[index], [lat1, lon1] = profile[index + 1];
+      return lat1 === lat0 ? lon0 : lon0 + ((lat - lat0) / (lat1 - lat0)) * (lon1 - lon0);
+    };
+  };
+  const curvesCross = (i, j) => {
+    const a = profiles[i], b = profiles[j];
+    const from = Math.max(a[0][0], b[0][0]), to = Math.min(a[a.length - 1][0], b[b.length - 1][0]);
+    if (from >= to) return;
+    // Both lines' sample latitudes between `from` and `to`, merged in order.
+    const lats = [from];
+    let ia = 0, ib = 0;
+    while (ia < a.length || ib < b.length) {
+      const lat = ib >= b.length || (ia < a.length && a[ia][0] <= b[ib][0]) ? a[ia++][0] : b[ib++][0];
+      if (lat > from && lat < to && lat !== lats[lats.length - 1]) lats.push(lat);
+    }
+    lats.push(to);
+    const lonA = cursor(a), lonB = cursor(b);
+    let previous = null;
+    lats.forEach((lat) => {
+      const gap = wrap(lonA(lat) - lonB(lat));
+      if (previous && crosses(previous.gap, gap)) {
+        const t = previous.gap / (previous.gap - gap);
+        const crossLat = previous.lat + t * (lat - previous.lat);
+        found.push({ lat: crossLat, lon: wrap(acgLonAtLatitude(a, crossLat)), a: lines[i], b: lines[j] });
+      }
+      previous = { lat, gap };
+    });
+  };
   for (let i = 0; i < lines.length; i += 1) {
     for (let j = i + 1; j < lines.length; j += 1) {
       if (lines[i].bodyKey === lines[j].bodyKey) continue;
-      const a = profiles[i], b = profiles[j];
-      const from = Math.max(a[0][0], b[0][0]), to = Math.min(a[a.length - 1][0], b[b.length - 1][0]);
-      if (from >= to) continue;
-      const lats = [...new Set([from, to, ...a.map((p) => p[0]), ...b.map((p) => p[0])])].filter((lat) => lat >= from && lat <= to).sort((x, y) => x - y);
-      let previous = null;
-      lats.forEach((lat) => {
-        const lonA = acgLonAtLatitude(a, lat);
-        const gap = wrap(lonA - acgLonAtLatitude(b, lat));
-        // A sign change near zero is a crossing; one near ±180° is just the wrap.
-        const crosses = previous && Math.abs(previous.gap) < 90 && Math.abs(gap) < 90 && ((previous.gap < 0 && gap >= 0) || (previous.gap > 0 && gap <= 0));
-        if (crosses) {
-          const t = previous.gap / (previous.gap - gap);
-          const crossLat = previous.lat + t * (lat - previous.lat);
-          found.push({ lat: crossLat, lon: wrap(acgLonAtLatitude(a, crossLat)), a: lines[i], b: lines[j] });
-        }
-        previous = { lat, gap };
-      });
+      const meridianI = acgIsMeridian(lines[i]), meridianJ = acgIsMeridian(lines[j]);
+      if (meridianI && meridianJ) continue;
+      if (meridianJ) curveMeetsMeridian(lines[i], profiles[i], lines[j]);
+      else if (meridianI) curveMeetsMeridian(lines[j], profiles[j], lines[i]);
+      else curvesCross(i, j);
     }
   }
   return found;
@@ -918,9 +957,7 @@ function acgGreatCircleSegments(lat0, lon0, bearing) {
 // itself for relocated Local Space (directions recomputed for the new place), or the
 // birthplace for natal directions (the birth compass carried to the new place). Azimuth comes from Astronomy Engine's
 // Horizon() fed the same geocentric RA/Dec the Travel lines use. The half of the
-// circle heading toward the body is marked `facing`, and labels prefer it — so the
-// two nodes (always exactly opposite, hence sharing one great circle) get their
-// labels on opposite halves.
+// circle heading toward the body is marked `facing`, and labels prefer it.
 function acgLocalSpaceLines(chart, offsetMinutes, origin, directionsFrom = origin) {
   if (!chart || !chart.positions?.length || !origin || !directionsFrom || typeof Astronomy === "undefined") return [];
   const { lat: lat0, lon: lon0 } = origin;
@@ -1253,14 +1290,35 @@ let acgActiveView = SYSTEM_TABS.Astrocartography[0];
 // How far a place search zooms in (at least): a region about 1,500 km across.
 const ACG_SEARCH_ZOOM = 24;
 const ACG_LOCATION_ROWS = 3;
+// Which saved-location rows are open (record ids), and the date order — "asc" puts
+// undated places first ("date zero"). The order is remembered per browser.
+const acgExpandedLocations = new Set();
+let acgLocationsSort = acgStoredSetting("orbital-study-locations-sort", "asc") === "desc" ? "desc" : "asc";
+function acgSortLocations(records) {
+  const key = (record) => (record.start ? `${record.start.date}T${record.start.time}` : "");
+  const sorted = [...records].sort((a, b) => (key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : a.createdAt - b.createdAt));
+  return acgLocationsSort === "asc" ? sorted : sorted.reverse();
+}
+// How long the slider (or a dragged origin) has to rest before saved locations update.
+const ACG_LOCATIONS_SETTLE_MS = 300;
 // The place to name a spot by: the most populous place within ACG_CITY_RADIUS_KM (so a
 // spot in a city reads as the city, not the district it's in), else simply the nearest.
 const ACG_CITY_RADIUS_KM = 30;
+// Remembered per spot: towns don't move, so each spot is looked up once (a full search
+// over the ~70,000 places takes about 15 ms), not on every redraw.
+const acgNearestPlaceCache = new Map();
 function acgNearestPlace(lat, lon) {
   if (typeof placeIndex === "undefined" || !placeIndex) {
     if (typeof loadPlaces === "function") loadPlaces();
     return null;
   }
+  const key = `${Number(lat).toFixed(5)},${Number(lon).toFixed(5)}`;
+  if (acgNearestPlaceCache.has(key)) return acgNearestPlaceCache.get(key);
+  const found = acgSearchNearestPlace(lat, lon);
+  acgNearestPlaceCache.set(key, found);
+  return found;
+}
+function acgSearchNearestPlace(lat, lon) {
   const point = acgUnitVector(lon, lat);
   let nearest = null, nearestKm = Infinity, largest = null, largestKm = 0;
   // placeIndex is most populous first, so the first place within the radius is the largest.
@@ -1337,12 +1395,22 @@ function acgZenithTipHtml(line, km) {
     <div class="gk-tip-text">${meaning.MC || ""}</div>`;
 }
 
+// Compact rows: a title and year (or years), Go to (and, in Local Space, Relocate),
+// and a click to expand the rest — coordinates, nearest town, and the zenith zones,
+// crossings and nearest lines. Only expanded rows (ids in `expanded`) are measured.
 // `tips` collects each chip's tooltip builder (the chip's data-acg-tip is its index),
 // so the readings are only written when a chip is actually hovered or focused.
-function acgLocationsMarkup(locations, lines, travel, intersections, origin, tips) {
-  if (!locations.length) {
-    return `<p class="acg-locations-empty">Click anywhere on the map to save that spot here, with its nearest place, lines${travel ? " and intersections" : ""}. Saved spots stay with this chart, in both map views, and appear in its Life Events, where they can be named, dated, tagged and annotated.</p>`;
-  }
+function acgLocationYears(record) {
+  if (!record?.start) return "";
+  const first = record.start.date.slice(0, 4), last = record.end ? record.end.date.slice(0, 4) : first;
+  return first === last ? first : `${first}–${last}`;
+}
+function acgLocationsMarkup(locations, lines, travel, intersections, origin, tips, expanded) {
+  // The hint stays until something besides birth is saved.
+  const hint = locations.some(({ record }) => !isBirthRecord(record))
+    ? ""
+    : `<p class="acg-locations-empty">Click anywhere on the map to save that spot here, with its nearest place, lines${travel ? " and intersections" : ""}. Saved spots stay with this chart, in both map views, and appear in its Life Events, where they can be named, dated, tagged and annotated.</p>`;
+  if (!locations.length) return hint;
   const chip = (swatch, text, km, label, tip) => {
     tips.push(tip);
     return `<button type="button" class="acg-chip" data-acg-tip="${tips.length - 1}" aria-label="${escapeHtml(label)}, ${acgKm(km)}">${swatch}${text}<span class="acg-chip-km">${acgKm(km)}</span></button>`;
@@ -1351,36 +1419,43 @@ function acgLocationsMarkup(locations, lines, travel, intersections, origin, tip
   const isOrigin = (location) => !!origin && Math.abs(origin.lat - location.lat) < 1e-4 && Math.abs(origin.lon - location.lon) < 1e-4;
   const lineText = (line) => `${glyph(line)}${line.short || ""}`;
   const block = (title, items) => `<div class="acg-location-block"><span class="acg-location-subhead">${title}</span><div class="acg-chips">${items || `<span class="acg-chip-none">None among the shown lines</span>`}</div></div>`;
-  return `<ol class="acg-location-list">${locations.map((location, index) => {
+  return `<ol class="acg-location-list">${locations.map((location) => {
+    const { record } = location;
+    const id = escapeHtml(record.id);
+    const open = expanded.has(record.id);
     const nearest = acgNearestPlace(location.lat, location.lon);
     const city = nearest ? `${escapeHtml(placeLabel(nearest.place))} · ${acgKm(nearest.km)}` : "Finding the nearest place…";
-    // A record's own title (or place name) leads when it has one; the nearest place follows.
-    const { record } = location;
-    const named = record && (record.title || record.place.name);
-    const heading = named ? escapeHtml(lifeEventTitle(record)) : city;
-    const when = record?.start ? `<span class="acg-location-when">${lifeWhenLabel(record)}</span>` : "";
-    const nearestLines = lines.length ? acgNearestLines(lines, location.lat, location.lon, ACG_LOCATION_ROWS) : [];
-    const zones = travel ? acgZenithZonesAt(lines, location.lat, location.lon) : [];
-    const crossings = travel ? acgNearestIntersections(intersections, location.lat, location.lon, ACG_LOCATION_ROWS) : [];
-    return `<li class="acg-location" data-acg-location="${index}">
-      <div class="acg-location-head">
-        <span class="acg-location-number">${index + 1}</span>
-        <div><strong>${heading}${when}</strong><small>${acgCoordinate(location.lat, "N", "S")}, ${acgCoordinate(location.lon, "E", "W")}${named && nearest && !(record.title || "").startsWith(placeLabel(nearest.place)) ? ` · near ${city}` : ""}</small></div>
-        <button type="button" class="acg-origin-button" data-acg-location-center="${index}">Go to</button>
-        ${travel ? "" : isOrigin(location)
-          ? `<button type="button" class="acg-origin-button" disabled title="This spot is the Local Space origin">Relocate</button>`
-          : `<button type="button" class="acg-origin-button" data-acg-location-relocate="${index}" title="Make this spot the Local Space origin">Relocate</button>`}
-        ${record?.start
-          ? `<span class="acg-location-remove-placeholder" title="A dated life event: edit or delete it in Life Events"></span>`
-          : `<button type="button" class="acg-location-remove" data-acg-location-remove="${index}" aria-label="Remove location ${index + 1}" title="Remove">×</button>`}
-      </div>
-      <div class="acg-location-body">
+    const named = record.title || record.place.name;
+    const heading = named ? escapeHtml(lifeEventTitle(record)) : nearest ? escapeHtml(placeLabel(nearest.place)) : `${acgCoordinate(location.lat, "N", "S")}, ${acgCoordinate(location.lon, "E", "W")}`;
+    const years = acgLocationYears(record);
+    let body = "";
+    if (open) {
+      const nearestLines = lines.length ? acgNearestLines(lines, location.lat, location.lon, ACG_LOCATION_ROWS) : [];
+      const zones = travel ? acgZenithZonesAt(lines, location.lat, location.lon) : [];
+      const crossings = travel ? acgNearestIntersections(intersections, location.lat, location.lon, ACG_LOCATION_ROWS) : [];
+      body = `<div class="acg-location-body" id="acgLocationBody-${id}">
+        <p class="acg-location-where">${acgCoordinate(location.lat, "N", "S")}, ${acgCoordinate(location.lon, "E", "W")}${nearest && !(record.title || "").startsWith(placeLabel(nearest.place)) ? ` · near ${city}` : ""}${record.start ? ` · ${lifeWhenLabel(record)}` : ""}</p>
         ${zones.length ? block("Zenith", zones.map(({ line, km }) => chip(`<b style="color:${line.color}">◯</b>`, line.glyph, km, `${line.member} zenith zone`, () => acgZenithTipHtml(line, km))).join("")) : ""}
         ${travel ? block("Crossings", crossings.map(({ crossing, km }) => chip(lineText(crossing.a), `<span class="acg-chip-times">×</span>${lineText(crossing.b)}`, km, `${crossing.a.hoverName} crossing ${crossing.b.hoverName}`, () => acgCrossingTipHtml(crossing, km, location))).join("")) : ""}
         ${block("Lines", nearestLines.map(({ line, km }) => chip(lineText(line), "", km, travel ? line.hoverName : `${line.member} line`, () => acgLineTipHtml(line, km, location, origin))).join(""))}
+      </div>`;
+    }
+    const relocate = travel ? "" : isOrigin(location)
+      ? `<button type="button" class="acg-origin-button" disabled title="This spot is the Local Space origin">Relocate</button>`
+      : `<button type="button" class="acg-origin-button" data-acg-location-relocate="${id}" title="Make this spot the Local Space origin">Relocate</button>`;
+    const remove = record.start
+      ? ""
+      : `<button type="button" class="acg-location-remove" data-acg-location-remove="${id}" aria-label="Remove ${heading}" title="Remove">×</button>`;
+    return `<li class="acg-location${open ? " open" : ""}${isBirthRecord(record) ? " birth" : ""}" data-acg-record="${id}">
+      <button type="button" class="acg-location-toggle" data-acg-location-toggle="${id}" aria-expanded="${open}"${open ? ` aria-controls="acgLocationBody-${id}"` : ""}>
+        <span class="acg-location-caret" aria-hidden="true">▸</span><strong>${heading}</strong>${years ? `<span class="acg-location-years">${years}</span>` : ""}
+      </button>
+      <div class="acg-location-actions">
+        <button type="button" class="acg-origin-button" data-acg-location-center="${id}">Go to</button>${relocate}${remove}
       </div>
+      ${body}
     </li>`;
-  }).join("")}</ol>`;
+  }).join("")}</ol>${hint}`;
 }
 // One tooltip for every saved-location chip: follows the pointer, or sits under a
 // chip that has keyboard focus.
@@ -1448,19 +1523,20 @@ function renderAstrocartographyPanel(container, chart) {
         </div>
         <div class="acg-filters" data-acg-filters>${acgFiltersMarkup()}</div>
         <aside class="system-info" data-acg-info></aside>
-        ${chart ? `<section class="acg-locations" aria-label="Saved locations"><div class="system-toolbar"><span class="eyebrow">SAVED LOCATIONS</span><span class="sample-badge" data-acg-locations-count></span></div><div data-acg-locations></div></section>` : ""}
+        ${chart ? `<section class="acg-locations" aria-label="Saved locations"><div class="system-toolbar"><span class="eyebrow">SAVED LOCATIONS <span class="acg-locations-count" data-acg-locations-count></span></span><button type="button" class="acg-origin-button acg-locations-sort" data-acg-locations-sort hidden></button></div><div data-acg-locations></div></section>` : ""}
       </div>
     </div>`;
   let offsetMinutes = 0;
   const birthplace = acgBirthplace(chart);
   const movedOrigin = () => chart?.localSpaceOrigin || null;
   const localSpaceOrigin = () => movedOrigin() || birthplace;
-  const setOrigin = (origin) => {
+  // `defer`: while the origin is being dragged, the saved locations wait (showView).
+  const setOrigin = (origin, { defer = false } = {}) => {
     if (!chart) return;
     if (origin) chart.localSpaceOrigin = { lat: Number(origin.lat.toFixed(4)), lon: Number(origin.lon.toFixed(4)) };
     else delete chart.localSpaceOrigin;
     acgSaveSoon();
-    showView();
+    showView({ deferLocations: defer });
   };
   // Lines only depend on the view, the slider offset and (Local Space) the origin;
   // filter toggles reuse them.
@@ -1474,7 +1550,11 @@ function renderAstrocartographyPanel(container, chart) {
     }
     return cached.lines;
   };
-  const showView = () => {
+  // `deferLocations`: the lines are redrawn now, but the saved locations' distances only
+  // once things have been still for ACG_LOCATIONS_SETTLE_MS (the slider or the origin
+  // being dragged), dimmed meanwhile.
+  let settleTimer = 0;
+  const showView = ({ deferLocations = false } = {}) => {
     const travel = acgActiveView === "ACG Travel";
     const lines = linesFor(acgActiveView);
     const origin = localSpaceOrigin();
@@ -1491,26 +1571,54 @@ function renderAstrocartographyPanel(container, chart) {
     const visible = acgVisibleLines(lines);
     container.querySelector("[data-acg-overlay]").innerHTML = acgOverlayMarkup(visible);
     map.setLabelLines(visible);
-    map.setOrigin(travel || !origin ? null : { ...origin, onMove: setOrigin });
+    map.setOrigin(travel || !origin ? null : { ...origin, onMove: (moved) => setOrigin(moved, { defer: true }) });
     const originText = travel || !origin ? "" : `${acgCoordinate(origin.lat, "N", "S")}, ${acgCoordinate(origin.lon, "E", "W")}${moved ? ` (moved, ${acgLocalSpaceDirections} directions)` : ""}`;
     container.querySelector("[data-acg-info]").innerHTML = acgInfoMarkup(chart, acgActiveView, `${visible.length} / ${lines.length} shown`, originText);
-    showLocations(visible, travel);
+    clearTimeout(settleTimer);
+    if (deferLocations && locationsList?.querySelector(".acg-location")) {
+      locationsList.classList.add("updating");
+      locationsState = { visible, travel };
+      settleTimer = setTimeout(() => showLocations(visible, travel), ACG_LOCATIONS_SETTLE_MS);
+    } else {
+      showLocations(visible, travel);
+    }
   };
   // Saved locations: re-rendered with the lines (view, filters, timeline, origin).
   const locationsList = container.querySelector("[data-acg-locations]");
+  const sortButton = container.querySelector("[data-acg-locations-sort]");
   let locationsState = { visible: [], travel: true };
   let locationTips = [];
   const hideLocationTip = locationsList ? bindAcgChipTips(locationsList, () => locationTips) : () => {};
   const showLocations = (visible = locationsState.visible, travel = locationsState.travel) => {
     if (!chart || !locationsList) return;
+    clearTimeout(settleTimer);
+    locationsList.classList.remove("updating");
     locationsState = { visible, travel };
-    const locations = chartPlaceRecords(chart).map((record) => ({ lat: record.place.lat, lon: record.place.lon, record }));
-    const intersections = travel && locations.length ? acgLineIntersections(visible) : [];
+    const locations = acgSortLocations(chartPlaceRecords(chart)).map((record) => ({ lat: record.place.lat, lon: record.place.lon, record }));
+    const expanded = acgExpandedLocations;
+    // Intersections are only needed to read an expanded row in Travel.
+    const intersections = travel && locations.some(({ record }) => expanded.has(record.id)) ? acgLineIntersections(visible) : [];
     locationTips = [];
     hideLocationTip();
-    locationsList.innerHTML = acgLocationsMarkup(locations, visible, travel, intersections, localSpaceOrigin(), locationTips);
+    locationsList.innerHTML = acgLocationsMarkup(locations, visible, travel, intersections, localSpaceOrigin(), locationTips, expanded);
     container.querySelector("[data-acg-locations-count]").textContent = locations.length ? String(locations.length) : "";
-    map.setPins(locations.map((location, index) => ({ ...location, label: index + 1 })));
+    if (sortButton) {
+      sortButton.hidden = locations.length < 2;
+      sortButton.textContent = `Date ${acgLocationsSort === "asc" ? "↑" : "↓"}`;
+      sortButton.setAttribute("aria-label", `Sorted by date, ${acgLocationsSort === "asc" ? "oldest" : "newest"} first; switch`);
+    }
+    map.setPins(locations.map(({ lat, lon, record }) => ({ lat, lon, id: record.id, title: lifeEventTitle(record), active: expanded.has(record.id), birth: isBirthRecord(record) })));
+  };
+  sortButton?.addEventListener("click", () => {
+    acgLocationsSort = acgLocationsSort === "asc" ? "desc" : "asc";
+    acgStoreSetting("orbital-study-locations-sort", acgLocationsSort);
+    showLocations();
+  });
+  // Opens a row (from its pin on the map) and brings it into view.
+  const openLocation = (id) => {
+    acgExpandedLocations.add(id);
+    showLocations();
+    locationsList.querySelector(`[data-acg-record="${CSS.escape(id)}"]`)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
   };
   const addLocation = ({ lat, lon, name = "" }) => {
     if (!chart) return;
@@ -1519,20 +1627,25 @@ function renderAstrocartographyPanel(container, chart) {
     showLocations();
   };
   locationsList?.addEventListener("click", (event) => {
-    const remove = event.target.closest("[data-acg-location-remove]");
-    const center = event.target.closest("[data-acg-location-center]");
-    const relocate = event.target.closest("[data-acg-location-relocate]");
-    if (remove) {
-      const record = chartPlaceRecords(chart)[Number(remove.dataset.acgLocationRemove)];
-      if (record) removeChartFromRecord(chart, record);
+    const button = event.target.closest("[data-acg-location-toggle], [data-acg-location-remove], [data-acg-location-center], [data-acg-location-relocate]");
+    if (!button) return;
+    const { acgLocationToggle: toggle, acgLocationRemove: remove, acgLocationCenter: center, acgLocationRelocate: relocate } = button.dataset;
+    const record = chartPlaceRecords(chart).find((item) => item.id === (toggle || remove || center || relocate));
+    if (!record) return;
+    if (toggle) {
+      if (acgExpandedLocations.has(record.id)) acgExpandedLocations.delete(record.id);
+      else acgExpandedLocations.add(record.id);
+      showLocations();
+      locationsList.querySelector(`[data-acg-location-toggle="${CSS.escape(record.id)}"]`)?.focus();
+    } else if (remove) {
+      acgExpandedLocations.delete(record.id);
+      removeChartFromRecord(chart, record);
       showLocations();
     } else if (center) {
-      const record = chartPlaceRecords(chart)[Number(center.dataset.acgLocationCenter)];
-      if (record) map.centerOn(record.place);
+      map.centerOn(record.place);
     } else if (relocate) {
-      // Local Space only: makes the spot the origin.
-      const record = chartPlaceRecords(chart)[Number(relocate.dataset.acgLocationRelocate)];
-      if (record) setOrigin(record.place);
+      // Local Space only: makes the spot the origin (birth's is the unmoved origin).
+      setOrigin(isBirthRecord(record) ? null : record.place);
     }
   });
   // The nearest-place names arrive with places.js.
@@ -1557,6 +1670,7 @@ function renderAstrocartographyPanel(container, chart) {
   // saves the spot once (not twice, as two single clicks would).
   const map = bindAcgMap(container.querySelector(".acg-map-wrap"), {
     onMapClick: chart ? addLocation : null,
+    onPinClick: (id) => openLocation(id),
     onMapDoubleClick: chart ? (point) => (acgActiveView === "ACG Local Space" ? setOrigin(point) : addLocation(point)) : null,
   });
   // Choosing a place saves it (unless it's already saved) and goes there; with no chart
@@ -1572,12 +1686,16 @@ function renderAstrocartographyPanel(container, chart) {
   const timelineContainer = container.querySelector(".acg-visual .timeline-control");
   if (timelineContainer) {
     // bindTimelineSlider fires onChange once immediately, which does the first draw.
+    // Moves are drawn at most once per frame (a drag fires many), the saved locations
+    // once the slider rests. The first call (binding) draws everything at once.
+    let first = true, frame = 0;
     bindTimelineSlider(timelineContainer, {
       originLabel: timelineOriginLabel(),
       onChange: (offset) => {
         offsetMinutes = offset;
         updateTimelineReadout(timelineContainer, chart, offset);
-        showView();
+        if (first) { first = false; showView(); return; }
+        if (!frame) frame = requestAnimationFrame(() => { frame = 0; showView({ deferLocations: true }); });
       },
     });
   } else {

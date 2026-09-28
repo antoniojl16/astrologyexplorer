@@ -88,7 +88,7 @@ function libraryMiniBodygraph(state) {
 // ── Table ─────────────────────────────────────────────────────────────────
 function libraryHeaderMarkup() {
   const columns = librarySystem === "Astrology" ? ["SUN", "RISING"] : ["TYPE", "AUTHORITY", "PROFILE", "DEFINITION"];
-  return `<th class="check-col"><input type="checkbox" id="selectAll" aria-label="Select all charts"></th><th>CHART</th><th>BIRTH DATA</th><th>LOCATION</th>${columns.map((column) => `<th>${column}</th>`).join("")}`;
+  return `<th class="check-col"><input type="checkbox" id="selectAll" aria-label="Select all charts"></th><th>CHART</th><th>BIRTH DATA</th><th>LOCATION</th>${columns.map((column) => `<th>${column}</th>`).join("")}<th class="edit-col"><span class="visually-hidden">EDIT</span></th>`;
 }
 function librarySignCell(place) {
   if (!place) return `<td class="muted-text">—</td>`;
@@ -110,7 +110,7 @@ function libraryRowMarkup(chart) {
     : data.typology
       ? `<td><strong class="library-fact">${data.typology.type}</strong></td><td class="library-detail">${libraryShortAuthority(data.typology.authority)}</td><td><strong class="library-fact">${data.typology.profile}</strong></td><td class="library-detail">${libraryShortDefinition(data.typology.definition)}</td>`
       : `<td class="muted-text" colspan="4">—</td>`;
-  return `<tr data-id="${chart.id}" class="${selectedChartId === chart.id ? "selected" : ""}"><td class="check-col"><input type="checkbox" aria-label="Select ${escapeHtml(chart.name)}" ${selectedChartIds.has(chart.id) ? "checked" : ""}></td><td><div class="chart-cell">${data.mini}<div><div class="chart-name"><a class="chart-name-link" href="#/chart/${encodeURIComponent(typeof chartSlug === "function" ? chartSlug(chart.id) : chart.id)}">${escapeHtml(chart.name)}</a>${chart.uncertainty ? '<span class="date-note">◌ uncertain time ±' + chart.uncertainty + "m</span>" : ""}</div><div class="chart-type">INDIVIDUAL</div><div class="chart-type">${escapeHtml(chart.tags[0]?.toUpperCase() || "STUDY")}</div></div></div></td><td class="birth-cell">${formatDate(chart.birthDate)}<br><span class="muted-text">${chart.birthTime || "Time unknown"}</span></td><td class="location-cell">${escapeHtml(chart.location)}</td>${cells}</tr>`;
+  return `<tr data-id="${chart.id}" class="${selectedChartId === chart.id ? "selected" : ""}"><td class="check-col"><input type="checkbox" aria-label="Select ${escapeHtml(chart.name)}" ${selectedChartIds.has(chart.id) ? "checked" : ""}></td><td><div class="chart-cell">${data.mini}<div><div class="chart-name"><a class="chart-name-link" href="#/chart/${encodeURIComponent(typeof chartSlug === "function" ? chartSlug(chart.id) : chart.id)}">${escapeHtml(chart.name)}</a>${chart.uncertainty ? '<span class="date-note">◌ uncertain time ±' + chart.uncertainty + "m</span>" : ""}</div><div class="chart-type">INDIVIDUAL</div><div class="chart-type">${escapeHtml(chart.tags[0]?.toUpperCase() || "STUDY")}</div></div></div></td><td class="birth-cell">${formatDate(chart.birthDate)}<br><span class="muted-text">${chart.birthTime || "Time unknown"}</span></td><td class="location-cell">${escapeHtml(chart.location)}</td>${cells}<td class="edit-col"><button type="button" class="acg-origin-button" data-library-edit aria-label="Edit ${escapeHtml(chart.name)}">Edit</button></td></tr>`;
 }
 
 // Tabs above the table.

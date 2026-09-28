@@ -36,9 +36,39 @@ function chartLifeEvents(chart) {
   const workspace = chart && workspaceOfChart(chart.id);
   return workspace ? (workspace.events || []).filter((event) => event.people.some((person) => person.chartId === chart.id)) : [];
 }
-// Records with a place (dated or not): the chart's Astrocartography saved locations.
+// Records with a place (dated or not), birth first: the chart's Astrocartography saved locations.
 function chartPlaceRecords(chart) {
-  return chartLifeEvents(chart).filter((event) => event.place);
+  return chartRecordsWithBirth(chart).filter((event) => event.place);
+}
+// Birth, as a record like any other, but computed from the chart's own birth data each
+// time it's needed (never stored): its date, time and place always match the chart's,
+// and it can't be edited, tagged or removed — only the chart can change it. Its id,
+// "birth:<chart id>", can't clash with a stored one (":" is never in those). No place
+// when the chart has no coordinates.
+function lifeBirthRecord(chart) {
+  if (!chart?.birthDate) return null;
+  const coordinate = (value, limit) => {
+    const number = value == null || value === "" ? NaN : Number(value);
+    return Number.isFinite(number) && Math.abs(number) <= limit ? number : null;
+  };
+  const lat = coordinate(chart.latitude, 90), lon = coordinate(chart.longitude, 180);
+  const record = {
+    id: `birth:${chart.id}`, birth: true, title: "Birth", kind: "",
+    start: { date: chart.birthDate, time: chart.birthTime || "" },
+    zone: chart.timezone || "", tags: [], notes: "",
+    people: [{ chartId: chart.id, name: "", role: "" }],
+    createdAt: 0, updatedAt: 0,
+  };
+  if (lat != null && lon != null) record.place = { name: chart.location || "", lat, lon };
+  return record;
+}
+function isBirthRecord(event) {
+  return !!event?.birth;
+}
+// The chart's birth, then its stored records.
+function chartRecordsWithBirth(chart) {
+  const birth = lifeBirthRecord(chart);
+  return birth ? [birth, ...chartLifeEvents(chart)] : chartLifeEvents(chart);
 }
 // A new place-only record for `chart` (from a map click or the map's place search).
 function addPlaceRecord(chart, { lat, lon, name = "" }) {
@@ -83,6 +113,17 @@ function removeChartFromRecord(chart, event) {
   event.people = event.people.filter((person) => person.chartId !== chart.id);
   if (!event.people.some((person) => person.chartId)) workspace.events = workspace.events.filter((item) => item !== event);
   saveState();
+}
+// Asks first (naming anyone else it's shared with), then deletes. Returns whether it did.
+function confirmDeleteRecord(chart, record) {
+  const others = record.people.filter((person) => person.chartId && person.chartId !== chart.id).map((person) => chartById(person.chartId)?.name).filter(Boolean);
+  const question = others.length
+    ? `Delete “${lifeEventTitle(record)}” for everyone in it? It's shared with ${others.join(", ")}.\n\n(To take only ${chart.name} out of it, edit it instead.)`
+    : `Delete “${lifeEventTitle(record)}”?`;
+  if (!window.confirm(question)) return false;
+  deleteRecord(chart, record);
+  showToast("Record deleted");
+  return true;
 }
 function deleteRecord(chart, event) {
   const workspace = workspaceOfChart(chart.id);
@@ -150,7 +191,8 @@ function renderLifeEventsPanel(container, chart) {
     </div>`;
   const list = container.querySelector("[data-life-list]");
   const draw = () => {
-    const events = chartLifeEvents(chart).sort(lifeEventOrder);
+    const stored = chartLifeEvents(chart);
+    const events = chartRecordsWithBirth(chart).sort(lifeEventOrder);
     const tags = [...new Set(events.flatMap((event) => event.tags))].sort();
     if (lifeEventsFilter.tag && !tags.includes(lifeEventsFilter.tag)) lifeEventsFilter.tag = "";
     container.querySelector("[data-life-tag]").innerHTML = `<option value="">All tags</option>${tags.map((tag) => `<option value="${escapeHtml(tag)}" ${tag === lifeEventsFilter.tag ? "selected" : ""}>${escapeHtml(tag)}</option>`).join("")}`;
@@ -166,9 +208,8 @@ function renderLifeEventsPanel(container, chart) {
     container.querySelector("[data-life-count]").textContent = events.length
       ? `${shown.length === events.length ? events.length : `${shown.length} of ${events.length}`} record${events.length === 1 ? "" : "s"}`
       : "";
-    list.innerHTML = events.length
-      ? shown.length ? shown.map((event) => lifeEventItemMarkup(event, chart)).join("") : `<li class="life-empty">No records match.</li>`
-      : `<li class="life-empty">No life events yet. Add moments, periods and places that matter — alone or shared with other charts in this workspace — to study them against the charts. Places saved on the Astrocartography map appear here too.</li>`;
+    list.innerHTML = (shown.length ? shown.map((event) => lifeEventItemMarkup(event, chart)).join("") : `<li class="life-empty">No records match.</li>`)
+      + (stored.length ? "" : `<li class="life-empty">No other life events yet. Add moments, periods and places that matter — alone or shared with other charts in this workspace — to study them against the charts. Places saved on the Astrocartography map appear here too.</li>`);
   };
   container.querySelector("[data-life-show]").addEventListener("click", (event) => {
     const button = event.target.closest("[data-value]");
@@ -188,16 +229,7 @@ function renderLifeEventsPanel(container, chart) {
     const record = (workspace.events || []).find((item) => item.id === (edit || remove)?.closest("[data-life-id]")?.dataset.lifeId);
     if (!record) return;
     if (edit) openLifeEventDialog(chart, record, { onSave: draw });
-    if (remove) {
-      const others = record.people.filter((person) => person.chartId && person.chartId !== chart.id).map((person) => chartById(person.chartId)?.name).filter(Boolean);
-      const question = others.length
-        ? `Delete “${lifeEventTitle(record)}” for everyone in it? It's shared with ${others.join(", ")}.\n\n(To take only ${chart.name} out of it, edit it instead.)`
-        : `Delete “${lifeEventTitle(record)}”?`;
-      if (!window.confirm(question)) return;
-      deleteRecord(chart, record);
-      draw();
-      showToast("Record deleted");
-    }
+    if (remove && confirmDeleteRecord(chart, record)) draw();
   });
   // Unnamed places are titled by the nearest town, known once places.js has loaded.
   window.addEventListener("orbital-places-loaded", () => { if (list.isConnected) draw(); });
@@ -216,7 +248,12 @@ function lifeEventItemMarkup(event, chart) {
   // (Left out when the title is already the place's name.)
   const placeText = event.place ? event.place.name || coordinates : "";
   const place = placeText && placeText !== lifeEventTitle(event) ? `<span>⌖ ${escapeHtml(placeText)}</span>` : "";
-  return `<li class="life-item${event.start ? "" : " place-only"}" data-life-id="${escapeHtml(event.id)}">
+  const birth = isBirthRecord(event);
+  const actions = birth
+    ? `<span class="life-fixed" title="Birth follows the chart's birth data: edit the chart to change it">From the chart</span>`
+    : `<button type="button" class="acg-origin-button" data-life-edit>Edit</button>
+      <button type="button" class="acg-location-remove" data-life-delete aria-label="Delete ${escapeHtml(lifeEventTitle(event))}" title="Delete">×</button>`;
+  return `<li class="life-item${event.start ? "" : " place-only"}${birth ? " birth" : ""}" data-life-id="${escapeHtml(event.id)}">
     <div class="life-when">${event.start ? `<strong>${lifeWhenLabel(event)}</strong><small>${time}</small>` : `<strong>Place</strong><small>No date</small>`}</div>
     <div class="life-main">
       <div class="life-title"><strong>${escapeHtml(lifeEventTitle(event))}</strong>${kind && event.title && kind !== event.title ? `<span class="life-kind">${escapeHtml(kind)}</span>` : ""}${event.end ? `<span class="life-kind">Period</span>` : ""}</div>
@@ -225,8 +262,7 @@ function lifeEventItemMarkup(event, chart) {
       ${event.notes ? `<p class="life-notes">${escapeHtml(event.notes)}</p>` : ""}
     </div>
     <div class="life-actions">
-      <button type="button" class="acg-origin-button" data-life-edit>Edit</button>
-      <button type="button" class="acg-location-remove" data-life-delete aria-label="Delete ${escapeHtml(lifeEventTitle(event))}" title="Delete">×</button>
+      ${actions}
     </div>
   </li>`;
 }
@@ -270,7 +306,7 @@ function lifeDialog() {
       </div>
       <label class="wide-field">Notes<textarea name="notes" rows="4" maxlength="5000"></textarea></label>
     </div>
-    <div class="dialog-actions"><button type="button" class="secondary-button" data-life-cancel>Cancel</button><button class="primary-button" type="submit">Save <span>→</span></button></div>
+    <div class="dialog-actions"><button type="button" class="text-button life-dialog-delete" data-life-dialog-delete hidden>Delete record…</button><button type="button" class="secondary-button" data-life-cancel>Cancel</button><button class="primary-button" type="submit">Save <span>→</span></button></div>
   </form>`;
   document.body.appendChild(dialog);
   dialog.querySelectorAll("[data-life-cancel]").forEach((button) => button.addEventListener("click", () => dialog.close()));
@@ -427,6 +463,14 @@ function openLifeEventDialog(chart, event, { onSave } = {}) {
   form.elements.when.onchange = syncWhen;
   syncWhen();
 
+  // Deleting lives here, behind Edit and a confirmation, not one click away in a list.
+  const remove = dialog.querySelector("[data-life-dialog-delete]");
+  remove.hidden = !event;
+  remove.onclick = () => {
+    if (!event || !confirmDeleteRecord(chart, event)) return;
+    dialog.close();
+    onSave?.(null);
+  };
   form.onsubmit = (submit) => {
     submit.preventDefault();
     const when = form.elements.when.value;

@@ -186,15 +186,25 @@ function ensureEditDialog() {
   if (document.getElementById('editDialog')) return document.getElementById('editDialog');
   const dialog = document.createElement('dialog');
   dialog.id = 'editDialog';
-  dialog.innerHTML = `<form method="dialog" id="editForm"><div class="dialog-head"><div><p class="eyebrow accent-label">CHART RECORD</p><h2>Edit individual chart</h2></div><button class="close-button" value="cancel" aria-label="Close">×</button></div><p class="dialog-copy">Update the record without changing its chart identity or workspace membership.</p><div class="form-grid"><label>Chart name<input name="name" required></label><label>Birth location<input name="location" required></label><label>Birth date<input name="date" required type="date"></label><label>Birth time<input name="time" type="time"></label><label>Timezone<select name="timezone" required></select></label><label>Time uncertainty (minutes)<input name="uncertainty" type="number" min="0"></label><label>Latitude<input name="latitude" required type="number" step="0.0001"></label><label>Longitude<input name="longitude" required type="number" step="0.0001"></label><label class="wide-field">Tags<input name="tags" placeholder="personal, study"></label><label class="wide-field">Notes<textarea name="noteText" rows="4"></textarea></label></div><div class="dialog-actions"><button class="secondary-button" value="cancel">Cancel</button><button class="primary-button" value="default">Save changes <span>→</span></button></div></form>`;
+  dialog.innerHTML = `<form method="dialog" id="editForm"><div class="dialog-head"><div><p class="eyebrow accent-label">CHART RECORD</p><h2>Edit individual chart</h2></div><button class="close-button" value="cancel" aria-label="Close">×</button></div><p class="dialog-copy">Update the record without changing its chart identity or workspace membership.</p><div class="form-grid"><label>Chart name<input name="name" required></label><label>Birth location<input name="location" required></label><label>Birth date<input name="date" required type="date"></label><label>Birth time<input name="time" type="time"></label><label>Timezone<select name="timezone" required></select></label><label>Time uncertainty (minutes)<input name="uncertainty" type="number" min="0"></label><label>Latitude<input name="latitude" required type="number" step="0.0001"></label><label>Longitude<input name="longitude" required type="number" step="0.0001"></label><label class="wide-field">Tags<input name="tags" placeholder="personal, study"></label><label class="wide-field">Notes<textarea name="noteText" rows="4"></textarea></label></div><div class="dialog-actions"><button type="button" class="text-button chart-dialog-delete" data-chart-delete>Delete chart…</button><button class="secondary-button" value="cancel">Cancel</button><button class="primary-button" value="default">Save changes <span>→</span></button></div></form>`;
   document.body.appendChild(dialog);
   dialog.querySelector('form').addEventListener('submit', saveEditedChart);
+  // Deleting lives here, behind Edit and a confirmation.
+  dialog.querySelector('[data-chart-delete]').addEventListener('click', () => {
+    const chart = chartById(editingChartId);
+    if (chart && confirmDeleteChart(chart)) dialog.close();
+  });
   return dialog;
 }
 
+// The chart the edit dialog is open for (the explorer's chart, or a library row's).
+let editingChartId = null;
 function editSelectedChart() {
-  const chart = chartById(selectedChartId);
+  editChart(chartById(selectedChartId));
+}
+function editChart(chart) {
   if (!chart) return;
+  editingChartId = chart.id;
   const dialog = ensureEditDialog();
   const form = dialog.querySelector('form');
   // Populate the options (with the chart's current zone pre-selected) before
@@ -207,7 +217,8 @@ function editSelectedChart() {
 
 function saveEditedChart(event) {
   event.preventDefault();
-  const chart = chartById(selectedChartId);
+  const chart = chartById(editingChartId);
+  if (!chart) return;
   const form = new FormData(event.target);
   // timezone is part of this key too: changing it alone still changes the
   // real UTC birth moment (chartBirthMomentUTC), so positions/designTime
@@ -219,6 +230,45 @@ function saveEditedChart(event) {
   const nextKey = `${chart.birthDate}|${chart.birthTime}|${chart.timezone}|${chart.location}|${chart.latitude}|${chart.longitude}`;
   if (previousKey !== nextKey) { chart.positions = makePositions(chart); chart.designTime = designTimeFor(chart); }
   normalizePositionModel(); saveState(); event.target.closest('dialog').close(); renderRows(); renderExplorer(); showToast(`${chart.name} updated`);
+}
+
+// Deleting a chart: asks first, saying what goes with it — its life events, except
+// those shared with another chart here, which keep this person by name only. It can't
+// be undone (exporting the workspace first keeps a copy).
+function confirmDeleteChart(chart) {
+  const workspaces = state.workspaces.filter(workspace => workspace.chartIds.includes(chart.id));
+  const linked = workspaces.flatMap(workspace => (workspace.events || []).filter(event => event.people.some(person => person.chartId === chart.id)));
+  const shared = linked.filter(event => event.people.some(person => person.chartId && person.chartId !== chart.id));
+  const own = linked.length - shared.length;
+  const effects = [
+    own ? `its ${own} life event${own === 1 ? '' : 's'} will be deleted` : '',
+    shared.length ? `${shared.length} event${shared.length === 1 ? '' : 's'} shared with other charts will keep ${chart.name} by name only` : '',
+  ].filter(Boolean);
+  const question = `Delete the chart “${chart.name}”?${effects.length ? `\n\nWith it, ${effects.join(', and ')}.` : ''}\n\nThis can't be undone. To keep a copy, export the workspace first.`;
+  if (!window.confirm(question)) return false;
+  deleteChart(chart);
+  showToast(`${chart.name} deleted`);
+  return true;
+}
+function deleteChart(chart) {
+  state.workspaces.forEach(workspace => {
+    if (!workspace.chartIds.includes(chart.id)) return;
+    workspace.chartIds = workspace.chartIds.filter(id => id !== chart.id);
+    workspace.events = (workspace.events || []).filter(event => {
+      if (!event.people.some(person => person.chartId === chart.id)) return true;
+      if (!event.people.some(person => person.chartId && person.chartId !== chart.id)) return false;
+      event.people = event.people.map(person => (person.chartId === chart.id ? { ...person, chartId: null, name: chart.name } : person));
+      event.updatedAt = Date.now();
+      return true;
+    });
+  });
+  state.charts = state.charts.filter(item => item.id !== chart.id);
+  selectedChartIds.delete(chart.id);
+  if (selectedChartId === chart.id) { selectedChartId = activeCharts()[0]?.id || null; selectedRowIndex = 0; }
+  saveState();
+  // The explorer was showing it: back to the library.
+  if (currentView !== 'library') setView('library');
+  renderRows(); renderSelectionBar();
 }
 
 normalizePositionModel();

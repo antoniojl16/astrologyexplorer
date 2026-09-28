@@ -15,6 +15,8 @@ let activeOccurrenceIndex = 0;
 let cycleEventAnchor = null;
 // Which Life Timeline entries show: life events, cycles, or both.
 const cycleLifeShow = { events: true, cycles: true };
+// The Life Timeline's order by date, "asc" or "desc" (remembered in this browser).
+let cycleLifeSort = acgStoredSetting('orbital-study-life-timeline-sort', 'asc') === 'desc' ? 'desc' : 'asc';
 // Which system tab the Cycle Explorer shows, and the Human Design / Gene Keys views' own state.
 let cycleActiveSystem = 'Astrology';
 let cycleHdView = 'bodygraph';
@@ -113,6 +115,7 @@ function renderCycleExplorer() {
   const occurrenceRow = document.getElementById('cycleOccurrenceRow');
   if (!occurrences.length) {
     if (occurrenceRow) occurrenceRow.innerHTML = `<p class="intro-copy">No ${cycleDef.label} happens before age ${CYCLE_MAX_AGE_YEARS} for this chart.</p>`;
+    renderCycleCelestialSummary();
     if (signature) signature.innerHTML = '';
     return;
   }
@@ -126,13 +129,28 @@ function renderCycleExplorer() {
       refreshCycleMoment();
     }));
   }
+  renderCycleCelestialSummary();
   renderCycleLifeTimeline();
   renderCycleSignature();
   renderCycleSystemView();
 }
+// The Celestial Cycles header (shown while it's collapsed too): the cycle, and which of
+// its occurrences is studied, if one is.
+function renderCycleCelestialSummary() {
+  const summary = document.querySelector('[data-cycle-celestial-summary]');
+  const chart = chartById(cycleChartId);
+  const cycleDef = CYCLE_DEFINITIONS.find(def => def.key === activeCycleKey);
+  if (!summary || !chart || !cycleDef) return;
+  const occurrences = computeCycleOccurrences(chart, cycleDef);
+  const occurrence = !cycleEventAnchor && occurrences[activeOccurrenceIndex];
+  summary.textContent = occurrence
+    ? `${cycleDef.label} · ${occurrence.date.getFullYear()} · age ${occurrence.ageYears.toFixed(1)}`
+    : `${cycleDef.label} · ${occurrences.length} moment${occurrences.length === 1 ? '' : 's'}`;
+}
 // After the studied moment changes: the timeline's highlight, the heading and the view.
 function refreshCycleMoment() {
   document.querySelectorAll('#cycleOccurrenceRow .cycle-chip').forEach((chip, index) => chip.classList.toggle('active', !cycleEventAnchor && index === activeOccurrenceIndex));
+  renderCycleCelestialSummary();
   renderCycleLifeTimeline();
   renderCycleSignature();
   renderCycleSystemView();
@@ -140,14 +158,18 @@ function refreshCycleMoment() {
 }
 
 // ── Life Timeline ───────────────────────────────────────────────────────
-// Birth, the chart's dated life events and every cycle occurrence in time order, each
-// with Go to (a period: Go to start / Go to end) to study that moment.
+// Birth, the chart's dated life events and every cycle occurrence by date (either way,
+// cycleLifeSort), with a "Today" line where past meets future, each with Go to (a period: Go to start / Go to end) to study that moment.
 function renderCycleLifeTimeline() {
   const box = document.getElementById('cycleLifeTimeline');
   const chart = chartById(cycleChartId);
   if (!box || !chart) return;
   const all = lifeTimelineEntries(chart);
   const entries = all.filter(entry => entry.type === 'birth' || (entry.type === 'event' ? cycleLifeShow.events : cycleLifeShow.cycles));
+  if (cycleLifeSort === 'desc') entries.reverse();
+  const sort = box.querySelector('[data-cycle-life-sort]');
+  sort.textContent = `Date ${cycleLifeSort === 'asc' ? '↑' : '↓'}`;
+  sort.setAttribute('aria-label', `Sorted by date, ${cycleLifeSort === 'asc' ? 'oldest' : 'newest'} first; switch`);
   const events = all.filter(entry => entry.type === 'event').length;
   box.querySelector('[data-cycle-life-count]').textContent = `${events} life event${events === 1 ? '' : 's'} · ${all.length - events - 1} cycle moments`;
   box.querySelector('[data-cycle-life-filters]').innerHTML = [['events', 'Life events'], ['cycles', 'Cycles']].map(([key, label]) =>
@@ -157,7 +179,9 @@ function renderCycleLifeTimeline() {
   const button = (label, attributes, current) => `<button type="button" class="acg-origin-button${current ? ' current' : ''}" ${attributes} ${current ? 'aria-current="true"' : ''}>${label}</button>`;
   let nowShown = false;
   box.querySelector('[data-cycle-life-list]').innerHTML = entries.map(entry => {
-    const marker = !nowShown && entry.date.getTime() > now ? (nowShown = true, '<li class="cycle-life-now"><span>Today</span></li>') : '';
+    // "Today" goes before the first future entry (oldest first) or the first past one (newest first).
+    const crossed = cycleLifeSort === 'asc' ? entry.date.getTime() > now : entry.date.getTime() <= now;
+    const marker = !nowShown && crossed ? (nowShown = true, '<li class="cycle-life-now"><span>Today</span></li>') : '';
     const when = `<span class="cycle-life-date">${formatDate(entry.date.toISOString().slice(0, 10))}</span><small>age ${Math.max(0, age(entry.date)).toFixed(1)}</small>`;
     if (entry.type === 'birth') {
       return `${marker}<li class="cycle-life-item birth">${when}<span class="cycle-life-title">Birth</span>${button('Go to', 'data-cycle-go-birth', cycleEventAnchor?.birth)}</li>`;
@@ -172,7 +196,9 @@ function renderCycleLifeTimeline() {
     const buttons = event.end
       ? `${button('Go to start', `data-cycle-go-event="${escapeHtml(event.id)}" data-cycle-go-part="start"`, at('start'))}${button('Go to end', `data-cycle-go-event="${escapeHtml(event.id)}" data-cycle-go-part="end"`, at('end'))}`
       : button('Go to', `data-cycle-go-event="${escapeHtml(event.id)}" data-cycle-go-part="start"`, at('start'));
-    return `${marker}<li class="cycle-life-item event${at('start') || at('end') ? ' current' : ''}">${when}<span class="cycle-life-title">${escapeHtml(lifeEventTitle(event))}${period}</span><span class="cycle-life-buttons">${buttons}</span></li>`;
+    const id = escapeHtml(event.id), title = escapeHtml(lifeEventTitle(event));
+    const manage = `<button type="button" class="acg-origin-button" data-cycle-life-edit="${id}" aria-label="Edit ${title}">Edit</button>`;
+    return `${marker}<li class="cycle-life-item event${at('start') || at('end') ? ' current' : ''}">${when}<span class="cycle-life-title">${title}${period}</span><span class="cycle-life-buttons">${buttons}${manage}</span></li>`;
   }).join('') + (nowShown ? '' : '<li class="cycle-life-now"><span>Today</span></li>');
 }
 function initCycleLifeTimeline() {
@@ -184,9 +210,33 @@ function initCycleLifeTimeline() {
     cycleLifeShow[key] = event.target.checked;
     renderCycleLifeTimeline();
   });
+  box.querySelector('[data-cycle-life-sort]').addEventListener('click', () => {
+    cycleLifeSort = cycleLifeSort === 'asc' ? 'desc' : 'asc';
+    acgStoreSetting('orbital-study-life-timeline-sort', cycleLifeSort);
+    renderCycleLifeTimeline();
+  });
+  // Adding, editing or deleting a record redraws the timeline, the heading (the studied
+  // event may have changed or gone) and the view (its slider marks the events; the
+  // Astrocartography tab lists places).
+  const chart = () => chartById(cycleChartId);
+  const refreshCycleRecords = () => {
+    cycleContext(); // lets go of a studied event that was deleted or lost its date
+    refreshCycleMoment();
+    if (cycleActiveSystem === 'Astrocartography') switchCycleSystem('Astrocartography');
+  };
+  box.querySelector('[data-cycle-life-add]').addEventListener('click', () => {
+    if (chart()) openLifeEventDialog(chart(), null, { onSave: refreshCycleRecords });
+  });
   box.querySelector('[data-cycle-life-list]').addEventListener('click', event => {
     const target = event.target.closest('button');
     if (!target) return;
+    // (Deleting is in the dialog, behind Edit.)
+    const edit = target.dataset.cycleLifeEdit;
+    if (edit) {
+      const record = chartLifeEvents(chart()).find(item => item.id === edit);
+      if (record) openLifeEventDialog(chart(), record, { onSave: refreshCycleRecords });
+      return;
+    }
     if (target.hasAttribute('data-cycle-go-birth')) {
       cycleEventAnchor = { birth: true };
       refreshCycleMoment();
@@ -202,8 +252,9 @@ function initCycleLifeTimeline() {
   });
 }
 
-// Top and center, above the system tabs: which cycle this is, when it's exact, and what
-// it means — shared by every system tab.
+// Top and center, above the system tabs, shared by every system tab: the studied
+// moment in two lines — its age and name, then its date (and place). The rest (what a
+// cycle means, an event's people, tags, notes and date precision) is in its tooltip.
 function renderCycleSignature() {
   const signature = document.getElementById('cycleSignature');
   const context = cycleContext();
@@ -213,13 +264,13 @@ function renderCycleSignature() {
     return;
   }
   const { cycleDef, occurrence } = context;
-  const passes = occurrence.passes.map(pass => formatDate(pass.toISOString().slice(0, 10))).join(' · ');
-  const how = `Transiting ${cycleDef.planet} reaches ${cycleDef.kind === 'opposition' ? 'the degree opposite ' : ''}its natal degree — exact ${occurrence.passes.length > 1 ? `${occurrence.passes.length} times while retrograde` : 'once'}: ${passes}.`;
-  signature.innerHTML = `
-    <span class="eyebrow">${escapeHtml(context.chart.name.toUpperCase())} · AGE ${occurrence.ageYears.toFixed(1)}</span>
-    <h3>${context.cycleName}</h3>
-    <p>${cycleDef.description}</p>
-    <p class="cycle-signature-note">${how}</p>`;
+  const passes = occurrence.passes.map(pass => lifeDateLabel(pass.toISOString().slice(0, 10)));
+  const how = `Transiting ${cycleDef.planet} reaches ${cycleDef.kind === 'opposition' ? 'the degree opposite ' : ''}its natal degree — exact ${passes.length > 1 ? `${passes.length} times while retrograde` : 'once'}.`;
+  signature.innerHTML = cycleSignatureMarkup(occurrence.ageYears, context.cycleName, [passes.join(' · ')], `${cycleDef.description}\n\n${how}`);
+}
+function cycleSignatureMarkup(ageYears, title, details, tip) {
+  return `<p class="cycle-signature-head"${tip ? ` title="${escapeHtml(tip)}"` : ''}><span class="cycle-signature-age">Age ${Math.max(0, ageYears).toFixed(1)}</span> <strong>${escapeHtml(title)}</strong></p>
+    <p class="cycle-signature-when">${details.filter(Boolean).join(' · ')}</p>`;
 }
 
 function switchCycleSystem(system) {
@@ -279,32 +330,30 @@ function cycleContext() {
     span: 30 * 1440,
   };
 }
-// The heading for a life event (or birth): what it is, when, where, with whom, its
-// tags and notes, and how precise its date is.
+// The heading for a life event (or birth): its age and title, then its date (a period:
+// the end shown) and place; its type, people, tags, notes and date precision in the tooltip.
 function cycleEventSignatureMarkup(context) {
   const { chart } = context;
-  const age = (context.anchorOffset / CYCLE_YEAR_MINUTES).toFixed(1);
+  const age = context.anchorOffset / CYCLE_YEAR_MINUTES;
+  const placeName = place => place ? `⌖ ${escapeHtml(place.name || `${acgCoordinate(place.lat, 'N', 'S')}, ${acgCoordinate(place.lon, 'E', 'W')}`)}` : '';
   if (context.birth) {
-    return `<span class="eyebrow">${escapeHtml(chart.name.toUpperCase())} · AGE 0</span><h3>Birth</h3><p>The natal chart itself: the moment every cycle and event is measured from.</p>`;
+    const birth = lifeBirthRecord(chart);
+    return cycleSignatureMarkup(0, 'Birth', [lifeWhenLabel(birth), birth.start.time, placeName(birth.place)], 'The natal chart itself: the moment every cycle and event is measured from.');
   }
   const { event, part, range } = context;
   const kind = LIFE_EVENT_KIND_LABELS.get(event.kind);
-  const others = event.people.filter(person => person.chartId !== chart.id).map(person => `${escapeHtml(person.chartId ? chartById(person.chartId)?.name || '' : person.name)}${person.role ? ` (${escapeHtml(person.role)})` : ''}`);
+  const others = event.people.filter(person => person.chartId !== chart.id).map(person => `${person.chartId ? chartById(person.chartId)?.name || '' : person.name}${person.role ? ` (${person.role})` : ''}`);
   const moment = part === 'end' ? event.end : event.start;
-  const time = moment.time ? ` · ${moment.time}${event.zone ? ` ${escapeHtml(event.zone)}` : ''}` : '';
-  const details = [
-    kind && event.title && kind !== event.title ? escapeHtml(kind) : '',
-    event.end ? `${lifeWhenLabel(event)} · showing its ${part}` : '',
-    event.place ? `⌖ ${escapeHtml(event.place.name || `${acgCoordinate(event.place.lat, 'N', 'S')}, ${acgCoordinate(event.place.lon, 'E', 'W')}`)}` : '',
-    others.length ? `with ${others.join(', ')}` : '',
-  ].filter(Boolean).join(' · ');
-  return `
-    <span class="eyebrow">${escapeHtml(chart.name.toUpperCase())} · AGE ${age} · LIFE EVENT</span>
-    <h3>${escapeHtml(lifeEventTitle(event))}</h3>
-    <p>${lifeDateLabel(moment.date)}${time}${details ? ` · ${details}` : ''}</p>
-    ${event.tags.length ? `<div class="life-tags">${event.tags.map(tag => `<span class="tag">${escapeHtml(tag)}</span>`).join('')}</div>` : ''}
-    ${event.notes ? `<p class="life-notes">${escapeHtml(event.notes)}</p>` : ''}
-    ${LIFE_PRECISION_NOTES[range.precision] ? `<p class="cycle-signature-note">${LIFE_PRECISION_NOTES[range.precision]}</p>` : ''}`;
+  const tip = [
+    kind && event.title && kind !== event.title ? kind : '',
+    event.end ? `${lifeWhenLabel(event)} (showing its ${part})` : '',
+    others.length ? `With ${others.join(', ')}` : '',
+    event.tags.length ? `Tags: ${event.tags.join(', ')}` : '',
+    event.notes,
+    LIFE_PRECISION_NOTES[range.precision] || '',
+  ].filter(Boolean).join('\n\n');
+  const title = `${lifeEventTitle(event)}${event.end ? ` (${part})` : ''}`;
+  return cycleSignatureMarkup(age, title, [lifeDateLabel(moment.date), moment.time && `${moment.time}${event.zone ? ` ${escapeHtml(event.zone)}` : ''}`, placeName(event.place)], tip);
 }
 // Re-renders the Astrology, Human Design or Gene Keys cycle view for the current selection
 // (the Astrocartography tab is left as it is).

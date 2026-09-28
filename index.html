@@ -65,7 +65,7 @@
           <aside class="detail-panel"><div class="detail-tabs"><button class="active">Overview</button></div><div class="detail-content"><div class="detail-section"><div class="section-heading"><span>ASPECTS</span></div><div class="aspect-list" id="aspectList"></div></div></div></aside></div></div></div>
       </section>
 
-      <section class="view cycle-view" id="cycleView" hidden><div class="page-intro"><div><p class="eyebrow accent-label">ASTROLOGY / CYCLE STUDY</p><h2>Cycle explorer</h2><p class="intro-copy">Join a chart with a well-known planetary cycle and study the moment without touching birth data.</p></div></div><div class="cycle-picker"><label>Chart<select id="cycleChartSelect"></select></label><div class="cycle-type-tabs" id="cycleTypeTabs"></div></div><div class="cycle-occurrence-row" id="cycleOccurrenceRow"></div><details class="cycle-life" id="cycleLifeTimeline" open><summary><span class="eyebrow">LIFE TIMELINE</span><small data-cycle-life-count></small></summary><div class="cycle-life-filters" data-cycle-life-filters></div><ol class="cycle-life-list" data-cycle-life-list></ol></details><div class="cycle-signature" id="cycleSignature"></div><div class="explorer-system-tabs cycle-system-tabs" role="tablist" aria-label="Cycle system"><button class="active" data-cycle-system="Astrology" role="tab">Astrology</button><button data-cycle-system="Human Design" role="tab">Human Design</button><button data-cycle-system="Gene Keys" role="tab">Gene Keys</button><button data-cycle-system="Astrocartography" role="tab">Astrocartography</button></div><div id="cycleSystemSurface"></div></section>
+      <section class="view cycle-view" id="cycleView" hidden><div class="page-intro"><div><p class="eyebrow accent-label">ASTROLOGY / CYCLE STUDY</p><h2>Cycle explorer</h2><p class="intro-copy">Join a chart with a well-known planetary cycle and study the moment without touching birth data.</p></div></div><div class="cycle-picker"><label>Chart<select id="cycleChartSelect"></select></label></div><details class="cycle-life cycle-celestial" id="cycleCelestial"><summary><span class="eyebrow">CELESTIAL CYCLES</span><small data-cycle-celestial-summary></small></summary><div class="cycle-celestial-body"><div class="cycle-type-tabs" id="cycleTypeTabs"></div><div class="cycle-occurrence-row" id="cycleOccurrenceRow"></div></div></details><details class="cycle-life" id="cycleLifeTimeline"><summary><span class="eyebrow">LIFE TIMELINE</span><small data-cycle-life-count></small></summary><div class="cycle-life-filters"><span class="cycle-life-show" data-cycle-life-filters></span><button type="button" class="acg-origin-button cycle-life-sort" data-cycle-life-sort></button><button type="button" class="acg-origin-button cycle-life-add" data-cycle-life-add>＋ Add</button></div><ol class="cycle-life-list" data-cycle-life-list></ol></details><div class="cycle-signature" id="cycleSignature"></div><div class="explorer-system-tabs cycle-system-tabs" role="tablist" aria-label="Cycle system"><button class="active" data-cycle-system="Astrology" role="tab">Astrology</button><button data-cycle-system="Human Design" role="tab">Human Design</button><button data-cycle-system="Gene Keys" role="tab">Gene Keys</button><button data-cycle-system="Astrocartography" role="tab">Astrocartography</button></div><div id="cycleSystemSurface"></div></section>
 
       <section class="view pair-view" id="pairView" hidden><div class="page-intro"><div><p class="eyebrow accent-label">PAIR / CHART COMPARISON</p><h2>Pair explorer</h2><p class="intro-copy">Choose two charts from the library and compare them through each system.</p></div></div><div id="pairBody"></div></section>
       <section class="view timeline-view" id="timelineView" hidden><div class="page-intro"><div><p class="eyebrow accent-label">ASTROLOGY / TIME STUDY</p><h2>Timeline explorer</h2><p class="intro-copy">Move through any moment in time and watch the sky, bodygraph, and gene keys reorganize around it — no chart required.</p></div><button class="secondary-button" id="timelineToday">Jump to now</button></div><div id="timelineBodyMount"></div></section>
@@ -99,6 +99,7 @@
   <script src="hd-meanings.js"></script>
   <script src="systems.js"></script>
   <script src="library.js"></script>
+  <script src="place-search.js"></script>
   <script src="acg-meanings.js"></script>
   <script src="astrocartography.js"></script>
   <script src="cycles.js"></script>
@@ -106,6 +107,5 @@
   <script src="life-events.js"></script>
   <script src="router.js"></script>
   <script src="shortcuts.js"></script>
-  <script src="place-search.js"></script>
 </body>
 </html>

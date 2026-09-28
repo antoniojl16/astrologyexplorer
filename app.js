@@ -691,6 +691,8 @@ function renderRows() {
   rows.querySelectorAll('tr').forEach((row) =>
     row.addEventListener('click', (event) => {
       if (event.target.type === 'checkbox') return;
+      // Edit opens the chart's edit dialog (where it can also be deleted), not the chart.
+      if (event.target.closest('[data-library-edit]')) { editChart(chartById(row.dataset.id)); return; }
       // The chart name is a real link (keyboard focus, open in a new tab); a plain
       // click on it opens the chart here like a click anywhere else on the row.
       if (event.target.closest('a') && (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)) return;

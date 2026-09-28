@@ -16,7 +16,7 @@ body.dark{--hd-silhouette:#4b4d52;--hd-undefined:#292b30}
 .wheel-stage.aspects-only #chartWheel,.wheel-stage.aspects-only .wheel-caption{display:none!important}
 .house-cusp{stroke:var(--gold);stroke-width:1;opacity:.7}.house-number{fill:var(--gold);font:10px 'DM Mono',monospace}.zodiac-tick{stroke:var(--muted);stroke-linecap:butt}.zodiac-tick.bold{stroke-width:1.3}.zodiac-tick.thin{stroke-width:.6;opacity:.75}.house-system-toggle{cursor:pointer}.house-system-toggle:hover{color:var(--accent);border-color:var(--accent)}
 .wheel-sign{fill:var(--ink)}.wheel-sign.fire{fill:var(--accent)}.wheel-sign.earth{fill:var(--green)}.wheel-sign.air{fill:var(--gold)}.wheel-sign.water{fill:var(--blue)}
-.cycle-picker{display:flex;align-items:center;gap:26px;margin-top:32px;flex-wrap:wrap}.cycle-picker label{display:flex;flex-direction:column;gap:7px;font:10px 'DM Mono',monospace;color:var(--muted)}.cycle-picker select{border:1px solid var(--line);background:var(--panel);padding:9px 10px;font-size:11px;color:var(--ink);min-width:200px}.cycle-type-tabs{display:flex;gap:6px;flex-wrap:wrap}.cycle-type-tabs button{border:1px solid var(--line);background:var(--panel);color:var(--muted);padding:8px 13px;font-size:10px;border-radius:20px}.cycle-type-tabs button.active{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.cycle-picker{display:flex;align-items:center;gap:26px;margin:24px 0 14px;flex-wrap:wrap}.cycle-picker label{display:flex;flex-direction:column;gap:7px;font:10px 'DM Mono',monospace;color:var(--muted)}.cycle-picker select{border:1px solid var(--line);background:var(--panel);padding:9px 10px;font-size:11px;color:var(--ink);min-width:200px}.cycle-type-tabs{display:flex;gap:6px;flex-wrap:wrap}.cycle-type-tabs button{border:1px solid var(--line);background:var(--panel);color:var(--muted);padding:8px 13px;font-size:10px;border-radius:20px}.cycle-type-tabs button.active{background:var(--ink);color:var(--paper);border-color:var(--ink)}
 .cycle-occurrence-row{display:flex;gap:8px;margin-top:18px;flex-wrap:wrap}.cycle-chip{border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:8px 12px;font:10px 'DM Mono',monospace;border-radius:4px;text-align:center}.cycle-chip small{display:block;color:var(--muted);margin-top:2px}.cycle-chip.active{border-color:var(--accent);background:var(--accent-soft)}.cycle-chip.past{color:var(--muted);border-style:dashed}.cycle-chip.past.active,.cycle-chip.past.active small{color:var(--ink)}
 
 .mandala-zodiac.fire .zodiac-glyph{fill:var(--accent)}.mandala-zodiac.earth .zodiac-glyph{fill:var(--green)}.mandala-zodiac.air .zodiac-glyph{fill:var(--gold)}.mandala-zodiac.water .zodiac-glyph{fill:var(--blue)}
@@ -36,7 +36,7 @@ body.dark{--paper:#202522;--paper-deep:#2d322e;--ink:#eee8dc;--muted:#aeb0a7;--l
 .fix-zodiac-toggle{display:flex;align-items:center;gap:5px;cursor:pointer;user-select:none}.fix-zodiac-toggle input{margin:0;accent-color:var(--accent)}
 :root{--acg-ocean:#dbe3e3;--acg-land:#f8f5ee}body.dark{--acg-ocean:#1a2123;--acg-land:#353b36}
 .acg-map-wrap{position:relative}.acg-map{display:block;width:100%;height:560px;cursor:default;touch-action:none;user-select:none}.acg-ocean{fill:var(--acg-ocean)}.acg-land{fill:var(--acg-land-fill,var(--acg-land))}.acg-lake{fill:var(--acg-lake-fill,var(--acg-ocean))}.acg-border{fill:none;stroke:var(--acg-border-color,var(--muted));stroke-width:.6;stroke-opacity:var(--acg-border-opacity,.5);stroke-linejoin:round;vector-effect:non-scaling-stroke}.acg-state{fill:none;stroke:var(--acg-border-color,var(--muted));stroke-width:.5;stroke-opacity:var(--acg-state-opacity,.35);stroke-dasharray:3 2;stroke-linejoin:round;vector-effect:non-scaling-stroke}.acg-graticule{stroke:var(--acg-graticule-color,var(--muted));stroke-width:.5;opacity:.3;vector-effect:non-scaling-stroke}.acg-graticule.equator{opacity:.6}.acg-zoom{position:absolute;right:14px;bottom:14px;display:flex;flex-direction:column;gap:4px}.acg-zoom button{width:30px;height:30px;padding:0;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-size:16px;line-height:1;box-shadow:var(--shadow)}.acg-zoom button:hover{border-color:var(--accent);color:var(--accent)}
-.acg-layout{grid-template-columns:minmax(440px,1fr) 150px 300px}.acg-filters{border:1px solid var(--line);background:var(--panel);box-shadow:var(--shadow);padding:18px 12px;display:flex;flex-direction:column;gap:12px}.acg-filter-group{display:flex;flex-direction:column;gap:5px;margin-top:6px}.acg-filter-subhead{font:9px 'DM Mono',monospace;color:var(--muted);text-transform:uppercase;letter-spacing:.8px}.acg-filter{display:flex;align-items:center;gap:6px;font-size:11px;cursor:pointer;user-select:none}.acg-filter input{margin:0;accent-color:var(--accent)}.acg-filter i{display:block;width:10px;height:3px;border-radius:2px;flex:none}
+.acg-layout{grid-template-columns:minmax(440px,1fr) 150px 320px}.acg-filters{border:1px solid var(--line);background:var(--panel);box-shadow:var(--shadow);padding:18px 12px;display:flex;flex-direction:column;gap:12px}.acg-filter-group{display:flex;flex-direction:column;gap:5px;margin-top:6px}.acg-filter-subhead{font:9px 'DM Mono',monospace;color:var(--muted);text-transform:uppercase;letter-spacing:.8px}.acg-filter{display:flex;align-items:center;gap:6px;font-size:11px;cursor:pointer;user-select:none}.acg-filter input{margin:0;accent-color:var(--accent)}.acg-filter i{display:block;width:10px;height:3px;border-radius:2px;flex:none}
 .acg-line{fill:none;stroke:var(--acg-line-color);stroke-width:1.8;stroke-linejoin:round;stroke-linecap:round;vector-effect:non-scaling-stroke}.acg-label-layer{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:hidden}.acg-label{fill:var(--acg-line-color);font:600 11px 'DM Mono',monospace;paint-order:stroke;stroke:var(--acg-land);stroke-width:3px;stroke-linejoin:round}.acg-label-tick{stroke:var(--acg-line-color);stroke-width:1.2}.acg-zenith{fill:rgba(20,18,12,.13);stroke:var(--acg-line-color);stroke-width:1.2;vector-effect:non-scaling-stroke}body.dark .acg-zenith{fill:rgba(0,0,0,.32)}
 .acg-origin{pointer-events:auto;cursor:move}.acg-origin-hit{fill:transparent}.acg-origin-glyph{fill:var(--ink);font-size:18px;paint-order:stroke;stroke:var(--acg-land);stroke-width:3px;stroke-linejoin:round}.acg-origin:hover .acg-origin-glyph{fill:var(--accent)}.acg-origin-actions{display:flex;flex-direction:column;gap:6px}.acg-origin-actions[hidden]{display:none}.acg-origin-button{border:1px solid var(--line);background:var(--paper);color:var(--ink);padding:6px 8px;font:10px 'DM Mono',monospace;text-align:left}.acg-origin-button:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}.acg-origin-button:disabled{opacity:.45;cursor:default}
 .acg-tooltip{position:absolute;left:0;top:0;z-index:2;pointer-events:none;background:var(--ink);color:var(--paper);font:10px 'DM Mono',monospace;line-height:1.6;padding:7px 10px;border-radius:3px;box-shadow:0 8px 20px rgba(0,0,0,.25);white-space:nowrap}.acg-tooltip[hidden]{display:none}.acg-tooltip-title{opacity:.7;margin-bottom:2px}.acg-tooltip-section{margin-top:6px}
@@ -127,19 +127,13 @@ body:not(.developer-mode) #ephemerisDebugBar,body:not(.developer-mode) #mandalaH
 .acg-road{fill:none;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}
 .acg-road.major{visibility:var(--acg-roads-major,hidden);stroke:#a4552f;stroke-width:1.1;stroke-opacity:.65}
 .acg-road.minor{visibility:var(--acg-roads-minor,hidden);stroke:#a4552f;stroke-width:.7;stroke-opacity:.5}
-.acg-pin circle{fill:var(--ink);stroke:var(--acg-land);stroke-width:2}
-.acg-pin text{fill:var(--paper);font:700 9px 'DM Mono',monospace}
 /* Map (with timeline) and saved locations stacked on the left; filters and info span both rows. */
-.acg-layout>.acg-visual{grid-column:1;grid-row:1}.acg-layout>.acg-filters{grid-column:2;grid-row:1 / span 2;align-self:start}.acg-layout>[data-acg-info]{grid-column:3;grid-row:1 / span 2;align-self:start}
-.acg-locations{grid-column:1;grid-row:2;border:1px solid var(--line);background:var(--panel);box-shadow:var(--shadow);padding:0 0 6px;align-self:start}
+.acg-layout>.acg-visual{grid-column:1;grid-row:1}.acg-layout>.acg-filters{grid-column:2;grid-row:1 / span 2;align-self:start}.acg-layout>[data-acg-info]{grid-column:1;grid-row:2;align-self:start}
+.acg-locations{grid-column:3;grid-row:1 / span 2;border:1px solid var(--line);background:var(--panel);box-shadow:var(--shadow);padding:0 0 6px;align-self:start}
 .acg-locations>.system-toolbar{padding:14px 18px 10px}
 .acg-locations-empty{margin:0;padding:4px 18px 12px;font-size:12px;color:var(--muted)}
 .acg-location-list{list-style:none;margin:0;padding:0}
 .acg-location{border-top:1px solid var(--line);padding:12px 18px}
-.acg-location-head{display:flex;align-items:center;gap:10px}
-.acg-location-head>div{flex:1;min-width:0;display:grid;gap:2px}
-.acg-location-head strong{font-size:13px;font-weight:700}
-.acg-location-head small{font:11px 'DM Mono',monospace;color:var(--muted)}
 .acg-location-body{display:grid;gap:5px;margin:8px 0 0 30px}
 .acg-location-block{display:flex;align-items:baseline;gap:10px}
 .acg-location-subhead{flex:none;width:74px;font:10px 'DM Mono',monospace;color:var(--muted);letter-spacing:.6px;text-transform:uppercase}
@@ -150,7 +144,6 @@ body:not(.developer-mode) #ephemerisDebugBar,body:not(.developer-mode) #mandalaH
 .acg-chip-times{color:var(--muted);margin:0 3px}
 .acg-chip-km{color:var(--muted);margin-left:6px}
 .acg-chip-none{font:11px 'DM Mono',monospace;color:var(--muted)}
-.acg-location-number{flex:none;width:20px;height:20px;border-radius:50%;background:var(--ink);color:var(--paper);display:grid;place-items:center;font:700 10px 'DM Mono',monospace}
 .acg-location-remove{flex:none;border:0;background:transparent;color:var(--muted);font-size:18px;line-height:1;padding:2px 6px;cursor:pointer}
 .acg-location-remove:hover{color:var(--accent)}
 .aspect-row[data-aspect-tip]{cursor:help}.aspect-row[data-aspect-tip]:hover{background:var(--paper-deep)}.aspect-row[data-aspect-tip]:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
@@ -215,6 +208,16 @@ body:not(.developer-mode) #ephemerisDebugBar,body:not(.developer-mode) #mandalaH
 .cycle-life>summary::after{content:'+';margin-left:auto;font:12px 'DM Mono',monospace;color:var(--muted)}
 .cycle-life[open]>summary::after{content:'−'}
 .cycle-life>summary small{font:10px 'DM Mono',monospace;color:var(--muted)}
+.cycle-celestial-body{padding:0 18px 14px}.cycle-celestial-body .cycle-occurrence-row{margin-top:12px}
+.cycle-celestial+.cycle-life{margin-top:10px}
+.cycle-life-filters{align-items:center}.cycle-life-show{display:flex;gap:16px}.cycle-life-sort{margin-left:auto;padding:3px 8px}.cycle-life-add{padding:3px 8px}
+.cycle-life-buttons{align-items:center}.cycle-life-buttons [data-cycle-life-edit]{margin-left:8px}
+.cycle-signature{margin-top:14px;padding:10px 18px}
+.cycle-signature .cycle-signature-head{margin:0;color:var(--ink);display:flex;align-items:baseline;justify-content:center;gap:10px;flex-wrap:wrap}
+.cycle-signature-head[title]{cursor:help}
+.cycle-signature-age{font:10px 'DM Mono',monospace;letter-spacing:.6px;text-transform:uppercase;color:var(--accent)}
+.cycle-signature-head strong{font:700 19px 'Playfair Display',serif}
+.cycle-signature .cycle-signature-when{margin-top:2px;font:10px 'DM Mono',monospace;color:var(--muted)}
 .cycle-life-filters{display:flex;gap:16px;padding:0 18px 8px}
 .cycle-life-list{list-style:none;margin:0;padding:0 0 6px;max-height:300px;overflow-y:auto;border-top:1px solid var(--line)}
 .cycle-life-item{display:grid;grid-template-columns:110px 64px 1fr auto;gap:12px;align-items:center;padding:7px 18px;border-bottom:1px solid var(--line);font-size:12px}
@@ -237,3 +240,36 @@ body:not(.developer-mode) #ephemerisDebugBar,body:not(.developer-mode) #mandalaH
 .timeline-marker.current{opacity:1;box-shadow:0 0 0 2px var(--marker-color)}
 .timeline-marker:hover,.timeline-marker:focus-visible{opacity:1}
 .life-person{position:relative}.life-person .life-role-results{left:auto;right:36px;width:170px;max-height:220px}
+.acg-location-list{transition:opacity .15s}[data-acg-locations].updating .acg-location-list{opacity:.45}
+/* Saved locations: compact rows (astrocartography.js, acgLocationsMarkup) */
+.acg-locations>.system-toolbar{align-items:center}
+.acg-locations-count{color:var(--accent);margin-left:4px}
+.acg-locations-sort{padding:4px 8px}
+.acg-location-list{max-height:760px;overflow-y:auto}
+.acg-location{padding:8px 14px 8px 12px}
+.acg-location-toggle{display:flex;align-items:baseline;gap:6px;width:100%;border:0;background:transparent;color:var(--ink);padding:0;text-align:left;cursor:pointer;font:inherit}
+.acg-location-toggle strong{flex:1;min-width:0;font-size:12px;font-weight:700;overflow-wrap:anywhere}
+.acg-location-toggle:hover strong{text-decoration:underline dotted var(--muted);text-underline-offset:3px}
+.acg-location-caret{flex:none;width:10px;font-size:9px;color:var(--muted);transition:transform .15s}
+.acg-location.open .acg-location-caret{transform:rotate(90deg)}
+.acg-location-years{flex:none;font:10px 'DM Mono',monospace;color:var(--accent)}
+.acg-location-actions{display:flex;gap:6px;align-items:center;margin:6px 0 0 16px}
+.acg-location-actions .acg-origin-button{padding:3px 8px}
+.acg-location-actions .acg-location-remove{margin-left:auto}
+.acg-location .acg-location-body{margin:10px 0 2px 16px}
+.acg-location-where{margin:0;font:10px 'DM Mono',monospace;color:var(--muted);line-height:1.5}
+.acg-location .acg-location-block{flex-direction:column;gap:4px}
+.acg-location .acg-location-subhead{width:auto}
+/* Pins: a small blue ring, bigger when its row is open */
+.acg-pin{pointer-events:auto;cursor:pointer}
+.acg-pin-hit{fill:transparent}
+.acg-pin-ring{fill:none;stroke:#1f5fe0;stroke-width:2.6;paint-order:stroke}
+.acg-pin-ring{filter:drop-shadow(0 0 1px rgba(255,255,255,.95))}
+.acg-pin.active .acg-pin-ring{stroke:var(--accent);stroke-width:3}
+.acg-pin:hover .acg-pin-ring{stroke-width:3.4}
+.acg-pin-dot{fill:#1f5fe0}.acg-pin.active .acg-pin-dot{fill:var(--accent)}
+.life-fixed{font:9px 'DM Mono',monospace;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);cursor:help}
+.life-item.birth .life-title strong::before,.acg-location.birth .acg-location-toggle strong::before{content:"☉ ";color:var(--accent)}
+.life-dialog-delete{margin-right:auto;color:var(--accent)}
+.edit-col{width:1%;text-align:right;padding-right:17px}.edit-col .acg-origin-button{padding:4px 9px}
+.chart-dialog-delete{margin-right:auto}
