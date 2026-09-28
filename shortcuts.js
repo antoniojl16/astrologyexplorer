@@ -19,6 +19,7 @@
 //   R   Pair Explorer: swap the two charts
 //   E   Chart Explorer: edit the chart
 //   1 / 2 / 3   Pair and Cycle Explorers: first chart / second chart / both together
+//               (3 again in the Pair Explorer's Astrology: Synastry ↔ Composite)
 
 const SHORTCUT_SYSTEMS = { KeyA: "Astrology", KeyH: "Human Design", KeyG: "Gene Keys", KeyY: "Astrocartography", KeyE: "Life Events" };
 const SHORTCUT_VIEWS = { KeyL: "library", KeyI: "explorer", KeyP: "pair", KeyT: "timeline", KeyC: "cycle" };
@@ -95,7 +96,11 @@ document.addEventListener("keydown", (event) => {
   } else if (key === "1" || key === "2") {
     handled = shortcutPress(`[data-pair-subject] [data-value="${key === "1" ? "A" : "B"}"]`);
   } else if (key === "3") {
-    handled = shortcutPress('[data-pair-subject] [data-value="synastry"], [data-pair-subject] [data-value="composite"]');
+    // Both together; again (where there are both, as in the Pair Explorer's Astrology): Synastry ↔ Composite.
+    const group = shortcutTarget("[data-pair-subject]");
+    const options = group ? [...group.querySelectorAll('[data-value="synastry"], [data-value="composite"]')] : [];
+    const next = options.length > 1 && options.some((button) => button.classList.contains("active")) ? options.find((button) => !button.classList.contains("active")) : options[0];
+    if (next) { next.click(); handled = true; }
   }
   if (handled) event.preventDefault();
 });

@@ -55,6 +55,8 @@ function syntheticAngleAtTime(position, offsetMinutes) {
 // ephemeris (ephemeris.js) first, and falls back to the synthetic
 // approximation for anything it doesn't cover (see EPHEMERIS_ENGINE).
 function positionAngleAtTime(position, offsetMinutes) {
+  // A composite midpoint (pair-composite.js) stays where it is.
+  if (position.fixedAngle != null) return position.fixedAngle;
   const real = typeof ephemerisAngleAtTime === 'function' ? ephemerisAngleAtTime(position, offsetMinutes) : null;
   const rawAngle = real == null ? syntheticAngleAtTime(position, offsetMinutes) : (zodiacMode === 'Sidereal' ? real - LAHIRI_AYANAMSHA : real);
   return ((rawAngle % 360) + 360) % 360;
@@ -67,6 +69,7 @@ function positionAngleAtTime(position, offsetMinutes) {
 // produce a plausible-looking but meaningless result; the old fixed-span
 // approximation (still below) is the honest choice there.
 function houseCuspsAtTime(chart, offsetMinutes) {
+  if (chart.fixedCusps) return chart.fixedCusps; // (composite midpoint cusps, pair-composite.js)
   const ascendant = chart.positions.find(position => position.name === 'Ascendant');
   const ascendantAngle = ascendant ? positionAngleAtTime(ascendant, offsetMinutes) : 0;
   if (houseSystem === 'Equal Houses') return Array.from({length: 12}, (_, index) => (ascendantAngle + index * 30) % 360);
@@ -283,10 +286,12 @@ const WHEEL_FILTER_BODIES = [
   { key: 'Lilith', glyph: '⚸', group: 'Secondary' },
   { key: 'Fortuna', glyph: '⊗', group: 'Secondary' },
   { key: 'Vertex', glyph: 'Vx', group: 'Secondary' },
-  { key: 'Earth', glyph: '⊕', group: 'Secondary' },
 ];
-const wheelHiddenBodies = new Set(['Earth']);
+const wheelHiddenBodies = new Set();
+// Earth (always opposite the Sun) is kept for Human Design and Gene Keys, but never
+// drawn on an astrology wheel or offered as a filter.
 function wheelBodyVisible(name) {
+  if (name === 'Earth') return false;
   const body = WHEEL_FILTER_BODIES.find(item => (item.members || [item.key]).includes(name));
   return !body || !wheelHiddenBodies.has(body.key);
 }
@@ -314,7 +319,7 @@ const WHEEL_MEAN_DAILY_MOTION = { Mercury: 0.9856, Venus: 0.9856, Mars: 0.524, J
 const WHEEL_STATION_FRACTION = 0.1;
 function wheelMotion(position, offsetMinutes) {
   const meanMotion = WHEEL_MEAN_DAILY_MOTION[position.name];
-  if (!meanMotion) return null;
+  if (!meanMotion || position.fixedAngle != null) return null;
   const dailyMotion = ((positionAngleAtTime(position, offsetMinutes + 720) - positionAngleAtTime(position, offsetMinutes - 720) + 540) % 360) - 180;
   if (Math.abs(dailyMotion) < meanMotion * WHEEL_STATION_FRACTION) return 'stationary';
   return dailyMotion < 0 ? 'retrograde' : null;

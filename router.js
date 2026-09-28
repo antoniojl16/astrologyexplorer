@@ -154,7 +154,7 @@ function applyRoute(hash) {
     const subject = (map) => Object.keys(map).find((key) => ROUTE_PAIR_SUBJECTS[key] === first);
     if (pairActiveSystem === "Astrology") {
       const chosen = subject(ROUTE_PAIR_SUBJECTS);
-      if (["synastry", "A", "B"].includes(chosen)) pairAstroSubject = chosen;
+      if (["synastry", "composite", "A", "B"].includes(chosen)) pairAstroSubject = chosen;
       const astroView = Object.keys(ROUTE_PAIR_ASTRO_VIEWS).find((key) => ROUTE_PAIR_ASTRO_VIEWS[key] === second);
       if (astroView) pairAstroView = astroView;
     } else if (pairActiveSystem === "Human Design") {

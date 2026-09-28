@@ -371,3 +371,9 @@ body.dark .life-tag-chip.active{color:var(--ink)}
 .pair-life-toolbar [hidden]{display:none!important}
 .life-pattern-left{font:9px "DM Mono",monospace;color:var(--muted);margin:0 0 6px}
 .library-events{display:inline-block;margin-top:4px;font:9px "DM Mono",monospace;color:var(--accent);text-decoration:none}.library-events:hover{text-decoration:underline}
+/* Pair Explorer composite settings, at the bottom of the filter column */
+.pair-composite-controls[hidden]{display:none}
+.pair-composite-find{position:relative;display:block;margin-top:6px}
+.pair-composite-search{width:100%;border:1px solid var(--line);background:var(--paper);color:var(--ink);padding:5px 6px;font:10px 'DM Mono',monospace;border-radius:2px}
+.pair-composite-controls .place-results{text-align:left;width:280px}
+.pair-legend .pair-composite-about{display:block;margin:3px 0 0 12px;max-width:240px;line-height:1.4}

@@ -230,7 +230,7 @@ function renderPairSystem() {
 // in a single chart. The synastry views (wheel, grid, lists, legend): Chart A blue, Chart B red.
 const PAIR_PEOPLE = { A: { color: 'var(--pair-blue)' }, B: { color: 'var(--pair-green)' } };
 const PAIR_ASTRO_PEOPLE = { A: { color: 'var(--blue)' }, B: { color: 'var(--accent)' } };
-const PAIR_ASTRO_SUBJECTS = [['synastry', 'Synastry'], ['A', 'Chart A'], ['B', 'Chart B']];
+const PAIR_ASTRO_SUBJECTS = [['synastry', 'Synastry'], ['composite', 'Composite'], ['A', 'Chart A'], ['B', 'Chart B']];
 const PAIR_ASTRO_VIEWS = [['wheel', 'Wheel'], ['grid', 'Aspect grid'], ['both', 'Both']];
 let pairAstroSubject = 'synastry';
 let pairAstroView = 'wheel';
@@ -252,15 +252,19 @@ const pairAstroState = {
 };
 function renderAstrologyPair(container, entries) {
   const person = (key, entry) => ({ ...PAIR_ASTRO_PEOPLE[key], key, chart: entry.chart, name: `Chart ${key}`, tag: key, legend: `Chart ${key} · ${escapeHtml(entry.chart.name)}`, offset: 0 });
-  renderSynastryView(container, { A: person('A', entries[0]), B: person('B', entries[1]) }, { subjects: PAIR_ASTRO_SUBJECTS, state: pairAstroState, wheelId: 'pairWheel' });
+  const [chartA, chartB] = [entries[0].chart, entries[1].chart];
+  const composite = { person: () => pairCompositePerson(chartA, chartB), bind: (box, redraw) => bindPairCompositeControls(box, chartA, chartB, redraw) };
+  renderSynastryView(container, { A: person('A', entries[0]), B: person('B', entries[1]) }, { subjects: PAIR_ASTRO_SUBJECTS, state: pairAstroState, wheelId: 'pairWheel', composite });
 }
 // A bi-wheel view shared by the Pair Explorer (two charts) and the Cycle Explorer (a
 // natal chart and its cycle moment). Each person: { key: 'A'|'B', chart, color, name
 // (e.g. "Chart A", "Natal"), tag (short, for lists: "A", "natal"), legend text, offset
 // (minutes after that chart's birth at which to draw it) }. config: { subjects (view
 // button labels), state ({ subject, view }, kept by the caller), wheelId, footer
-// (markup under the wheel) }. Returns { draw } for callers that change a person's offset.
-function renderSynastryView(container, people, { subjects, state, wheelId, footer = '' }) {
+// (markup under the wheel), composite (the Pair Explorer's: { person() → the composite
+// chart as a person, bind(box, redraw) → its settings over the wheel }) }.
+// Returns { draw } for callers that change a person's offset.
+function renderSynastryView(container, people, { subjects, state, wheelId, footer = '', composite = null }) {
   container.innerHTML = `
     <div class="pair-astro-layout">
       <div class="chart-panel">
@@ -278,7 +282,7 @@ function renderSynastryView(container, people, { subjects, state, wheelId, foote
         </div>
         ${footer}
       </div>
-      <div class="acg-filters wheel-filters" data-pair-wheel-filters>${wheelFiltersMarkup()}</div>
+      <div class="acg-filters wheel-filters" data-pair-wheel-filters>${wheelFiltersMarkup()}${composite ? '<div class="pair-composite-controls" data-pair-composite hidden></div>' : ''}</div>
       <aside class="detail-panel pair-aspect-panel">
         <div class="detail-content">
           <div class="section-heading"><span data-pair-aspect-title></span></div>
@@ -287,8 +291,11 @@ function renderSynastryView(container, people, { subjects, state, wheelId, foote
       </aside>
     </div>`;
   const draw = () => {
-    const subject = state.subject === 'synastry' ? [people.A, people.B] : [people[state.subject]];
+    const compositeShown = !!composite && state.subject === 'composite';
+    const subject = state.subject === 'synastry' ? [people.A, people.B] : compositeShown ? [composite.person()] : [people[state.subject] || people.A];
     const svg = container.querySelector('.synastry-wheel');
+    const controls = container.querySelector('[data-pair-composite]');
+    if (controls) controls.hidden = !compositeShown;
     const aspects = renderPairWheel(svg, subject);
     const showWheel = state.view !== 'grid', showGrid = state.view !== 'wheel';
     // toggleAttribute, not .hidden: SVG elements have no `hidden` property.
@@ -315,6 +322,7 @@ function renderSynastryView(container, people, { subjects, state, wheelId, foote
     });
   };
   bindSegmented('data-pair-subject', (value) => { state.subject = value; });
+  if (composite) composite.bind(container.querySelector('[data-pair-composite]'), () => draw());
   bindSegmented('data-pair-view', (value) => { state.view = value; });
   // Both checkboxes drive the Chart Explorer's own settings (shared state), so its
   // checkboxes are kept in step too.
