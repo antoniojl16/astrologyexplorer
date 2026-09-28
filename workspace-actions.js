@@ -84,7 +84,10 @@ function transferChartEvents(action, source, destination, idMap) {
   const inDestination = new Set(destination.chartIds);
   const inSource = new Set(source.chartIds);
   involved.forEach(event => {
+    // An annotation of a chart's cycle or birth goes only with that chart.
+    if (event.anchor && !idMap.has(event.anchor.chartId)) return;
     const copy = JSON.parse(JSON.stringify(event));
+    if (copy.anchor) copy.anchor.chartId = idMap.get(copy.anchor.chartId);
     copy.people = copy.people.map(person => {
       const mapped = idMap.get(person.chartId);
       if (mapped && inDestination.has(mapped)) return {...person, chartId: mapped, name: ''};
@@ -100,6 +103,7 @@ function transferChartEvents(action, source, destination, idMap) {
     // the moved people by name.
     source.events = source.events.filter(event => {
       if (!involved.includes(event)) return true;
+      if (event.anchor && idMap.has(event.anchor.chartId)) return false;
       if (!event.people.some(person => person.chartId && inSource.has(person.chartId))) return false;
       event.people = event.people.map(person => (person.chartId && !inSource.has(person.chartId) ? (touched.add(event), {...person, chartId: null, name: nameOf(person.chartId)}) : person));
       return true;

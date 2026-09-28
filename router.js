@@ -8,10 +8,13 @@
 //   #/chart/<chart>/<system>/<view>[/<filter>]
 //   #/timeline/<system>/<view>[/<filter>]
 //   #/pair/<chart-a>/<chart-b>/<system>/<view…>
-//   #/cycle/<chart>/<cycle>/<system>
+//   #/cycle/<chart>/<cycle>/<occurrence>/<system>[/<map view>]
+//   #/cycle/<chart>/event/<event id>/<start|end>/<system>[/<map view>]
+//   #/cycle/<chart>/birth/<system>[/<map view>]
 //
 // e.g. #/chart/mira-mercer/human-design/mandala/design
 //      #/pair/mira-mercer/jonas-sol/astrology/synastry/both
+//      #/cycle/mira-mercer/saturn-return/1/astrocartography/travel  (the first Saturn return)
 // Charts are named by a slug of their name ("Mira Mercer" → mira-mercer; duplicates get
 // -2, -3… in library order); a chart id is accepted too. Parts left off fall back to
 // the app's defaults.
@@ -51,6 +54,8 @@ function routeOption(options, slug, trim = "") {
 const ROUTE_SYSTEMS = ["Astrology", "Human Design", "Gene Keys", "Astrocartography"];
 // The Chart Explorer also has Life Events (#/chart/<chart>/life-events).
 const ROUTE_EXPLORER_SYSTEMS = [...ROUTE_SYSTEMS, "Life Events"];
+// The Cycle Explorer starts with its Summary (#/cycle/<chart>/<moment…>/summary).
+const ROUTE_CYCLE_SYSTEMS = ["Summary", ...ROUTE_SYSTEMS];
 const ROUTE_CHART_VIEWS = { wheel: "wheel", aspects: "aspects", both: "both" };
 const ROUTE_PAIR_SUBJECTS = { synastry: "synastry", composite: "composite", A: "chart-a", B: "chart-b" };
 const ROUTE_PAIR_ASTRO_VIEWS = { wheel: "wheel", grid: "aspect-grid", both: "both" };
@@ -82,8 +87,13 @@ function currentRoute() {
   } else if (currentView === "library") {
     parts.push(routeSlug(librarySystem));
   } else if (currentView === "cycle") {
-    const system = document.querySelector("[data-cycle-system].active")?.dataset.cycleSystem || "Astrology";
-    parts.push(chartSlug(cycleChartId), activeCycleKey, routeSlug(system));
+    const system = document.querySelector("[data-cycle-system].active")?.dataset.cycleSystem || "Summary";
+    // The studied moment: birth, a life event (its start or end), or a cycle's occurrence (from 1).
+    const moment = cycleEventAnchor?.birth ? ["birth"]
+      : cycleEventAnchor?.eventId ? ["event", cycleEventAnchor.eventId, cycleEventAnchor.part === "end" ? "end" : "start"]
+      : [activeCycleKey, String(activeOccurrenceIndex + 1)];
+    parts.push(chartSlug(cycleChartId), ...moment, routeSlug(system));
+    if (system === "Astrocartography") parts.push(routeSlug(acgActiveView.replace("ACG ", "")));
   }
   return `#/${parts.filter(Boolean).map(encodeURIComponent).join("/")}`;
 }
@@ -158,18 +168,34 @@ function applyRoute(hash) {
     }
     setView("pair");
   } else if (view === "cycle") {
-    const [slug, cycleKey, system] = rest;
+    const [slug, first, ...more] = rest;
     const chart = chartFromSlug(slug);
     if (slug && !chart) missing(slug);
-    const cycle = CYCLE_DEFINITIONS.find((def) => def.key === cycleKey);
-    // A different chart or cycle starts from its first occurrence, as picking it does.
-    if ((chart && chart.id !== cycleChartId) || (cycle && cycle.key !== activeCycleKey)) {
-      activeOccurrenceIndex = 0;
-    }
     if (chart) cycleChartId = chart.id;
-    if (cycle) activeCycleKey = cycle.key;
+    let system, subview;
+    if (first === "birth") {
+      cycleEventAnchor = { birth: true };
+      [system, subview] = more;
+    } else if (first === "event") {
+      const [id, part] = more;
+      [system, subview] = more.slice(2);
+      const event = chartLifeEvents(chartById(cycleChartId)).find((item) => item.id === id && item.start);
+      if (event) cycleEventAnchor = { eventId: event.id, part: part === "end" && event.end ? "end" : "start" };
+      else routeNotice("That life event isn't in this chart's timeline");
+    } else {
+      const cycle = CYCLE_DEFINITIONS.find((def) => def.key === first);
+      // An occurrence number (from 1) picks it; old links without one start from the first.
+      const numbered = /^\d+$/.test(more[0] || "");
+      if (numbered) [, system, subview] = more;
+      else [system, subview] = more;
+      if (cycle) activeCycleKey = cycle.key;
+      activeOccurrenceIndex = numbered ? Math.max(0, Number(more[0]) - 1) : 0;
+      cycleEventAnchor = null;
+    }
+    const chosenSystem = routeOption(ROUTE_CYCLE_SYSTEMS, system) || "Summary";
+    if (chosenSystem === "Astrocartography") acgActiveView = routeOption(SYSTEM_TABS.Astrocartography, subview, "ACG ") || acgActiveView;
     setView("cycle");
-    switchCycleSystem(routeOption(ROUTE_SYSTEMS, system) || "Astrology");
+    switchCycleSystem(chosenSystem);
   } else {
     const [system] = rest;
     setLibrarySystem(routeOption(LIBRARY_SYSTEMS, system) || "Astrology");

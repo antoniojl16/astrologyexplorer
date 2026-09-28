@@ -523,6 +523,11 @@ function sanitizeChart(raw, { fromFile = false } = {}) {
 // Dates are "YYYY", "YYYY-MM" or "YYYY-MM-DD" (their length is the precision); a time
 // ("HH:MM", local to `zone`) only goes with a full date. A person whose chart isn't in
 // the workspace keeps just a name (chartId null), shown as an unnamed/unlinked person.
+// An annotation of a computed moment has an `anchor` instead of dates —
+// { chartId, cycle: "saturn-return", n: 1 } (a chart's nth return or opposition) or
+// { chartId, birth: true } — whose date (and, for birth, place) always come from the
+// chart; a cycle's annotation holds only a place, tags and notes, birth's tags, notes
+// and the people present. An anchor to a chart that isn't in the workspace drops it.
 // Like sanitizeChart, this runs during loadState, so it declares what it needs itself.
 function sanitizeEvent(raw, chartIds, chartNames = new Map()) {
   if (!raw || typeof raw !== 'object') return null;
@@ -549,7 +554,15 @@ function sanitizeEvent(raw, chartIds, chartNames = new Map()) {
   if (end && `${end.date}T${end.time}` < `${start.date}T${start.time}`) end = null;
   const place = raw.place && number(raw.place.lat, -90, 90) != null && number(raw.place.lon, -180, 180) != null
     ? { name: text(raw.place.name, 160), lat: Number(raw.place.lat), lon: Number(raw.place.lon) } : null;
-  if (!start && !place) return null;
+  let anchor = null;
+  if (raw.anchor != null) {
+    const owner = raw.anchor && typeof raw.anchor.chartId === 'string' && chartIds.has(raw.anchor.chartId) ? raw.anchor.chartId : null;
+    const n = Number(raw.anchor?.n);
+    if (owner && raw.anchor.birth === true) anchor = { chartId: owner, birth: true };
+    else if (owner && /^[a-z-]{1,40}$/.test(String(raw.anchor.cycle)) && Number.isInteger(n) && n >= 1 && n <= 50) anchor = { chartId: owner, cycle: String(raw.anchor.cycle), n };
+    if (!anchor) return null;
+  }
+  if (!start && !place && !anchor) return null;
   const seen = new Set();
   const people = (Array.isArray(raw.people) ? raw.people : []).slice(0, 50).map((person) => {
     if (!person || typeof person !== 'object') return null;
@@ -572,6 +585,17 @@ function sanitizeEvent(raw, chartIds, chartNames = new Map()) {
     createdAt: number(raw.createdAt, 0, 8.64e15) || Date.now(),
     updatedAt: number(raw.updatedAt, 0, 8.64e15) || Date.now(),
   };
+  if (anchor) {
+    event.anchor = anchor;
+    event.title = ''; event.kind = ''; event.zone = '';
+    if (anchor.cycle) {
+      event.people = [{ chartId: anchor.chartId, name: '', role: '' }];
+      if (place) event.place = place;
+    } else if (!event.people.some((person) => person.chartId === anchor.chartId)) {
+      event.people.unshift({ chartId: anchor.chartId, name: '', role: '' });
+    }
+    return event;
+  }
   if (start) event.start = start;
   if (end) event.end = end;
   if (place) event.place = place;
@@ -617,7 +641,7 @@ function sanitizeState(saved) {
   const chartsById = new Map(charts.map((chart) => [chart.id, chart]));
   workspaces.forEach((workspace) => {
     const members = new Set(workspace.chartIds);
-    const renamedPeople = (event) => ({ ...event, people: (Array.isArray(event?.people) ? event.people : []).map((person) => ({ ...person, chartId: renamed.get(person?.chartId) || person?.chartId })) });
+    const renamedPeople = (event) => ({ ...event, anchor: event?.anchor ? { ...event.anchor, chartId: renamed.get(event.anchor.chartId) || event.anchor.chartId } : undefined, people: (Array.isArray(event?.people) ? event.people : []).map((person) => ({ ...person, chartId: renamed.get(person?.chartId) || person?.chartId })) });
     workspace.events = (Array.isArray(workspace.events) ? workspace.events : []).map((event) => sanitizeEvent(renamedPeople(event), members, chartNames)).filter(Boolean);
     workspace.chartIds.forEach((id) => migrateChartLocations(chartsById.get(id), workspace));
   });
@@ -1005,7 +1029,7 @@ function importWorkspace(event) {
       const existingIds = new Set(workspace.events.map((event) => event.id));
       let events = 0, unlinked = 0;
       (Array.isArray(imported.events) ? imported.events : []).forEach((raw) => {
-        const remapped = { ...raw, people: (Array.isArray(raw?.people) ? raw.people : []).filter(Boolean).map((person) => ({ ...person, chartId: idMap.get(String(person?.chartId)) || null, name: person?.name || names.get(String(person?.chartId)) || 'Unnamed person' })) };
+        const remapped = { ...raw, anchor: raw?.anchor ? { ...raw.anchor, chartId: idMap.get(String(raw.anchor.chartId)) || null } : undefined, people: (Array.isArray(raw?.people) ? raw.people : []).filter(Boolean).map((person) => ({ ...person, chartId: idMap.get(String(person?.chartId)) || null, name: person?.name || names.get(String(person?.chartId)) || 'Unnamed person' })) };
         const event = sanitizeEvent(remapped, members);
         if (!event) return;
         if (existingIds.has(event.id)) event.id = `event-${Date.now()}-${Math.random().toString(36).slice(2)}`;

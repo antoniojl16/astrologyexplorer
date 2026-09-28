@@ -219,6 +219,29 @@ body:not(.developer-mode) #ephemerisDebugBar,body:not(.developer-mode) #mandalaH
 .cycle-signature-head strong{font:700 19px 'Playfair Display',serif}
 .cycle-signature .cycle-signature-when{margin-top:2px;font:10px 'DM Mono',monospace;color:var(--muted)}
 .cycle-life-filters{display:flex;gap:16px;padding:0 18px 8px}
+.pair-life{background:var(--panel);border:1px solid var(--line);box-shadow:var(--shadow)}
+.pair-life-toolbar{display:flex;align-items:center;gap:14px;padding:14px 18px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.pair-life-count{margin-left:auto;font:10px 'DM Mono',monospace;color:var(--muted)}
+.pair-life-toolbar .acg-origin-button{padding:4px 9px}
+.pair-life-head,.pair-life-item{display:grid;grid-template-columns:minmax(0,1fr) 130px minmax(0,1fr);gap:0 18px;padding:0 18px}
+.pair-life-head{padding-top:10px;padding-bottom:10px;border-bottom:1px solid var(--line);font:10px 'DM Mono',monospace;letter-spacing:.8px;color:var(--muted)}
+.pair-life-head span:nth-child(2){text-align:center}.pair-life-head span:last-child{text-align:right}
+.pair-life-head .legend-dot{background:var(--pair-color)}
+.pair-life-list{list-style:none;margin:0;padding:0;position:relative}
+.pair-life-item{position:relative;padding-top:10px;padding-bottom:10px;border-bottom:1px solid var(--line);align-items:start}
+.pair-life-side.b{text-align:right}.pair-life-side.b .pair-life-title,.pair-life-side.b .pair-life-buttons,.pair-life-side.b .life-tags{justify-content:flex-end}
+.pair-life-side.a .pair-life-card{border-left:3px solid var(--pair-blue);padding-left:10px}.pair-life-side.b .pair-life-card{border-right:3px solid var(--pair-green);padding-right:10px}
+.pair-life-when{text-align:center;border-left:1px solid var(--line);border-right:1px solid var(--line);align-self:stretch;padding:2px 0}
+.pair-life-when strong{display:block;font:600 11px 'DM Mono',monospace}.pair-life-when small{display:block;font:10px 'DM Mono',monospace;color:var(--muted);margin-top:3px}
+.pair-life-title{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;font-size:13px}
+.pair-life-meta{margin-top:3px;font-size:11.5px;color:var(--muted)}
+.pair-life-card .life-tags{display:flex;flex-wrap:wrap;margin-top:4px}
+.pair-life-buttons{display:flex;gap:6px;margin-top:7px}.pair-life-buttons .acg-origin-button{padding:3px 8px}
+.pair-life-item.shared{background:var(--accent-soft)}
+.pair-life-item.shared .pair-life-buttons{margin-top:0}
+.pair-life-shared{grid-column:1 / -1;margin-top:8px;text-align:center}.pair-life-shared .pair-life-card{display:inline-block;text-align:center;border-top:3px solid var(--accent);padding-top:6px}.pair-life-shared .pair-life-title,.pair-life-shared .life-tags{justify-content:center}
+.life-kind.shared{border-color:var(--accent);color:var(--accent)}
+.pair-life-now{padding:3px 18px;font:9px 'DM Mono',monospace;letter-spacing:.8px;text-transform:uppercase;color:var(--accent);border-bottom:1px solid var(--accent);text-align:center}
 .cycle-life-list{list-style:none;margin:0;padding:0 0 6px;max-height:300px;overflow-y:auto;border-top:1px solid var(--line)}
 .cycle-life-item{display:grid;grid-template-columns:110px 64px 1fr auto;gap:12px;align-items:center;padding:7px 18px;border-bottom:1px solid var(--line);font-size:12px}
 .cycle-life-item.current{background:var(--paper-deep)}
@@ -273,3 +296,25 @@ body:not(.developer-mode) #ephemerisDebugBar,body:not(.developer-mode) #mandalaH
 .life-dialog-delete{margin-right:auto;color:var(--accent)}
 .edit-col{width:1%;text-align:right;padding-right:17px}.edit-col .acg-origin-button{padding:4px 9px}
 .chart-dialog-delete{margin-right:auto}
+.life-annotation-note{margin:0;padding:10px 12px;background:var(--paper-deep);border:1px solid var(--line);font-size:12px;line-height:1.5}.life-annotation-note small{font:10px 'DM Mono',monospace;color:var(--muted)}
+.cycle-life-item.annotated .cycle-life-title{color:var(--ink)}
+.acg-natal-lines .acg-line{opacity:.3;stroke-width:1.4;stroke-dasharray:5 4}.acg-natal-lines .acg-zenith{display:none}
+.cycle-summary-precision{margin:0 0 14px;padding:10px 14px;border:1px dashed var(--line);font:11px 'DM Mono',monospace;color:var(--muted)}
+.cycle-summary-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.cycle-summary-card{background:var(--panel);border:1px solid var(--line);box-shadow:var(--shadow);min-width:0}
+.cycle-summary-body{padding:14px 18px 16px}
+.cycle-summary-list{list-style:none;margin:0;padding:0}
+.cycle-summary-aspect{padding:9px 0;border-bottom:1px solid var(--line)}.cycle-summary-aspect:first-child{padding-top:0}
+.cycle-summary-row{display:flex;justify-content:space-between;gap:10px;font-size:12px}.cycle-summary-row small{flex:none;font:10px 'DM Mono',monospace;color:var(--muted)}
+.cycle-summary-aspect p{margin:4px 0 0;font-size:11.5px;line-height:1.5;color:var(--muted)}
+.cycle-summary-nature{font:9px 'DM Mono',monospace;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);border:1px solid var(--line);padding:0 5px;margin-left:4px;white-space:nowrap}
+.cycle-summary-foot{margin:10px 0 0;font:10px 'DM Mono',monospace;color:var(--muted);line-height:1.5}
+.cycle-summary-empty{margin:0;font-size:12px;color:var(--muted);line-height:1.6}
+.cycle-summary-gates{display:flex;flex-wrap:wrap;gap:6px}.cycle-summary-gate{font:11px 'DM Mono',monospace;padding:3px 8px;background:var(--paper-deep);border:1px solid transparent;border-radius:3px;cursor:help}.cycle-summary-gate b{margin-right:4px;font-weight:400}.cycle-summary-gate.natal{border-color:var(--accent)}
+.cycle-summary-card .system-stat{margin-top:12px}
+.cycle-summary-keys{font-size:11px}.cycle-summary-keys th{padding:6px 8px}.cycle-summary-keys td{padding:6px 8px;cursor:default}.cycle-summary-keys tbody tr:hover{background:transparent}.cycle-summary-keys tr.echo td{background:var(--accent-soft)}
+.cycle-summary-place{margin:0 0 8px;font-weight:700;font-size:12px}
+.cycle-summary-reading{margin-top:10px}.cycle-summary-tip{padding:8px 0;border-bottom:1px solid var(--line);font-size:11.5px;line-height:1.5}.cycle-summary-tip .gk-tip-title{font-weight:700;margin-top:4px}.cycle-summary-tip .gk-tip-text{color:var(--muted);margin-top:2px}
+@media(max-width:1100px){.cycle-summary-grid{grid-template-columns:1fr}}
+.life-dialog [hidden]{display:none!important}
+.life-dialog input:disabled,.life-dialog select:disabled{opacity:.6;cursor:not-allowed;background:var(--paper-deep)}

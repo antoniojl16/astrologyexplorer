@@ -255,6 +255,7 @@ function deleteChart(chart) {
     if (!workspace.chartIds.includes(chart.id)) return;
     workspace.chartIds = workspace.chartIds.filter(id => id !== chart.id);
     workspace.events = (workspace.events || []).filter(event => {
+      if (event.anchor?.chartId === chart.id) return false; // its cycle or birth annotations
       if (!event.people.some(person => person.chartId === chart.id)) return true;
       if (!event.people.some(person => person.chartId && person.chartId !== chart.id)) return false;
       event.people = event.people.map(person => (person.chartId === chart.id ? { ...person, chartId: null, name: chart.name } : person));

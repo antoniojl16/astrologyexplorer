@@ -1293,6 +1293,8 @@ const ACG_LOCATION_ROWS = 3;
 // Which saved-location rows are open (record ids), and the date order — "asc" puts
 // undated places first ("date zero"). The order is remembered per browser.
 const acgExpandedLocations = new Set();
+// The record opened for the Cycle Explorer's studied moment (renderAstrocartographyPanel).
+let acgMomentRecordId = null;
 let acgLocationsSort = acgStoredSetting("orbital-study-locations-sort", "asc") === "desc" ? "desc" : "asc";
 function acgSortLocations(records) {
   const key = (record) => (record.start ? `${record.start.date}T${record.start.time}` : "");
@@ -1401,7 +1403,7 @@ function acgZenithTipHtml(line, km) {
 // `tips` collects each chip's tooltip builder (the chip's data-acg-tip is its index),
 // so the readings are only written when a chip is actually hovered or focused.
 function acgLocationYears(record) {
-  if (!record?.start) return "";
+  if (!record?.start || record.cycle) return ""; // a cycle's title already has its year
   const first = record.start.date.slice(0, 4), last = record.end ? record.end.date.slice(0, 4) : first;
   return first === last ? first : `${first}–${last}`;
 }
@@ -1505,7 +1507,12 @@ function bindAcgChipTips(list, tips) {
   return hide;
 }
 
-function renderAstrocartographyPanel(container, chart) {
+// `moment` (the Cycle Explorer): { context (cycleContext), label, place, recordId } —
+// the map then shows the lines at the studied moment (Travel: with the natal lines
+// faintly underneath), its slider moves around that moment, Local Space is seen from
+// the moment's place (else the chart's origin), and the moment's record, if it has a
+// place, is opened in the saved locations. Moving the origin there isn't saved.
+function renderAstrocartographyPanel(container, chart, moment = null) {
   const views = SYSTEM_TABS.Astrocartography;
   if (!views.includes(acgActiveView)) acgActiveView = views[0];
   container.innerHTML = `
@@ -1519,20 +1526,27 @@ function renderAstrocartographyPanel(container, chart) {
           </div>
           ${acgMapMarkup()}
           ${acgSearchMarkup()}
-          ${chart ? timelineSliderMarkup("MAP MOMENT", 0) : ""}
+          ${chart ? timelineSliderMarkup(moment ? moment.context.momentNoun.toUpperCase() : "MAP MOMENT", 0) : ""}
         </div>
         <div class="acg-filters" data-acg-filters>${acgFiltersMarkup()}</div>
         <aside class="system-info" data-acg-info></aside>
         ${chart ? `<section class="acg-locations" aria-label="Saved locations"><div class="system-toolbar"><span class="eyebrow">SAVED LOCATIONS <span class="acg-locations-count" data-acg-locations-count></span></span><button type="button" class="acg-origin-button acg-locations-sort" data-acg-locations-sort hidden></button></div><div data-acg-locations></div></section>` : ""}
       </div>
     </div>`;
-  let offsetMinutes = 0;
+  let offsetMinutes = moment ? moment.context.anchorOffset : 0;
   const birthplace = acgBirthplace(chart);
-  const movedOrigin = () => chart?.localSpaceOrigin || null;
-  const localSpaceOrigin = () => movedOrigin() || birthplace;
+  // With a moment, a moved origin lasts only while it's shown (momentOrigin).
+  let momentOrigin = null;
+  const movedOrigin = () => (moment ? momentOrigin : chart?.localSpaceOrigin || null);
+  const localSpaceOrigin = () => movedOrigin() || moment?.place || chart?.localSpaceOrigin || birthplace;
   // `defer`: while the origin is being dragged, the saved locations wait (showView).
   const setOrigin = (origin, { defer = false } = {}) => {
     if (!chart) return;
+    if (moment) {
+      momentOrigin = origin ? { lat: Number(origin.lat.toFixed(4)), lon: Number(origin.lon.toFixed(4)) } : null;
+      showView({ deferLocations: defer });
+      return;
+    }
     if (origin) chart.localSpaceOrigin = { lat: Number(origin.lat.toFixed(4)), lon: Number(origin.lon.toFixed(4)) };
     else delete chart.localSpaceOrigin;
     acgSaveSoon();
@@ -1559,17 +1573,19 @@ function renderAstrocartographyPanel(container, chart) {
     const lines = linesFor(acgActiveView);
     const origin = localSpaceOrigin();
     const moved = !!movedOrigin();
-    container.querySelector("[data-acg-eyebrow]").textContent = acgActiveView.toUpperCase();
+    container.querySelector("[data-acg-eyebrow]").textContent = `${acgActiveView}${moment ? ` · ${moment.label}` : ""}`.toUpperCase();
     container.querySelector("[data-acg-badge]").textContent = travel
-      ? "MERCATOR · GEOCENTRIC"
+      ? moment ? "GEOCENTRIC · FAINT LINES: NATAL" : "MERCATOR · GEOCENTRIC"
       : moved
         ? `MERCATOR · MOVED ORIGIN · ${acgLocalSpaceDirections.toUpperCase()} DIRECTIONS`
-        : "MERCATOR · FROM BIRTHPLACE";
+        : moment?.place ? "MERCATOR · FROM THE MOMENT'S PLACE" : "MERCATOR · FROM BIRTHPLACE";
     container.querySelector("[data-acg-line-filters]").hidden = !travel;
     container.querySelector("[data-acg-origin-actions]").hidden = travel || !origin;
     container.querySelector("[data-acg-origin-reset]").disabled = !moved;
     const visible = acgVisibleLines(lines);
-    container.querySelector("[data-acg-overlay]").innerHTML = acgOverlayMarkup(visible);
+    // A moment's Travel map keeps the natal lines underneath, faint and unlabeled.
+    const natal = moment && travel ? `<g class="acg-natal-lines">${acgOverlayMarkup(acgVisibleLines(acgTravelLines(chart, 0)))}</g>` : "";
+    container.querySelector("[data-acg-overlay]").innerHTML = natal + acgOverlayMarkup(visible);
     map.setLabelLines(visible);
     map.setOrigin(travel || !origin ? null : { ...origin, onMove: (moved) => setOrigin(moved, { defer: true }) });
     const originText = travel || !origin ? "" : `${acgCoordinate(origin.lat, "N", "S")}, ${acgCoordinate(origin.lon, "E", "W")}${moved ? ` (moved, ${acgLocalSpaceDirections} directions)` : ""}`;
@@ -1589,6 +1605,12 @@ function renderAstrocartographyPanel(container, chart) {
   let locationsState = { visible: [], travel: true };
   let locationTips = [];
   const hideLocationTip = locationsList ? bindAcgChipTips(locationsList, () => locationTips) : () => {};
+  // The studied moment's own record starts open (and the previous moment's closes).
+  if (moment) {
+    if (acgMomentRecordId && acgMomentRecordId !== moment.recordId) acgExpandedLocations.delete(acgMomentRecordId);
+    if (moment.recordId) acgExpandedLocations.add(moment.recordId);
+    acgMomentRecordId = moment.recordId;
+  }
   const showLocations = (visible = locationsState.visible, travel = locationsState.travel) => {
     if (!chart || !locationsList) return;
     clearTimeout(settleTimer);
@@ -1645,7 +1667,7 @@ function renderAstrocartographyPanel(container, chart) {
       map.centerOn(record.place);
     } else if (relocate) {
       // Local Space only: makes the spot the origin (birth's is the unmoved origin).
-      setOrigin(isBirthRecord(record) ? null : record.place);
+      setOrigin(isBirthRecord(record) && !moment ? null : record.place);
     }
   });
   // The nearest-place names arrive with places.js.
@@ -1689,13 +1711,18 @@ function renderAstrocartographyPanel(container, chart) {
     // Moves are drawn at most once per frame (a drag fires many), the saved locations
     // once the slider rests. The first call (binding) draws everything at once.
     let first = true, frame = 0;
-    bindTimelineSlider(timelineContainer, {
+    const draw = (offset) => {
+      offsetMinutes = offset;
+      if (first) { first = false; showView(); return; }
+      if (!frame) frame = requestAnimationFrame(() => { frame = 0; showView({ deferLocations: true }); });
+    };
+    // A moment's slider (bindCycleSlider, cycles.js) is centred on it and reads relative to it.
+    if (moment) bindCycleSlider(timelineContainer, moment.context, draw);
+    else bindTimelineSlider(timelineContainer, {
       originLabel: timelineOriginLabel(),
       onChange: (offset) => {
-        offsetMinutes = offset;
         updateTimelineReadout(timelineContainer, chart, offset);
-        if (first) { first = false; showView(); return; }
-        if (!frame) frame = requestAnimationFrame(() => { frame = 0; showView({ deferLocations: true }); });
+        draw(offset);
       },
     });
   } else {

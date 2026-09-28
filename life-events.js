@@ -31,10 +31,23 @@ const LIFE_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Se
 function workspaceOfChart(chartId) {
   return state.workspaces.find((workspace) => workspace.chartIds.includes(chartId)) || null;
 }
-// Every record linked to `chart`, in stored order.
+// Every record linked to `chart`, in stored order. Annotations of computed moments
+// come resolved (lifeResolveRecord): a cycle's annotation as a dated record, someone
+// else's birth annotation as their birth; this chart's own birth annotation is folded
+// into lifeBirthRecord instead.
 function chartLifeEvents(chart) {
   const workspace = chart && workspaceOfChart(chart.id);
-  return workspace ? (workspace.events || []).filter((event) => event.people.some((person) => person.chartId === chart.id)) : [];
+  if (!workspace) return [];
+  return (workspace.events || [])
+    .filter((event) => event.people.some((person) => person.chartId === chart.id))
+    .filter((event) => !(event.anchor?.birth && event.anchor.chartId === chart.id))
+    .map(lifeResolveRecord).filter(Boolean);
+}
+// The stored record behind a (possibly resolved) record, or null for an un-annotated
+// computed moment.
+function lifeStoredRecord(record) {
+  if (!record) return null;
+  return record.anchor || record.birth ? record.stored || null : record;
 }
 // Records with a place (dated or not), birth first: the chart's Astrocartography saved locations.
 function chartPlaceRecords(chart) {
@@ -42,9 +55,10 @@ function chartPlaceRecords(chart) {
 }
 // Birth, as a record like any other, but computed from the chart's own birth data each
 // time it's needed (never stored): its date, time and place always match the chart's,
-// and it can't be edited, tagged or removed — only the chart can change it. Its id,
-// "birth:<chart id>", can't clash with a stored one (":" is never in those). No place
-// when the chart has no coordinates.
+// and can't be removed — only the chart can change them. It can be annotated (tags,
+// notes, the people present), which is stored separately (an anchored record, found
+// here and folded in as `stored`). Its id, "birth:<chart id>", can't clash with a
+// stored one (":" is never in those). No place when the chart has no coordinates.
 function lifeBirthRecord(chart) {
   if (!chart?.birthDate) return null;
   const coordinate = (value, limit) => {
@@ -58,9 +72,65 @@ function lifeBirthRecord(chart) {
     zone: chart.timezone || "", tags: [], notes: "",
     people: [{ chartId: chart.id, name: "", role: "" }],
     createdAt: 0, updatedAt: 0,
+    anchor: { chartId: chart.id, birth: true }, stored: null,
   };
+  if (chart.birthTime) record.exact = chartBirthMomentUTC(chart);
   if (lat != null && lon != null) record.place = { name: chart.location || "", lat, lon };
+  const annotation = lifeFindAnnotation(chart, (anchor) => anchor.birth);
+  if (annotation) Object.assign(record, { tags: annotation.tags, notes: annotation.notes, people: annotation.people, stored: annotation });
   return record;
+}
+
+// ── Annotations of computed moments ─────────────────────────────────────
+// The stored annotation of one of `chart`'s computed moments (birth, or a cycle's nth
+// occurrence), found by its anchor.
+function lifeFindAnnotation(chart, matches) {
+  const workspace = chart && workspaceOfChart(chart.id);
+  return (workspace?.events || []).find((event) => event.anchor?.chartId === chart.id && matches(event.anchor)) || null;
+}
+function lifeCycleAnnotation(chart, cycleKey, n) {
+  return lifeFindAnnotation(chart, (anchor) => anchor.cycle === cycleKey && anchor.n === n);
+}
+// A moment's date and time on the clock of `zone`, as a record date ("YYYY-MM-DD", "HH:MM").
+function lifeLocalMoment(date, zone) {
+  let parts;
+  try {
+    parts = Object.fromEntries(new Intl.DateTimeFormat("en-CA", { timeZone: zone || "UTC", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" })
+      .formatToParts(date).map((part) => [part.type, part.value]));
+  } catch {
+    return lifeLocalMoment(date, "UTC");
+  }
+  return { date: `${parts.year}-${parts.month}-${parts.day}`, time: `${parts.hour}:${parts.minute}` };
+}
+// `chart`'s nth occurrence of a cycle (n from 1) as a record: dated to the computed
+// moment (`exact`), with its annotation's place, tags and notes, if it has one. Its id
+// is the annotation's, else "cycle:<chart>:<cycle>:<n>" (":" never clashes). Without
+// that occurrence (the birth data changed), it's undated, titled "<cycle> #n".
+function lifeCycleRecord(chart, cycleKey, n, annotation = lifeCycleAnnotation(chart, cycleKey, n)) {
+  const cycleDef = CYCLE_DEFINITIONS.find((def) => def.key === cycleKey);
+  if (!chart || !cycleDef) return null;
+  const occurrence = computeCycleOccurrences(chart, cycleDef)[n - 1];
+  const record = {
+    id: annotation?.id || `cycle:${chart.id}:${cycleKey}:${n}`, cycle: true,
+    anchor: { chartId: chart.id, cycle: cycleKey, n }, stored: annotation,
+    title: occurrence ? `${cycleDef.label} ${occurrence.date.getFullYear()}` : `${cycleDef.label} #${n}`, kind: "",
+    zone: chart.timezone || "UTC", tags: annotation?.tags || [], notes: annotation?.notes || "",
+    people: [{ chartId: chart.id, name: "", role: "" }],
+    createdAt: annotation?.createdAt || 0, updatedAt: annotation?.updatedAt || 0,
+  };
+  if (occurrence) { record.start = lifeLocalMoment(occurrence.date, record.zone); record.exact = occurrence.date; }
+  if (annotation?.place) record.place = annotation.place;
+  return record;
+}
+// A stored record as shown: an annotation becomes its moment's record (someone else's
+// birth is titled with their name); anything else as it is.
+function lifeResolveRecord(record) {
+  if (!record?.anchor) return record;
+  const owner = chartById(record.anchor.chartId);
+  if (!owner) return null;
+  if (record.anchor.cycle) return lifeCycleRecord(owner, record.anchor.cycle, record.anchor.n, record);
+  const birth = lifeBirthRecord(owner);
+  return birth && { ...birth, birth: false, id: record.id, title: `${owner.name}'s birth` };
 }
 function isBirthRecord(event) {
   return !!event?.birth;
@@ -95,7 +165,7 @@ function lifeNearestTitle(place) {
 // from lifeNearestTitle, in every workspace. Returns how many changed.
 function untitledPlaceRecords() {
   return state.workspaces.flatMap((workspace) => (workspace.events || []).filter((event) =>
-    !event.title && event.place && (!event.kind || LIFE_PLACE_KINDS.has(event.kind))));
+    !event.anchor && !event.title && event.place && (!event.kind || LIFE_PLACE_KINDS.has(event.kind))));
 }
 function titleUntitledPlaces() {
   let changed = 0;
@@ -107,15 +177,24 @@ function titleUntitledPlaces() {
   return changed;
 }
 // Takes `chart` out of the record; the record goes when nobody's left in it.
-function removeChartFromRecord(chart, event) {
+function removeChartFromRecord(chart, record) {
   const workspace = workspaceOfChart(chart.id);
-  if (!workspace) return;
+  const event = lifeStoredRecord(record);
+  if (!workspace || !event) return;
   event.people = event.people.filter((person) => person.chartId !== chart.id);
   if (!event.people.some((person) => person.chartId)) workspace.events = workspace.events.filter((item) => item !== event);
   saveState();
 }
 // Asks first (naming anyone else it's shared with), then deletes. Returns whether it did.
 function confirmDeleteRecord(chart, record) {
+  // An annotation: only the notes go, the computed moment stays.
+  if (record.anchor || record.birth) {
+    const stored = lifeStoredRecord(record);
+    if (!stored || !window.confirm(`Remove the notes on “${lifeEventTitle(record)}”? The moment itself stays.`)) return false;
+    deleteRecord(chart, stored);
+    showToast("Annotation removed");
+    return true;
+  }
   const others = record.people.filter((person) => person.chartId && person.chartId !== chart.id).map((person) => chartById(person.chartId)?.name).filter(Boolean);
   const question = others.length
     ? `Delete “${lifeEventTitle(record)}” for everyone in it? It's shared with ${others.join(", ")}.\n\n(To take only ${chart.name} out of it, edit it instead.)`
@@ -226,7 +305,7 @@ function renderLifeEventsPanel(container, chart) {
   list.addEventListener("click", (event) => {
     const edit = event.target.closest("[data-life-edit]");
     const remove = event.target.closest("[data-life-delete]");
-    const record = (workspace.events || []).find((item) => item.id === (edit || remove)?.closest("[data-life-id]")?.dataset.lifeId);
+    const record = chartRecordsWithBirth(chart).find((item) => item.id === (edit || remove)?.closest("[data-life-id]")?.dataset.lifeId);
     if (!record) return;
     if (edit) openLifeEventDialog(chart, record, { onSave: draw });
     if (remove && confirmDeleteRecord(chart, record)) draw();
@@ -249,10 +328,13 @@ function lifeEventItemMarkup(event, chart) {
   const placeText = event.place ? event.place.name || coordinates : "";
   const place = placeText && placeText !== lifeEventTitle(event) ? `<span>⌖ ${escapeHtml(placeText)}</span>` : "";
   const birth = isBirthRecord(event);
-  const actions = birth
-    ? `<span class="life-fixed" title="Birth follows the chart's birth data: edit the chart to change it">From the chart</span>`
-    : `<button type="button" class="acg-origin-button" data-life-edit>Edit</button>
-      <button type="button" class="acg-location-remove" data-life-delete aria-label="Delete ${escapeHtml(lifeEventTitle(event))}" title="Delete">×</button>`;
+  // Birth and cycles are computed: their date (and birth's place) come from the chart;
+  // Edit annotates them, and × only removes the annotation.
+  const computed = !!event.anchor;
+  const fixed = computed ? `<span class="life-fixed" title="${birth || event.anchor.birth ? "Birth follows the chart's birth data: edit the chart to change it" : "Computed from the chart: its date can't change"}">${event.cycle ? "Cycle" : "From the chart"}</span>` : "";
+  const removable = !computed || event.stored;
+  const actions = `${fixed}<button type="button" class="acg-origin-button" data-life-edit>${computed && !event.stored ? "Annotate" : "Edit"}</button>
+      ${removable ? `<button type="button" class="acg-location-remove" data-life-delete aria-label="${computed ? "Remove the notes on" : "Delete"} ${escapeHtml(lifeEventTitle(event))}" title="${computed ? "Remove annotation" : "Delete"}">×</button>` : ""}`;
   return `<li class="life-item${event.start ? "" : " place-only"}${birth ? " birth" : ""}" data-life-id="${escapeHtml(event.id)}">
     <div class="life-when">${event.start ? `<strong>${lifeWhenLabel(event)}</strong><small>${time}</small>` : `<strong>Place</strong><small>No date</small>`}</div>
     <div class="life-main">
@@ -286,6 +368,7 @@ function lifeDialog() {
   dialog.innerHTML = `<form id="lifeEventForm" method="dialog" novalidate>
     <div class="dialog-head"><div><p class="eyebrow accent-label" data-life-eyebrow>LIFE EVENT</p><h2 data-life-heading>Add an event</h2></div><button type="button" class="close-button" data-life-cancel aria-label="Close">×</button></div>
     <div class="form-grid">
+      <p class="wide-field life-annotation-note" data-life-annotation hidden></p>
       <label class="wide-field">Title<input name="title" maxlength="120" placeholder="What happened, or what this place is"></label>
       <label>Type<select name="kind"><option value="">—</option>${LIFE_EVENT_KINDS.map((group) => `<optgroup label="${group.group}">${group.kinds.map(([key, label]) => `<option value="${key}">${label}</option>`).join("")}</optgroup>`).join("")}</select></label>
       <label>When<select name="when"><option value="moment">A moment</option><option value="period">A period</option><option value="none">No date (a place)</option></select></label>
@@ -297,7 +380,7 @@ function lifeDialog() {
       <label class="wide-field">Place<input name="location" placeholder="Search a city or town, or leave empty" autocomplete="off"></label>
       <label>Latitude<input name="latitude" inputmode="decimal" placeholder="e.g. 38.7223"></label>
       <label>Longitude<input name="longitude" inputmode="decimal" placeholder="e.g. -9.1393"></label>
-      <label class="wide-field">Time zone <small>for the time of day</small><select name="timezone"></select></label>
+      <label class="wide-field" data-life-zone>Time zone <small>for the time of day</small><select name="timezone"></select></label>
       <div class="wide-field life-people"><span class="life-field-label">People</span><div data-life-people></div>
         <label class="life-inline">Someone without a chart here<input name="personName" maxlength="120" placeholder="Name, then press Add"><button type="button" class="secondary-button" data-life-add-person>Add</button></label>
       </div>
@@ -379,12 +462,32 @@ function bindRoleSuggestions(box) {
     if (option) choose(options[Number(option.dataset.index)]);
   });
 }
-// `event` null adds a new record: a moment, until "When" says otherwise.
-function openLifeEventDialog(chart, event, { onSave } = {}) {
+// `event` null adds a new record: a moment, until "When" says otherwise. A computed
+// moment (birth, a cycle: `event.anchor`) is annotated instead: its date (and birth's
+// place) stay locked, and only what it can hold is shown — a cycle's place, tags and
+// notes; birth's tags, notes and people. Saving an empty annotation clears it.
+function openLifeEventDialog(chart, event, { onSave, withChartIds = [] } = {}) {
   const dialog = lifeDialog();
   const form = dialog.querySelector("form");
   const workspace = workspaceOfChart(chart.id);
   form.reset();
+  const anchor = event?.anchor || null;
+  const stored = anchor ? event.stored || null : event;
+  const show = (element, visible) => { if (element) element.hidden = !visible; };
+  const field = (name) => form.elements[name].closest("label");
+  // An annotation's computed fields (title, date, time zone, and birth's place) are shown
+  // but disabled; a cycle has no people.
+  const lockedFields = anchor ? ["title", "kind", "when", "startYear", "startMonth", "startDay", "startTime", "timezone", ...(anchor.birth ? ["location", "latitude", "longitude"] : [])] : [];
+  ["title", "kind", "when", "startYear", "startMonth", "startDay", "startTime", "endYear", "endMonth", "endDay", "endTime", "timezone", "location", "latitude", "longitude"]
+    .forEach((name) => { form.elements[name].disabled = lockedFields.includes(name); });
+  show(dialog.querySelector(".life-people"), !anchor?.cycle);
+  show(dialog.querySelector(".life-hint"), !anchor);
+  const note = dialog.querySelector("[data-life-annotation]");
+  show(note, !!anchor);
+  if (anchor) {
+    const owner = chartById(anchor.chartId);
+    note.innerHTML = `<strong>${escapeHtml(lifeEventTitle(event))}</strong> · ${event.start ? `${lifeWhenLabel(event)}${event.start.time ? ` · ${event.start.time} ${escapeHtml(event.zone || "")}` : ""}` : "not computed"}${anchor.birth && event.place?.name ? ` · ⌖ ${escapeHtml(event.place.name)}` : ""}<br><small>${anchor.birth ? `Computed from ${escapeHtml(owner?.name || "the chart")}'s birth data, which only editing the chart changes.` : "Computed from the chart: its date is fixed. Add where you were, tags and notes."}</small>`;
+  }
   const heading = dialog.querySelector("[data-life-heading]");
   const set = (name, value) => { form.elements[name].value = value ?? ""; };
   const setMoment = (prefix, moment) => {
@@ -404,17 +507,20 @@ function openLifeEventDialog(chart, event, { onSave } = {}) {
   set("longitude", event?.place ? String(event.place.lon) : "");
   form.elements.timezone.innerHTML = timezoneOptionsMarkup(event?.zone || chart.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone);
   set("notes", event?.notes);
+  if (anchor) set("title", lifeEventTitle(event));
 
   // People: every chart in the workspace (this one always in), each with a role, then
   // anyone kept by name only.
-  const people = new Map((event?.people || [{ chartId: chart.id, role: "" }]).map((person) => [person.chartId || `name:${person.name}`, { ...person }]));
-  if (!people.has(chart.id)) people.set(chart.id, { chartId: chart.id, name: "", role: "" });
+  // (A new record can start with other charts in it too: `withChartIds`, e.g. the Pair Explorer's shared event.)
+  const people = new Map((event?.people || [chart.id, ...withChartIds].map((chartId) => ({ chartId, name: "", role: "" }))).map((person) => [person.chartId || `name:${person.name}`, { ...person }]));
+  const self = anchor?.chartId || chart.id;
+  if (!people.has(self)) people.set(self, { chartId: self, name: "", role: "" });
   const peopleBox = dialog.querySelector("[data-life-people]");
   const drawPeople = () => {
     const charts = workspace.chartIds.map(chartById).filter(Boolean);
     peopleBox.innerHTML = `${charts.map((other) => {
       const person = people.get(other.id);
-      return `<div class="life-person"><label><input type="checkbox" data-life-person="${escapeHtml(other.id)}" ${person ? "checked" : ""} ${other.id === chart.id ? "disabled" : ""}> ${escapeHtml(other.name)}</label><input placeholder="role" autocomplete="off" aria-label="Role of ${escapeHtml(other.name)}" data-life-role="${escapeHtml(other.id)}" value="${escapeHtml(person?.role || "")}" ${person ? "" : "disabled"}></div>`;
+      return `<div class="life-person"><label><input type="checkbox" data-life-person="${escapeHtml(other.id)}" ${person ? "checked" : ""} ${other.id === self ? "disabled" : ""}> ${escapeHtml(other.name)}</label><input placeholder="role" autocomplete="off" aria-label="Role of ${escapeHtml(other.name)}" data-life-role="${escapeHtml(other.id)}" value="${escapeHtml(person?.role || "")}" ${person ? "" : "disabled"}></div>`;
     }).join("")}${[...people.values()].filter((person) => !person.chartId).map((person) =>
       `<div class="life-person unlinked"><span><i>${escapeHtml(person.name)}</i> <small>no chart here</small></span><input placeholder="role" autocomplete="off" aria-label="Role of ${escapeHtml(person.name)}" data-life-role="name:${escapeHtml(person.name)}" value="${escapeHtml(person.role || "")}"><button type="button" class="acg-location-remove" data-life-remove-person="name:${escapeHtml(person.name)}" aria-label="Remove ${escapeHtml(person.name)}">×</button></div>`).join("")}`;
   };
@@ -454,6 +560,12 @@ function openLifeEventDialog(chart, event, { onSave } = {}) {
   const syncWhen = () => {
     const when = form.elements.when.value;
     heading.textContent = `${event ? "Edit" : "Add"} ${when === "none" ? "a place" : when === "period" ? "a period" : "an event"}`;
+    if (anchor) {
+      heading.textContent = stored ? "Edit annotation" : "Annotate";
+      dialog.querySelector("[data-life-dates]").hidden = !event.start;
+      dialog.querySelector('[data-life-moment="end"]').hidden = true;
+      return;
+    }
     if (when === "none" && !form.elements.kind.value) set("kind", "place");
     if (when !== "none" && form.elements.kind.value === "place" && !event) set("kind", "");
     dialog.querySelector("[data-life-dates]").hidden = when === "none";
@@ -465,14 +577,47 @@ function openLifeEventDialog(chart, event, { onSave } = {}) {
 
   // Deleting lives here, behind Edit and a confirmation, not one click away in a list.
   const remove = dialog.querySelector("[data-life-dialog-delete]");
-  remove.hidden = !event;
+  remove.hidden = !stored;
+  remove.textContent = anchor ? "Remove annotation…" : "Delete record…";
   remove.onclick = () => {
-    if (!event || !confirmDeleteRecord(chart, event)) return;
+    if (!stored || !confirmDeleteRecord(chart, event)) return;
     dialog.close();
     onSave?.(null);
   };
+  const readTags = () => [...dialog.querySelectorAll("[data-life-tags] input:checked")].map((box) => box.value)
+    .concat(form.elements.customTags.value.split(",").map((tag) => tag.trim()).filter(Boolean));
+  const saveAnnotation = () => {
+    const lat = form.elements.latitude.value.trim(), lon = form.elements.longitude.value.trim();
+    let place = null;
+    if (anchor.cycle && (lat !== "" || lon !== "")) {
+      if (!(Math.abs(Number(lat)) <= 90 && Math.abs(Number(lon)) <= 180 && lat !== "" && lon !== "")) return showToast("Latitude must be between −90 and 90, and longitude between −180 and 180");
+      place = { name: form.elements.location.value.trim(), lat, lon };
+    }
+    const tags = readTags(), notes = form.elements.notes.value;
+    const list = anchor.birth ? [...people.values()] : [];
+    const empty = !place && !tags.length && !notes.trim() && !list.some((person) => person.chartId !== self || person.role);
+    workspace.events = workspace.events || [];
+    const index = stored ? workspace.events.indexOf(stored) : -1;
+    if (empty) {
+      if (index >= 0) workspace.events.splice(index, 1);
+      saveState();
+      dialog.close();
+      onSave?.(null);
+      if (index >= 0) showToast("Annotation cleared");
+      return;
+    }
+    const cleaned = sanitizeEvent({ id: stored?.id, anchor, place, tags, notes, people: list, createdAt: stored?.createdAt, updatedAt: Date.now() }, new Set(workspace.chartIds));
+    if (!cleaned) return showToast("This moment's chart isn't in this workspace");
+    if (index >= 0) workspace.events[index] = cleaned;
+    else workspace.events.push(cleaned);
+    saveState();
+    dialog.close();
+    onSave?.(cleaned);
+    showToast(stored ? "Annotation updated" : "Annotation added");
+  };
   form.onsubmit = (submit) => {
     submit.preventDefault();
+    if (anchor) return saveAnnotation();
     const when = form.elements.when.value;
     const readMoment = (prefix) => {
       const year = form.elements[`${prefix}Year`].value.trim();
@@ -490,8 +635,7 @@ function openLifeEventDialog(chart, event, { onSave } = {}) {
     if ((lat !== "" || lon !== "") && !(Math.abs(Number(lat)) <= 90 && Math.abs(Number(lon)) <= 180 && lat !== "" && lon !== "")) return showToast("Latitude must be between −90 and 90, and longitude between −180 and 180");
     const place = lat !== "" && lon !== "" ? { name: form.elements.location.value.trim(), lat, lon } : null;
     if (when === "none" && !place) return showToast("Choose a place, or enter its latitude and longitude");
-    const tags = [...dialog.querySelectorAll("[data-life-tags] input:checked")].map((box) => box.value)
-      .concat(form.elements.customTags.value.split(",").map((tag) => tag.trim()).filter(Boolean));
+    const tags = readTags();
     const raw = {
       id: event?.id,
       title: form.elements.title.value,
@@ -518,7 +662,7 @@ function openLifeEventDialog(chart, event, { onSave } = {}) {
     showToast(event ? "Record updated" : "Record added");
   };
   dialog.showModal();
-  form.elements.title.focus();
+  (anchor ? form.elements.notes : form.elements.title).focus();
 }
 
 // ── Moments in time (Cycle Explorer) ────────────────────────────────────
@@ -529,6 +673,8 @@ function openLifeEventDialog(chart, event, { onSave } = {}) {
 function lifeMomentRange(event, part, chart) {
   const moment = part === "end" ? event.end : event.start;
   if (!moment) return null;
+  // A computed moment (birth with a time, a cycle) is exact.
+  if (event.exact && part !== "end") return { from: event.exact, to: event.exact, mid: event.exact, precision: "time" };
   const toUTC = (date, time) => chartBirthMomentUTC({
     birthDate: date, birthTime: time,
     timezone: event.zone || chart.timezone,
@@ -569,7 +715,8 @@ const LIFE_TIME_OF_DAY_BODIES = new Set(["Ascendant", "Midheaven", "Vertex", "Fo
 // [{ type: "birth" | "event" | "cycle", date, event?, cycleDef?, occurrence?, index? }].
 function lifeTimelineEntries(chart) {
   const entries = [{ type: "birth", date: chartBirthMomentUTC(chart) }];
-  chartLifeEvents(chart).filter((event) => event.start).forEach((event) => {
+  // (This chart's annotated cycles are shown on their cycle entries, not twice.)
+  chartLifeEvents(chart).filter((event) => event.start && event.anchor?.chartId !== chart.id).forEach((event) => {
     entries.push({ type: "event", event, date: lifeMomentRange(event, "start", chart).mid });
   });
   CYCLE_DEFINITIONS.forEach((cycleDef) => {

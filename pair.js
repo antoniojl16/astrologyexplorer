@@ -5,7 +5,8 @@
 // the top is shared by every system tab. No timeline: the two birth moments are
 // compared as they are.
 
-const PAIR_SYSTEMS = ['Astrology', 'Human Design', 'Gene Keys', 'Astrocartography'];
+// (Life Events: the two timelines side by side, pair-life.js.)
+const PAIR_SYSTEMS = ['Astrology', 'Human Design', 'Gene Keys', 'Astrocartography', 'Life Events'];
 let pairActiveSystem = PAIR_SYSTEMS[0];
 
 // The chosen pair is saved with the workspace state (state.pairSelection = {a, b}
@@ -213,6 +214,7 @@ function renderPairSystem() {
     { chart: chartA, label: `CHART A · ${escapeHtml(chartA.name)}` },
     { chart: chartB, label: `CHART B · ${escapeHtml(chartB.name)}` },
   ];
+  if (pairActiveSystem === 'Life Events') return renderPairLifeEvents(surface, chartA, chartB);
   if (pairActiveSystem === 'Gene Keys') return renderGeneKeysPair(surface, entries);
   if (pairActiveSystem === 'Astrocartography') return renderAstrocartographyPairPanel(surface, entries);
   if (pairActiveSystem === 'Astrology') return renderAstrologyPair(surface, entries);
