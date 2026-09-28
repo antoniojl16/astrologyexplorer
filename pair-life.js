@@ -6,7 +6,7 @@
 // Every entry opens in the Cycle Explorer for the person whose side it's on (a shared
 // one, from either side), and a shared event can be added with both charts in it.
 
-const pairLifeShow = { events: true, cycles: true, sharedOnly: false };
+const pairLifeShow = { events: true, cycles: true, sharedOnly: false, tag: "" };
 let pairLifeSort = acgStoredSetting("orbital-study-pair-life-sort", "asc") === "desc" ? "desc" : "asc";
 
 // [{ key, sides: { a?, b? }, shared, date }] in time order: a record linked to both
@@ -37,10 +37,12 @@ function renderPairLifeEvents(surface, chartA, chartB) {
       <div class="pair-life-toolbar">
         <span class="cycle-life-show">${[["events", "Life events"], ["cycles", "Cycles"], ["sharedOnly", "Shared only"]].map(([key, label]) =>
           `<label class="acg-filter"><input type="checkbox" data-pair-life-show="${key}" ${pairLifeShow[key] ? "checked" : ""}><span>${label}</span></label>`).join("")}</span>
+        <select class="life-tag-filter" data-pair-life-tag aria-label="Browse by tag"></select>
         <span class="pair-life-count" data-pair-life-count></span>
         <button type="button" class="acg-origin-button" data-pair-life-sort></button>
         <button type="button" class="primary-button" data-pair-life-add>＋ Shared event</button>
       </div>
+      <div class="pair-life-patterns" data-pair-life-patterns hidden></div>
       <div class="pair-life-head">
         <span style="--pair-color:${PAIR_PEOPLE.A.color}"><i class="legend-dot"></i>CHART A · ${escapeHtml(chartA.name)}</span>
         <span>DATE · AGES</span>
@@ -72,22 +74,34 @@ function renderPairLifeEvents(surface, chartA, chartB) {
       <div class="pair-life-title"><strong>${escapeHtml(title)}</strong>${kind && kind !== title ? `<span class="life-kind">${escapeHtml(kind)}</span>` : ""}${entry.shared ? `<span class="life-kind shared">Shared</span>` : ""}</div>
       ${meta ? `<div class="pair-life-meta">${meta}</div>` : ""}
       ${record.tags.length ? `<div class="life-tags">${record.tags.map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("")}</div>` : ""}
+      ${pairLifeShow.tag ? transitsMarkup(entry, side) : ""}
     </div>`;
   };
+  // Browsing a tag: each moment's tight transits (a shared one: to each chart).
+  const transitsMarkup = (entry, side) => (entry.shared ? ["a", "b"] : [side]).map((key) =>
+    `<div class="life-transits">${entry.shared ? `<span class="life-transit-who">${escapeHtml(charts[key].name)}</span>` : ""}${lifeMomentTransitsMarkup(charts[key], entry.sides[key])}</div>`).join("");
   const buttons = (entry, side, label = "↻ Open in Cycle Explorer") =>
     `<span class="pair-life-buttons"><button type="button" class="acg-origin-button" data-pair-life-open="${side}" data-pair-life-key="${escapeHtml(entry.key)}" title="Study this moment for ${escapeHtml(charts[side].name)}">${label}</button><button type="button" class="acg-origin-button" data-pair-life-edit="${side}" data-pair-life-key="${escapeHtml(entry.key)}">${entry.sides[side].anchor && !entry.sides[side].stored ? "Annotate" : "Edit"}</button></span>`;
 
   const draw = () => {
     const all = pairLifeEntries(chartA, chartB);
+    const tagsOf = (entry) => [...(entry.sides.a?.tags || []), ...(entry.sides.b?.tags || [])];
+    const counts = lifeTagCounts(all.map((entry) => ({ tags: [...new Set(tagsOf(entry))] })));
+    if (pairLifeShow.tag && !counts.some(([tag]) => tag === pairLifeShow.tag)) pairLifeShow.tag = "";
+    const { tag } = pairLifeShow;
+    surface.querySelector("[data-pair-life-tag]").innerHTML = `<option value="">All tags</option>${counts.map(([name, n]) => `<option value="${escapeHtml(name)}" ${name === tag ? "selected" : ""}>${escapeHtml(name)} (${n})</option>`).join("")}`;
+    surface.querySelector("[data-pair-life-tag]").hidden = !counts.length;
+    drawPatterns(all, tag);
     shown = all.filter((entry) => {
       const record = entry.sides.a || entry.sides.b;
+      if (tag) return tagsOf(entry).includes(tag);
       if (pairLifeShow.sharedOnly && !entry.shared) return false;
       if (isBirthRecord(record) && !entry.shared) return true;
       return pairLifeShow[pairLifeKind(record)];
     });
     if (pairLifeSort === "desc") shown.reverse();
     const shared = all.filter((entry) => entry.shared).length;
-    surface.querySelector("[data-pair-life-count]").textContent = `${shared} shared · ${all.length - shared} not shared`;
+    surface.querySelector("[data-pair-life-count]").textContent = tag ? `${shown.length} tagged “${tag}”` : `${shared} shared · ${all.length - shared} not shared`;
     const sort = surface.querySelector("[data-pair-life-sort]");
     sort.textContent = `Date ${pairLifeSort === "asc" ? "↑" : "↓"}`;
     sort.setAttribute("aria-label", `Sorted by date, ${pairLifeSort === "asc" ? "oldest" : "newest"} first; switch`);
@@ -118,6 +132,36 @@ function renderPairLifeEvents(surface, chartA, chartB) {
     if (!shown.length) list.innerHTML = `<li class="life-empty">Nothing to show with these filters.</li>`;
   };
 
+  // With a tag chosen: what recurs across each person's moments with it, side by side
+  // (life-patterns.js), above the timeline narrowed to those moments.
+  const drawPatterns = (all, tag) => {
+    const box = surface.querySelector("[data-pair-life-patterns]");
+    box.hidden = !tag;
+    surface.querySelector(".cycle-life-show").hidden = !!tag;
+    if (!tag) return;
+    const column = (side) => {
+      const chart = charts[side];
+      const records = all.map((entry) => entry.sides[side]).filter((record) => record?.tags.includes(tag));
+      return `<section style="--pair-color:${PAIR_PEOPLE[side.toUpperCase()].color}"><span class="eyebrow"><i class="legend-dot"></i>${escapeHtml(chart.name.toUpperCase())} · ${records.length} MOMENT${records.length === 1 ? "" : "S"}</span>${lifeTagPatternsMarkup(chart, records, tag)}</section>`;
+    };
+    box.innerHTML = `<div class="system-toolbar"><span class="eyebrow">RECURRING TRANSITS · ${escapeHtml(tag.toUpperCase())}</span>${lifePatternControlsMarkup()}<button type="button" class="acg-origin-button" data-pair-life-tag-clear>× All tags</button></div>
+      <div class="pair-life-pattern-columns">${column("a")}${column("b")}</div>
+      <p class="cycle-summary-foot">${LIFE_PATTERN_FOOT} A shared moment counts for each person, against their own chart.</p>`;
+  };
+  surface.querySelector("[data-pair-life-tag]").addEventListener("change", (event) => {
+    pairLifeShow.tag = event.target.value;
+    draw();
+  });
+  surface.querySelector("[data-pair-life-patterns]").addEventListener("change", (event) => {
+    if (!event.target.matches("[data-life-pattern-fast]")) return;
+    lifePatternOptions.includeFast = event.target.checked;
+    draw();
+  });
+  surface.querySelector("[data-pair-life-patterns]").addEventListener("click", (event) => {
+    if (!event.target.closest("[data-pair-life-tag-clear]")) return;
+    pairLifeShow.tag = "";
+    draw();
+  });
   surface.querySelector(".cycle-life-show").addEventListener("change", (event) => {
     const key = event.target.dataset.pairLifeShow;
     if (!key) return;
@@ -140,22 +184,7 @@ function renderPairLifeEvents(surface, chartA, chartB) {
     const record = entry?.sides[side];
     if (!record) return;
     if (button.dataset.pairLifeEdit) openLifeEventDialog(charts[side], record, { onSave: draw });
-    else pairOpenInCycleExplorer(charts[side], record);
+    else openInCycleExplorer(charts[side], record);
   });
   draw();
-}
-
-// Studies `record`'s moment for `chart` in the Cycle Explorer (a period: its start).
-function pairOpenInCycleExplorer(chart, record) {
-  cycleChartId = chart.id;
-  if (isBirthRecord(record)) {
-    cycleEventAnchor = { birth: true };
-  } else if (record.cycle) {
-    activeCycleKey = record.anchor.cycle;
-    activeOccurrenceIndex = record.anchor.n - 1;
-    cycleEventAnchor = null;
-  } else {
-    cycleEventAnchor = { eventId: record.id, part: "start" };
-  }
-  setView("cycle");
 }

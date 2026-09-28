@@ -5,7 +5,8 @@
 // showing count. Ignored while typing in a text field or while a dialog is open.
 //
 // Ctrl + letter (or Alt/Option + letter, for systems where the browser keeps Ctrl):
-//   A / H / G / Y   Astrology / Human Design / Gene Keys / Astrocartography
+//   A / H / G / Y / E   Astrology / Human Design / Gene Keys / Astrocartography / Life Events
+//                  (the Cycle Explorer has no Life Events tab: E opens or closes its Life Timeline)
 //   L / I / P / T / C   Library / Chart / Pair / Timeline / Cycle explorer
 // Plain keys:
 //   Z   Fix Zodiac on the astrology wheel
@@ -19,7 +20,7 @@
 //   E   Chart Explorer: edit the chart
 //   1 / 2 / 3   Pair and Cycle Explorers: first chart / second chart / both together
 
-const SHORTCUT_SYSTEMS = { KeyA: "Astrology", KeyH: "Human Design", KeyG: "Gene Keys", KeyY: "Astrocartography" };
+const SHORTCUT_SYSTEMS = { KeyA: "Astrology", KeyH: "Human Design", KeyG: "Gene Keys", KeyY: "Astrocartography", KeyE: "Life Events" };
 const SHORTCUT_VIEWS = { KeyL: "library", KeyI: "explorer", KeyP: "pair", KeyT: "timeline", KeyC: "cycle" };
 const SHORTCUT_HD_FILTERS = { p: "Personality", d: "Design", x: "Incarnation Cross" };
 
@@ -46,7 +47,9 @@ document.addEventListener("keydown", (event) => {
     const system = SHORTCUT_SYSTEMS[event.code];
     if (system) {
       event.preventDefault();
-      shortcutPress(`[data-explorer-system="${system}"], [data-pair-system="${system}"], [data-cycle-system="${system}"], [data-library-system="${system}"]`);
+      const pressed = shortcutPress(`[data-explorer-system="${system}"], [data-pair-system="${system}"], [data-cycle-system="${system}"], [data-library-system="${system}"]`);
+      const timeline = !pressed && system === "Life Events" && shortcutTarget("#cycleLifeTimeline");
+      if (timeline) timeline.open = !timeline.open;
       return;
     }
     const view = SHORTCUT_VIEWS[event.code];

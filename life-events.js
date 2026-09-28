@@ -258,7 +258,7 @@ function renderLifeEventsPanel(container, chart) {
   container.innerHTML = `
     <div class="life-events">
       <div class="life-toolbar">
-        <div class="segmented" data-life-show>${[["all", "All"], ["events", "Events"], ["places", "Places"]].map(([key, label]) => `<button type="button" data-value="${key}" class="${lifeEventsFilter.show === key ? "active" : ""}">${label}</button>`).join("")}</div>
+        <div class="segmented" data-life-show>${[["all", "All"], ["events", "Events"], ["places", "Places"], ["tags", "By tag"]].map(([key, label]) => `<button type="button" data-value="${key}" class="${lifeEventsFilter.show === key ? "active" : ""}">${label}</button>`).join("")}</div>
         <input type="search" class="life-search" data-life-query placeholder="Search titles, places, people, tags, notes…" aria-label="Search life events" value="${escapeHtml(lifeEventsFilter.query)}">
         <select class="life-tag-filter" data-life-tag aria-label="Filter by tag"></select>
         <span class="life-toolbar-actions">
@@ -273,6 +273,13 @@ function renderLifeEventsPanel(container, chart) {
     const stored = chartLifeEvents(chart);
     const events = chartRecordsWithBirth(chart).sort(lifeEventOrder);
     const tags = [...new Set(events.flatMap((event) => event.tags))].sort();
+    const byTag = lifeEventsFilter.show === "tags";
+    container.querySelector("[data-life-query]").hidden = byTag;
+    container.querySelector("[data-life-tag]").hidden = byTag;
+    if (byTag) {
+      drawTags(events);
+      return;
+    }
     if (lifeEventsFilter.tag && !tags.includes(lifeEventsFilter.tag)) lifeEventsFilter.tag = "";
     container.querySelector("[data-life-tag]").innerHTML = `<option value="">All tags</option>${tags.map((tag) => `<option value="${escapeHtml(tag)}" ${tag === lifeEventsFilter.tag ? "selected" : ""}>${escapeHtml(tag)}</option>`).join("")}`;
     const query = lifeEventsFilter.query.trim().toLowerCase();
@@ -290,6 +297,33 @@ function renderLifeEventsPanel(container, chart) {
     list.innerHTML = (shown.length ? shown.map((event) => lifeEventItemMarkup(event, chart)).join("") : `<li class="life-empty">No records match.</li>`)
       + (stored.length ? "" : `<li class="life-empty">No other life events yet. Add moments, periods and places that matter — alone or shared with other charts in this workspace — to study them against the charts. Places saved on the Astrocartography map appear here too.</li>`);
   };
+  // By tag: the tags as chips; for the chosen one, what recurs across its dated moments,
+  // then each moment with its tight transits (life-patterns.js).
+  const drawTags = (events) => {
+    const counts = lifeTagCounts(events);
+    if (lifeEventsFilter.tag && !counts.some(([tag]) => tag === lifeEventsFilter.tag)) lifeEventsFilter.tag = "";
+    const tag = lifeEventsFilter.tag;
+    const tagged = events.filter((event) => event.tags.includes(tag));
+    container.querySelector("[data-life-count]").textContent = counts.length ? `${counts.length} tag${counts.length === 1 ? "" : "s"}` : "";
+    const chips = counts.length
+      ? `<li class="life-tag-chips">${counts.map(([name, n]) => `<button type="button" class="life-tag-chip${name === tag ? " active" : ""}" data-life-tag-pick="${escapeHtml(name)}" aria-pressed="${name === tag}">${escapeHtml(name)} <small>${n}</small></button>`).join("")}</li>`
+      : `<li class="life-empty">No record has a tag yet. Tag life events (and annotated cycles or Birth) — career, love, move… — to see what the moments with the same tag have in common.</li>`;
+    if (!tag) {
+      list.innerHTML = chips + (counts.length ? `<li class="life-empty">Choose a tag to see its moments side by side, and the transits that recur among them.</li>` : "");
+      return;
+    }
+    list.innerHTML = `${chips}
+      <li class="life-pattern-panel">
+        <div class="system-toolbar"><span class="eyebrow">RECURRING TRANSITS · ${escapeHtml(tag.toUpperCase())}</span>${lifePatternControlsMarkup()}</div>
+        ${lifeTagPatternsMarkup(chart, tagged, tag)}
+        <p class="cycle-summary-foot">${LIFE_PATTERN_FOOT}</p>
+      </li>
+      ${tagged.map((event) => `<li class="life-tag-moment" data-life-id="${escapeHtml(event.id)}">
+        <div class="life-when">${event.start ? `<strong>${lifeWhenLabel(event)}</strong>` : "<strong>Place</strong><small>No date</small>"}</div>
+        <div class="life-main"><div class="life-title"><strong>${escapeHtml(lifeEventTitle(event))}</strong></div><div class="life-transits">${lifeMomentTransitsMarkup(chart, event)}</div></div>
+        <div class="life-actions">${event.start ? `<button type="button" class="acg-origin-button" data-life-open title="Study this moment in the Cycle Explorer">↻ Cycle Explorer</button>` : ""}<button type="button" class="acg-origin-button" data-life-edit>Edit</button></div>
+      </li>`).join("")}`;
+  };
   container.querySelector("[data-life-show]").addEventListener("click", (event) => {
     const button = event.target.closest("[data-value]");
     if (!button) return;
@@ -302,11 +336,24 @@ function renderLifeEventsPanel(container, chart) {
   container.querySelectorAll("[data-life-add]").forEach((button) =>
     button.addEventListener("click", () => openLifeEventDialog(chart, null, { onSave: draw })),
   );
+  list.addEventListener("change", (event) => {
+    if (!event.target.matches("[data-life-pattern-fast]")) return;
+    lifePatternOptions.includeFast = event.target.checked;
+    draw();
+  });
   list.addEventListener("click", (event) => {
+    const pick = event.target.closest("[data-life-tag-pick]");
+    if (pick) {
+      lifeEventsFilter.tag = pick.dataset.lifeTagPick === lifeEventsFilter.tag ? "" : pick.dataset.lifeTagPick;
+      draw();
+      return;
+    }
     const edit = event.target.closest("[data-life-edit]");
     const remove = event.target.closest("[data-life-delete]");
-    const record = chartRecordsWithBirth(chart).find((item) => item.id === (edit || remove)?.closest("[data-life-id]")?.dataset.lifeId);
+    const open = event.target.closest("[data-life-open]");
+    const record = chartRecordsWithBirth(chart).find((item) => item.id === (edit || remove || open)?.closest("[data-life-id]")?.dataset.lifeId);
     if (!record) return;
+    if (open) openInCycleExplorer(chart, record);
     if (edit) openLifeEventDialog(chart, record, { onSave: draw });
     if (remove && confirmDeleteRecord(chart, record)) draw();
   });

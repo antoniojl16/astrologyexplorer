@@ -182,6 +182,7 @@ function renderCycleLifeTimeline() {
   box.querySelector('[data-cycle-life-count]').textContent = `${events} life event${events === 1 ? '' : 's'} · ${all.length - events - 1} cycle moments`;
   box.querySelector('[data-cycle-life-filters]').innerHTML = [['events', 'Life events'], ['cycles', 'Cycles']].map(([key, label]) =>
     `<label class="acg-filter"><input type="checkbox" data-cycle-life-show="${key}" ${cycleLifeShow[key] ? 'checked' : ''}><span>${label}</span></label>`).join('');
+  renderCycleLifeStrip(box.querySelector('[data-cycle-life-strip]'), chart, all.filter(entry => entries.includes(entry)));
   const now = Date.now();
   const age = date => ((date - chartBirthMomentUTC(chart)) / 60000 / CYCLE_YEAR_MINUTES);
   const button = (label, attributes, current) => `<button type="button" class="acg-origin-button${current ? ' current' : ''}" ${attributes} ${current ? 'aria-current="true"' : ''}>${label}</button>`;
@@ -212,6 +213,52 @@ function renderCycleLifeTimeline() {
     const manage = `<button type="button" class="acg-origin-button" data-cycle-life-edit="${id}" aria-label="Edit ${title}">Edit</button>`;
     return `${marker}<li class="cycle-life-item event${at('start') || at('end') ? ' current' : ''}">${when}<span class="cycle-life-title">${title}${period}</span><span class="cycle-life-buttons">${buttons}${manage}</span></li>`;
   }).join('') + (nowShown ? '' : '<li class="cycle-life-now"><span>Today</span></li>');
+}
+// The Life Timeline at a glance: a strip from birth to a little past today (or the
+// last event), by age — cycles as ticks on top, periods as bars, moments as dots, with
+// lines for today and the studied moment. Each mark studies its moment when clicked
+// (a period: its start). Follows the Life events / Cycles checkboxes.
+const CYCLE_STRIP_COLORS = { 'saturn-return': '#8a6d3b', 'jupiter-return': '#c07a2c', 'chiron-return': '#5f8a3a', 'uranus-opposition': '#3a86b5', 'uranus-return': '#1f5f8b', 'nodal-return': '#8a63b8' };
+function renderCycleLifeStrip(strip, chart, entries) {
+  if (!strip) return;
+  const birth = chartBirthMomentUTC(chart).getTime();
+  const ageOf = date => (date.getTime() - birth) / 60000 / CYCLE_YEAR_MINUTES;
+  const endOf = event => event.end ? lifeMomentRange(event, 'end', chart).mid : null;
+  const events = entries.filter(entry => entry.type === 'event');
+  const last = Math.max(ageOf(new Date()), ...events.map(entry => ageOf(endOf(entry.event) || entry.date)));
+  const span = Math.min(CYCLE_MAX_AGE_YEARS, Math.max(10, Math.ceil((last + 3) / 10) * 10));
+  const left = age => `${(Math.max(0, Math.min(span, age)) / span * 100).toFixed(2)}%`;
+  const label = (title, date) => escapeHtml(`${title} · ${lifeDateLabel(date.toISOString().slice(0, 10))} · age ${Math.max(0, ageOf(date)).toFixed(1)}`);
+  const context = cycleContext();
+  const studied = context && ((context.birth && 'birth') || (context.event && `${context.event.id}|${context.part}`) || (!cycleEventAnchor && `${activeCycleKey}|${activeOccurrenceIndex}`));
+  // Periods on as many rows as they need not to overlap.
+  const rows = [];
+  const bars = events.filter(entry => entry.event.end).map(entry => {
+    const from = ageOf(entry.date), to = Math.max(from, ageOf(endOf(entry.event)));
+    let row = rows.findIndex(end => end < from);
+    if (row < 0) row = rows.push(0) - 1;
+    rows[row] = to;
+    const current = studied === `${entry.event.id}|start` || studied === `${entry.event.id}|end`;
+    return `<button type="button" class="life-strip-bar${current ? ' current' : ''}" style="left:${left(from)};width:max(6px, calc(${left(to)} - ${left(from)}));top:${row * 9}px" data-cycle-go-event="${escapeHtml(entry.event.id)}" data-cycle-go-part="start" title="${label(`${lifeEventTitle(entry.event)} (${lifeWhenLabel(entry.event)})`, entry.date)}"></button>`;
+  }).join('');
+  const dots = entries.filter(entry => entry.type === 'birth' || (entry.type === 'event' && !entry.event.end)).map(entry => entry.type === 'birth'
+    ? `<button type="button" class="life-strip-dot birth${studied === 'birth' ? ' current' : ''}" style="left:${left(0)}" data-cycle-go-birth title="${label('Birth', entry.date)}"></button>`
+    : `<button type="button" class="life-strip-dot${studied === `${entry.event.id}|start` ? ' current' : ''}" style="left:${left(ageOf(entry.date))}" data-cycle-go-event="${escapeHtml(entry.event.id)}" data-cycle-go-part="start" title="${label(lifeEventTitle(entry.event), entry.date)}"></button>`).join('');
+  const ticks = entries.filter(entry => entry.type === 'cycle' && ageOf(entry.date) <= span).map(entry =>
+    `<button type="button" class="life-strip-tick${studied === `${entry.cycleDef.key}|${entry.index}` ? ' current' : ''}" style="left:${left(ageOf(entry.date))};--tick:${CYCLE_STRIP_COLORS[entry.cycleDef.key] || 'var(--accent)'}" data-cycle-go-cycle="${entry.cycleDef.key}" data-cycle-go-index="${entry.index}" title="${label(entry.cycleDef.label, entry.date)}"></button>`).join('');
+  const step = span <= 30 ? 5 : 10;
+  const axis = Array.from({ length: Math.floor(span / step) + 1 }, (_, index) => index * step).map(age =>
+    `<span style="left:${left(age)}">${age}<small>${new Date(birth + age * CYCLE_YEAR_MINUTES * 60000).getUTCFullYear()}</small></span>`).join('');
+  const marker = (age, className, text) => age >= 0 && age <= span ? `<span class="${className}" style="left:${left(age)}" title="${text}"></span>` : '';
+  strip.innerHTML = `<div class="life-strip" style="--period-rows:${Math.max(1, rows.length)}" aria-label="Life timeline by age">
+    ${marker(ageOf(new Date()), 'life-strip-now', 'Today')}
+    ${context ? marker(context.anchorOffset / CYCLE_YEAR_MINUTES, 'life-strip-studied', 'The moment studied') : ''}
+    <div class="life-strip-lane ticks">${ticks}</div>
+    <div class="life-strip-lane bars">${bars}</div>
+    <div class="life-strip-lane dots">${dots}</div>
+    <div class="life-strip-axis">${axis}</div>
+  </div>
+  <div class="life-strip-legend">${CYCLE_DEFINITIONS.map(def => `<span><i style="background:${CYCLE_STRIP_COLORS[def.key]}"></i>${def.label}</span>`).join('')}<span><i class="bar"></i>Period</span><span><i class="dot"></i>Event</span></div>`;
 }
 // What an annotation adds, in one short line: the place, people, tags and whether it has notes.
 function cycleAnnotationMarkup(annotation, chart) {
@@ -250,7 +297,7 @@ function initCycleLifeTimeline() {
   box.querySelector('[data-cycle-life-add]').addEventListener('click', () => {
     if (chart()) openLifeEventDialog(chart(), null, { onSave: refreshCycleRecords });
   });
-  box.querySelector('[data-cycle-life-list]').addEventListener('click', event => {
+  const onLifeClick = event => {
     const target = event.target.closest('button');
     if (!target) return;
     // (Deleting is in the dialog, behind Edit.)
@@ -282,7 +329,9 @@ function initCycleLifeTimeline() {
       cycleEventAnchor = { eventId: target.dataset.cycleGoEvent, part: target.dataset.cycleGoPart };
       refreshCycleMoment();
     }
-  });
+  };
+  box.querySelector('[data-cycle-life-list]').addEventListener('click', onLifeClick);
+  box.querySelector('[data-cycle-life-strip]').addEventListener('click', onLifeClick);
 }
 
 // Top and center, above the system tabs, shared by every system tab: the studied

@@ -717,6 +717,8 @@ function renderRows() {
       if (event.target.type === 'checkbox') return;
       // Edit opens the chart's edit dialog (where it can also be deleted), not the chart.
       if (event.target.closest('[data-library-edit]')) { editChart(chartById(row.dataset.id)); return; }
+      // The event count links to the chart's Life Events tab (the router follows it).
+      if (event.target.closest('.library-events')) return;
       // The chart name is a real link (keyboard focus, open in a new tab); a plain
       // click on it opens the chart here like a click anywhere else on the row.
       if (event.target.closest('a') && (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)) return;

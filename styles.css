@@ -318,3 +318,56 @@ body:not(.developer-mode) #ephemerisDebugBar,body:not(.developer-mode) #mandalaH
 @media(max-width:1100px){.cycle-summary-grid{grid-template-columns:1fr}}
 .life-dialog [hidden]{display:none!important}
 .life-dialog input:disabled,.life-dialog select:disabled{opacity:.6;cursor:not-allowed;background:var(--paper-deep)}
+/* Life Timeline strip (Cycle Explorer) */
+.cycle-life-strip{padding:6px 18px 10px}
+.life-strip{position:relative;padding:0 0 22px;margin:0 6px}
+.life-strip-lane{position:relative}
+.life-strip-lane.ticks{height:16px}.life-strip-lane.bars{height:calc(var(--period-rows) * 9px);margin:4px 0}.life-strip-lane.dots{height:12px;border-bottom:1px solid var(--line)}
+.life-strip button{position:absolute;padding:0;border:0;transform:translateX(-50%)}
+.life-strip-tick{top:0;width:4px;height:16px;border-radius:1px;background:var(--tick)}
+.life-strip-bar{transform:none!important;height:6px;border-radius:3px;background:var(--blue);opacity:.75}
+.life-strip-dot{top:1px;width:10px;height:10px;border-radius:50%;background:var(--panel)!important;border:2px solid var(--accent)!important}
+.life-strip-dot.birth{background:var(--accent)!important;transform:none!important}
+.life-strip button:hover,.life-strip button:focus-visible{outline:2px solid var(--ink);outline-offset:1px;z-index:2}
+.life-strip button.current{outline:2px solid var(--accent);outline-offset:2px;opacity:1;z-index:2}
+.life-strip-now,.life-strip-studied{position:absolute;top:-2px;bottom:18px;width:0;border-left:1px dashed var(--muted);z-index:1;pointer-events:none}
+.life-strip-studied{border-left:2px solid var(--accent)}
+.life-strip-axis{position:absolute;left:0;right:0;bottom:0;height:18px;font:9px 'DM Mono',monospace;color:var(--muted)}
+.life-strip-axis span{position:absolute;top:3px;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;line-height:1.1}
+.life-strip-axis span:first-child{transform:none;align-items:flex-start}.life-strip-axis span:last-child{transform:translateX(-100%);align-items:flex-end}
+.life-strip-axis small{font-size:8px;opacity:.75}
+.life-strip-legend{display:flex;flex-wrap:wrap;gap:4px 14px;margin:8px 6px 0;font:9px 'DM Mono',monospace;color:var(--muted)}
+.life-strip-legend i{display:inline-block;width:4px;height:10px;margin-right:5px;vertical-align:-1px;border-radius:1px}
+.life-strip-legend i.bar{width:14px;height:6px;border-radius:3px;background:var(--blue);opacity:.75;vertical-align:1px}
+.life-strip-legend i.dot{width:8px;height:8px;border-radius:50%;border:2px solid var(--accent);box-sizing:border-box}
+/* Browsing by tag (Life Events tabs) */
+.life-tag-chips{display:flex;flex-wrap:wrap;gap:6px;padding:14px 0;border-top:1px solid var(--line)}
+.life-tag-chip{border:1px solid var(--line);background:var(--paper);color:var(--ink);font:10px 'DM Mono',monospace;padding:5px 9px;border-radius:12px}
+.life-tag-chip small{color:var(--muted);margin-left:3px}
+.life-tag-chip.active{background:var(--accent-soft);border-color:var(--accent);color:#8f4a38}
+.life-pattern-panel{border:1px solid var(--line);background:var(--paper);padding:12px 14px;margin:0 0 12px}
+.life-pattern-panel .system-toolbar,.pair-life-patterns .system-toolbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:8px}
+.life-pattern-panel .system-toolbar .acg-filter,.pair-life-patterns .system-toolbar .acg-filter{margin-left:auto}
+.life-pattern-list{list-style:none;margin:0;padding:0}
+.life-pattern-list li{padding:9px 0;border-top:1px solid var(--line)}
+.life-pattern-row{display:flex;justify-content:space-between;gap:10px;font-size:12px}
+.life-pattern-row strong{font:500 11px 'DM Mono',monospace;color:var(--accent)}
+.life-pattern-list p{margin:4px 0;font-size:12px;line-height:1.5}
+.life-pattern-list small{font:9px 'DM Mono',monospace;color:var(--muted)}
+.life-pattern-empty{font-size:12px;color:var(--muted);margin:4px 0}
+.life-tag-moment{display:grid;grid-template-columns:150px 1fr auto;gap:18px;border-top:1px solid var(--line);padding:12px 0;align-items:center}
+.life-transits{display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin-top:5px}
+.life-transit{display:inline-flex;gap:3px;align-items:center;padding:2px 6px;border:1px solid var(--line);border-radius:2px;background:var(--panel);font:10px 'DM Mono',monospace;color:var(--muted)}
+.life-transit b{font-weight:400;color:var(--ink);font-size:12px}
+.life-transit-note{font:9px 'DM Mono',monospace;color:var(--muted)}
+.life-transit-who{font:9px 'DM Mono',monospace;color:var(--muted);margin-right:2px}
+.pair-life-patterns{padding:14px 18px;border-bottom:1px solid var(--line);background:var(--paper)}
+.pair-life-pattern-columns{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+.pair-life-pattern-columns .legend-dot{background:var(--pair-color)}
+.pair-life-shared .life-transits{justify-content:center}
+@media(max-width:1100px){.life-tag-moment{grid-template-columns:1fr}.pair-life-pattern-columns{grid-template-columns:1fr}}
+.life-pattern-panel .system-toolbar,.pair-life-patterns .system-toolbar{justify-content:flex-start;padding:0 0 8px;border-bottom:0}
+body.dark .life-tag-chip.active{color:var(--ink)}
+.pair-life-toolbar [hidden]{display:none!important}
+.life-pattern-left{font:9px "DM Mono",monospace;color:var(--muted);margin:0 0 6px}
+.library-events{display:inline-block;margin-top:4px;font:9px "DM Mono",monospace;color:var(--accent);text-decoration:none}.library-events:hover{text-decoration:underline}
