@@ -212,7 +212,8 @@ function renderCalculatedAspects(offsetMinutes = window.timelineOffsetMinutes ||
   const chart = currentExplorerChart();
   const list = document.getElementById('aspectList');
   if (!chart || !list) return;
-  const transientChart = {...chart, positions: chart.positions.filter(position => bodyShownAt(position, offsetMinutes)).map(position => {
+  // Only the bodies the wheel shows (the planet filters), as in every astrology view.
+  const transientChart = {...chart, positions: chart.positions.filter(position => wheelBodyVisible(position.name) && bodyShownAt(position, offsetMinutes)).map(position => {
     return {...position, angle: positionAngleAtTime(position, offsetMinutes)};
   })};
   const aspects = calculateAspects(transientChart).filter(aspectIntensityShown);
