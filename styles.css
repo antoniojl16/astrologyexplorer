@@ -416,3 +416,12 @@ body.dark .life-tag-chip.active{color:var(--ink)}
 .timeline-zoom .timeline-center{font:10px 'DM Mono',monospace!important;height:22px}
 .pos-note{margin:6px 0 0;font:9px 'DM Mono',monospace;color:var(--muted);line-height:1.4}
 .timeline-goto{display:inline-flex;flex-wrap:wrap;align-items:center;gap:4px;font:11px 'DM Mono',monospace;color:var(--ink);border:0;padding:0;background:none}.timeline-goto input,.timeline-goto select{font:11px 'DM Mono',monospace;color:var(--ink);background:var(--paper);border:1px solid var(--line);padding:2px 4px}.timeline-goto input[data-goto="year"]{width:62px}.timeline-goto input[data-goto="day"]{width:44px}.timeline-goto button{font:10px 'DM Mono',monospace;border:1px solid var(--accent);background:var(--paper);color:var(--accent);padding:2px 8px}.timeline-goto small{flex-basis:100%;color:var(--muted);font-size:9px}
+
+/* CSV import review */
+.csv-import-dialog{width:min(1120px,calc(100% - 40px))}.csv-import-table-wrap{max-height:60vh;overflow:auto;margin-top:14px;border:1px solid var(--line)}
+.csv-import-table{font-size:11px}.csv-import-table th{position:sticky;top:0;background:var(--panel);z-index:1}.csv-import-table td{padding:8px 10px;vertical-align:top}
+.csv-import-table tr.skipped td{color:var(--muted)}.csv-import-table tr.differs .csv-offset{background:color-mix(in srgb,var(--gold) 14%,transparent)}
+.csv-born{font-family:'DM Mono',monospace;white-space:nowrap}.csv-place{min-width:220px}.csv-place>span:first-child{display:block}
+.csv-place-find{display:block;position:relative;margin-top:4px}.csv-place-find input{width:100%;font:10px 'DM Mono',monospace;border:1px solid var(--line);background:var(--paper);color:var(--ink);padding:3px 6px}.csv-place-find .place-results{position:absolute;left:0;right:0;z-index:5;min-width:280px}
+.csv-offset{font-family:'DM Mono',monospace;white-space:nowrap}.csv-offset small{color:var(--muted);font-size:9px}.csv-choice{display:flex;align-items:center;gap:5px;cursor:pointer}.csv-choice input{accent-color:var(--accent);margin:0}
+.csv-note{color:var(--accent);font-size:10px;max-width:220px}

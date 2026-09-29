@@ -48,6 +48,9 @@ and **Import workspace** to bring charts and events back.
   Life Timeline in one click. Each moment's angles and houses are cast for its own place
   (an event's) or any other; Human Design and Gene Keys read it as a transit or a full chart.
 - Birth-location search over ~70,000 places worldwide, filling in coordinates and time zone.
+- Import workspace also reads charts from a CSV (Name, Date, Time, Timezone, City, Country), as
+  other Human Design apps export them: each is placed and reviewed before import, with the
+  birthplace's historical UTC offset by default, and tagged "imported".
 - Direct links for every view (`#/chart/<name>/<system>/<view>`), keyboard shortcuts
   (press `?`), light and dark themes.
 

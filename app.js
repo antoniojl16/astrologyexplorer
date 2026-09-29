@@ -1031,6 +1031,13 @@ function importWorkspace(event) {
   const file = event.target.files[0];
   if (!file) return;
   const reader = new FileReader();
+  // A CSV of charts from another app goes to its review table (csv-import.js).
+  if (/\.csv$/i.test(file.name) || file.type === 'text/csv') {
+    reader.onload = () => openCsvImport(String(reader.result));
+    reader.readAsText(file);
+    event.target.value = '';
+    return;
+  }
   reader.onload = () => {
     try {
       const imported = JSON.parse(reader.result);
