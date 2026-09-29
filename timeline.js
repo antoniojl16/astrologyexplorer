@@ -26,13 +26,6 @@ let zodiacMode = 'Tropical';
 let astroWheelFixedToAries = false;
 const LAHIRI_AYANAMSHA = 24;
 
-function exactChartTime(chart, offsetMinutes) {
-  const base = new Date(`${chart.birthDate}T${chart.birthTime || '12:00'}:00`);
-  base.setMinutes(base.getMinutes() + offsetMinutes);
-  return new Intl.DateTimeFormat('en-US', {
-    year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short'
-  }).format(base);
-}
 
 function positionBaseAngle(position) {
   const tropicalAngle = SIGNS.indexOf(position.sign) * 30 + Number(position.degree || 0);
@@ -54,6 +47,14 @@ function syntheticAngleAtTime(position, offsetMinutes) {
 // Single dispatch point for "where is this body right now": tries the real
 // ephemeris (ephemeris.js) first, and falls back to the synthetic
 // approximation for anything it doesn't cover (see EPHEMERIS_ENGINE).
+// Chiron can only be traced for 1000–2999 (its orbit is chaotic; the ephemeris's states
+// start in 1800): outside those years it's left off the wheels, aspects and maps.
+const CHIRON_FIRST_YEAR = 1000, CHIRON_LAST_YEAR = 2999;
+function bodyShownAt(position, offsetMinutes = 0) {
+  if (position.name !== 'Chiron' || position.fixedAngle != null || !position.birthMoment) return true;
+  const year = new Date(Date.parse(position.birthMoment) + offsetMinutes * 60000).getUTCFullYear();
+  return year >= CHIRON_FIRST_YEAR && year <= CHIRON_LAST_YEAR;
+}
 function positionAngleAtTime(position, offsetMinutes) {
   // A composite midpoint (pair-composite.js) stays where it is.
   if (position.fixedAngle != null) return position.fixedAngle;
@@ -101,14 +102,23 @@ function formatTimelineSpan(minutes) {
 }
 
 // ── Shared timeline slider widget ───────────────────────────────────────
-// Every timeline slider in the app (the Astrology wheel, the Human Design
-// bodygraph and mandala, and the Gene Keys spheres) is built from this same
-// markup and wired up with this same behavior: zoom (buttons or mouse wheel),
-// and double-click to snap back to the origin moment (birth time for a real
-// chart, or the current moment in the Timeline Explorer).
-// Tick spacing units, largest to smallest (mirrors formatTimelineSpan's own unit
-// ladder so a tick's spacing and the zoom-span label always agree), each with the
-// short suffix its ticks get labeled with (e.g. "3h", "2w", "1y").
+// Every timeline slider in the app (the Astrology wheels, the Human Design bodygraph
+// and mandala, the Gene Keys spheres, the maps, the Cycle Explorer) is built from this
+// markup and wired up by bindTimelineSlider. It shows a window of time that moves:
+//   ‹ › shift it by half its width; dragging the thumb against an end keeps scrolling;
+//   a trackpad (or Shift + wheel) scrolls through time; the wheel, Ctrl + wheel and
+//   − / ＋ zoom around the thumb; arrow keys step (and carry the window along);
+//   clicking the date readout lets you type a date and go straight there.
+// Its values stay minutes from the view's origin (birth, now, the cycle moment…),
+// which is marked on the track (or, out of view, at the side it's on, with how far),
+// and "Back to …" (or double-click, or the 0 shortcut) returns to it. The ticks are
+// real dates on the view's clock, labelled with only what changes at that scale.
+// The whole range runs from 3000 BC to AD 5000. Dates before 15 October 1582 are in
+// the Julian calendar, as historians and astronomers give them; years as "44 BC" /
+// "AD 800" / "1066". (Far from today the Moon's exact place and the time of day, and
+// with them the angles and houses, grow uncertain: the Earth's rotation, ΔT, is only
+// estimated back then. The planets stay sound.)
+// Arrow-key step units, largest to smallest (see timelineKeySteps).
 const TIMELINE_TICK_UNIT_DEFS = [
   {size: 525600, suffix: 'y'},
   {size: 43200, suffix: 'mo'},
@@ -117,48 +127,14 @@ const TIMELINE_TICK_UNIT_DEFS = [
   {size: 60, suffix: 'h'},
   {size: 1, suffix: 'm'},
 ];
-// Ticks (not counting the 2 end ticks, which are unlabeled edge markers) are
-// capped at this count — past it, native <datalist> ticks or dense text labels
-// stop being readable, so spacing widens (multiples of the chosen unit) instead.
-const TIMELINE_MAX_INNER_TICKS = 20;
-// Picks the largest unit (year down to minute) that places at least 4 inner ticks
-// across [-spanMinutes, spanMinutes], then widens the spacing (2x, 3x, ... of that
-// unit) only as far as needed to stay at or under TIMELINE_MAX_INNER_TICKS. Returns
-// {value, label, end} — end marks the two slider extremes (unlabeled unless they
-// happen to also land on a regular tick), value is in minutes, label is empty for
-// the center tick (already covered by the origin label above the slider).
 function timelineTickUnit(spanMinutes) {
   return TIMELINE_TICK_UNIT_DEFS.find(def => Math.floor(spanMinutes / def.size) * 2 + 1 >= 4)
     || TIMELINE_TICK_UNIT_DEFS[TIMELINE_TICK_UNIT_DEFS.length - 1];
 }
-function timelineTicks(spanMinutes) {
-  const unit = timelineTickUnit(spanMinutes);
-  let multiplier = 1;
-  while (Math.floor(spanMinutes / (unit.size * multiplier)) * 2 + 1 > TIMELINE_MAX_INNER_TICKS) multiplier += 1;
-  const step = unit.size * multiplier;
-  const byValue = new Map();
-  const addTick = (value, label) => {
-    const existing = byValue.get(value);
-    byValue.set(value, {
-      value,
-      label: label || existing?.label || '',
-      end: existing?.end || Math.abs(value) === spanMinutes,
-    });
-  };
-  for (let value = 0; value <= spanMinutes; value += step) {
-    const label = value === 0 ? '' : `${Math.round(value / unit.size)}${unit.suffix}`;
-    addTick(value, label);
-    if (value !== 0) addTick(-value, label);
-  }
-  addTick(spanMinutes, '');
-  addTick(-spanMinutes, '');
-  return Array.from(byValue.values()).sort((a, b) => a.value - b.value);
-}
-// Arrow-key steps (minutes) for a slider running from -spanMinutes to +spanMinutes.
-// Up to 200 years long: Shift+arrow moves one of the tick labels' unit, a plain arrow
-// one of the next smaller unit (year → month → week → day → hour → minute). Longer
-// than that, by powers of ten years: up to 2,000 years 10 y / 1 y, up to 20,000 years
-// 100 y / 10 y, and so on.
+// Arrow-key steps (minutes) for a window 2 × spanMinutes wide. Up to 200 years:
+// Shift+arrow moves one unit (year, month, week, day, hour, minute) that fits the
+// window about four times, a plain arrow one of the next smaller unit. Longer than
+// that, by powers of ten years.
 const TIMELINE_YEAR_MINUTES = 525600;
 function timelineKeySteps(spanMinutes) {
   const years = (2 * spanMinutes) / TIMELINE_YEAR_MINUTES;
@@ -169,16 +145,191 @@ function timelineKeySteps(spanMinutes) {
   const index = TIMELINE_TICK_UNIT_DEFS.indexOf(timelineTickUnit(spanMinutes));
   return { large: TIMELINE_TICK_UNIT_DEFS[index].size, small: TIMELINE_TICK_UNIT_DEFS[Math.min(index + 1, TIMELINE_TICK_UNIT_DEFS.length - 1)].size };
 }
-function timelineTicksMarkup(spanMinutes) {
-  return timelineTicks(spanMinutes)
-    .map(tick => {
-      const percent = ((tick.value + spanMinutes) / (2 * spanMinutes)) * 100;
-      return `<span class="timeline-tick${tick.end ? ' end' : ''}" style="left:${percent}%"><i></i><b>${tick.label}</b></span>`;
-    })
-    .join('');
+
+// ── The slider's clock ──
+// Wall-clock time on `zone` (the device's when empty), as a "UTC" millisecond count
+// whose getUTC* parts read that clock. `correction` (ms) shifts it for a chart whose
+// birth time the app converts differently from the browser (historical zones, local
+// mean time), so the birth moment reads exactly as entered.
+const TIMELINE_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const TIMELINE_WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const TIMELINE_MAX_UTC = (() => { const date = new Date(0); date.setUTCFullYear(5000, 11, 31); return date.getTime() + 86340000; })();
+// ── Calendar: Julian before 15 October 1582 (Julian day 2299161), Gregorian from then ──
+// A wall time's parts (month 0–11, astronomical year: 0 = 1 BC), and back.
+const TIMELINE_GREGORIAN_START = 2299161;
+function timelineDateParts(wall) {
+  const dayMs = 86400000;
+  const days = Math.floor(wall / dayMs), time = wall - days * dayMs;
+  const jdn = days + 2440588;
+  const hours = Math.floor(time / 3600000), minutes = Math.floor((time % 3600000) / 60000);
+  const weekday = ((jdn + 1) % 7 + 7) % 7;
+  if (jdn >= TIMELINE_GREGORIAN_START) {
+    const date = new Date(days * dayMs);
+    return { year: date.getUTCFullYear(), month: date.getUTCMonth(), day: date.getUTCDate(), hours, minutes, weekday, julian: false };
+  }
+  const c = jdn + 32082, d = Math.floor((4 * c + 3) / 1461), e = c - Math.floor(1461 * d / 4), m = Math.floor((5 * e + 2) / 153);
+  return { year: d - 4800 + Math.floor(m / 10), month: m + 2 - 12 * Math.floor(m / 10), day: e - Math.floor((153 * m + 2) / 5) + 1, hours, minutes, weekday, julian: true };
 }
+function timelineWallFromParts(year, month, day, hours = 0, minutes = 0) {
+  const a = Math.floor((13 - month) / 12), y = year + 4800 - a, m = month + 1 + 12 * a - 3;
+  let jdn = day + Math.floor((153 * m + 2) / 5) + 365 * y + Math.floor(y / 4) - 32083;
+  if (jdn >= TIMELINE_GREGORIAN_START) {
+    const date = new Date(0);
+    date.setUTCFullYear(year, month, day);
+    jdn = Math.floor(date.getTime() / 86400000) + 2440588;
+  }
+  return (jdn - 2440588) * 86400000 + (hours * 60 + minutes) * 60000;
+}
+// The range's ends: 1 January 3000 BC (Julian, with half a day's margin for time zones)
+// and 31 December AD 5000.
+const TIMELINE_MIN_UTC = timelineWallFromParts(-2999, 0, 1) + 43200000;
+function timelineYearLabel(year) {
+  return year <= 0 ? `${1 - year} BC` : year < 1000 ? `AD ${year}` : String(year);
+}
+const timelineZoneFormats = new Map();
+// Before 1800 every zone keeps its earliest offset (local mean time), which also keeps
+// the browser's calendar out of it.
+const TIMELINE_ZONE_FLOOR = Date.UTC(1800, 0, 1);
+function timelineZoneOffset(utc, zone) {
+  if (utc < TIMELINE_ZONE_FLOOR) return timelineZoneOffset(TIMELINE_ZONE_FLOOR, zone);
+  const key = zone || '';
+  if (!timelineZoneFormats.has(key)) {
+    let format;
+    try { format = new Intl.DateTimeFormat('en-US', { ...(zone ? { timeZone: zone } : {}), hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric', era: 'short' }); }
+    catch { format = new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric', era: 'short' }); }
+    timelineZoneFormats.set(key, format);
+  }
+  const parts = Object.fromEntries(timelineZoneFormats.get(key).formatToParts(new Date(utc)).map(part => [part.type, part.value]));
+  const year = parts.era === 'BC' ? 1 - Number(parts.year) : Number(parts.year);
+  const wall = new Date(0);
+  wall.setUTCFullYear(year, Number(parts.month) - 1, Number(parts.day));
+  wall.setUTCHours(Number(parts.hour) % 24, Number(parts.minute), Number(parts.second), 0);
+  return wall.getTime() - (utc - (utc % 1000 + 1000) % 1000);
+}
+function timelineClock(zone = '', correction = 0) {
+  const offset = utc => timelineZoneOffset(utc, zone) + correction;
+  return {
+    zone, correction,
+    wall: utc => utc + offset(utc),
+    utc: wall => { const guess = wall - offset(wall); return wall - offset(guess); },
+  };
+}
+// The clock of a chart's own time zone, set so its birth reads as entered.
+function chartTimelineClock(chart) {
+  if (!chart) return timelineClock();
+  const birth = chartBirthMomentUTC(chart).getTime();
+  const [year, month, day] = String(chart.birthDate || '').split('-').map(Number);
+  const [hour, minute] = String(chart.birthTime || '12:00').split(':').map(Number);
+  let correction = 0;
+  if (year) {
+    const entered = new Date(0);
+    entered.setUTCFullYear(year, month - 1, day);
+    entered.setUTCHours(hour || 0, minute || 0, 0, 0);
+    correction = entered.getTime() - (birth + timelineZoneOffset(birth, chart.timezone));
+    if (Math.abs(correction) < 60000) correction = 0;
+  }
+  return timelineClock(chart.timezone || '', correction);
+}
+const timelinePad = value => String(value).padStart(2, '0');
+function timelineWallLabel(wall, withTime = true) {
+  const date = timelineDateParts(wall);
+  return `${TIMELINE_MONTHS[date.month]} ${date.day}, ${timelineYearLabel(date.year)}${withTime ? `, ${timelinePad(date.hours)}:${timelinePad(date.minutes)}` : ''}${date.julian ? ' (Julian)' : ''}`;
+}
+// "Feb 1, 1982, 07:00 GMT+1" (or the zone's name, when its history is the app's own).
+function timelineMomentLabel(utc, clock) {
+  let zoneName = clock.zone || '';
+  if (!clock.correction) {
+    try { zoneName = new Intl.DateTimeFormat('en-US', { ...(clock.zone ? { timeZone: clock.zone } : {}), timeZoneName: 'short' }).formatToParts(new Date(Math.max(utc, TIMELINE_ZONE_FLOOR))).find(part => part.type === 'timeZoneName')?.value || zoneName; } catch { /* keep the zone's name */ }
+  }
+  return `${timelineWallLabel(clock.wall(utc))}${zoneName ? ` ${zoneName}` : ''}`;
+}
+// The moment `offsetMinutes` after the chart's birth, on the chart's own clock.
+function exactChartTime(chart, offsetMinutes) {
+  const clock = chartTimelineClock(chart);
+  return timelineMomentLabel(chartBirthMomentUTC(chart).getTime() + offsetMinutes * 60000, clock);
+}
+
+// ── Ticks ──
+// Steps, finest first; the first to leave at most TIMELINE_MAX_TICKS in the window wins.
+const TIMELINE_MAX_TICKS = 9;
+const TIMELINE_TICK_STEPS = [
+  ...[1, 2, 5, 10, 15, 30, 60, 120, 180, 360, 720].map(minutes => ({ kind: 'minute', n: minutes, size: minutes })),
+  { kind: 'day', n: 1, size: 1440 }, { kind: 'day', n: 2, size: 2880 }, { kind: 'week', n: 1, size: 10080 },
+  { kind: 'month', n: 1, size: 43830 }, { kind: 'month', n: 3, size: 131490 }, { kind: 'month', n: 6, size: 262980 },
+  ...[1, 2, 5, 10, 20, 50, 100, 200, 500, 1000].map(years => ({ kind: 'year', n: years, size: years * 525960 })),
+];
+// [{ utc, top, context }] for the window [fromUtc, toUtc]: `top` is what changes from
+// tick to tick at this scale, `context` the larger unit, only where it changes.
+function timelineWindowTicks(fromUtc, toUtc, clock) {
+  const minutes = (toUtc - fromUtc) / 60000;
+  const step = TIMELINE_TICK_STEPS.find(item => minutes / item.size <= TIMELINE_MAX_TICKS) || TIMELINE_TICK_STEPS[TIMELINE_TICK_STEPS.length - 1];
+  const from = clock.wall(fromUtc), to = clock.wall(toUtc);
+  const dayMs = 86400000;
+  const walls = [];
+  const first = timelineDateParts(from);
+  if (step.kind === 'minute') {
+    const size = step.n * 60000;
+    for (let wall = Math.ceil(from / size) * size; wall <= to; wall += size) walls.push(wall);
+  } else if (step.kind === 'day' || step.kind === 'week') {
+    let wall = Math.ceil(from / dayMs) * dayMs;
+    if (step.kind === 'week') while (timelineDateParts(wall).weekday !== 1) wall += dayMs;
+    else if (step.n === 2 && Math.round(wall / dayMs) % 2) wall += dayMs;
+    for (; wall <= to; wall += (step.kind === 'week' ? 7 : step.n) * dayMs) walls.push(wall);
+  } else if (step.kind === 'month') {
+    let y = first.year, m = first.month;
+    for (let guard = 0; guard < 400; guard += 1, m += 1) {
+      if (m > 11) { m = 0; y += 1; }
+      const wall = timelineWallFromParts(y, m, 1);
+      if (wall > to) break;
+      if (wall >= from && m % step.n === 0) walls.push(wall);
+    }
+  } else {
+    // Round years (1 BC is year 0, so 500 BC falls on −499: counted as historians do).
+    for (let y = Math.floor(first.year / step.n) * step.n; ; y += step.n) {
+      const shown = y <= 0 && step.n > 1 ? y + 1 : y;
+      const wall = timelineWallFromParts(shown, 0, 1);
+      if (wall > to) break;
+      if (wall >= from) walls.push(wall);
+    }
+  }
+  let previous = null;
+  return walls.map(wall => {
+    const at = timelineDateParts(wall);
+    const { year: y, month: m, day: d } = at;
+    let top, context;
+    if (step.kind === 'minute') {
+      top = `${timelinePad(at.hours)}:${timelinePad(at.minutes)}`;
+      const day = `${TIMELINE_MONTHS[m]} ${d}`;
+      context = !previous || previous.year !== y ? `${day}, ${timelineYearLabel(y)}` : previous.day !== d || previous.month !== m ? day : '';
+    } else if (step.kind === 'day' || step.kind === 'week') {
+      top = step.kind === 'day' && minutes <= 16 * 1440 ? `${TIMELINE_WEEKDAYS[at.weekday]} ${d}` : String(d);
+      context = !previous || previous.month !== m || previous.year !== y ? `${TIMELINE_MONTHS[m]} ${timelineYearLabel(y)}` : '';
+    } else if (step.kind === 'month') {
+      top = TIMELINE_MONTHS[m];
+      context = !previous || previous.year !== y ? timelineYearLabel(y) : '';
+    } else {
+      top = timelineYearLabel(y);
+      context = '';
+    }
+    previous = at;
+    return { utc: clock.utc(wall), top, context };
+  });
+}
+
 function timelineSliderInnerMarkup(labelText, value = 0) {
-  return `<div class="timeline-label"><span>${labelText}</span><strong data-timeline-date></strong></div><div class="timeline-exact" data-timeline-exact></div><div class="timeline-zoom" data-timeline-zoom><button type="button" class="timeline-center" data-timeline-center title="Reset to center">Center</button><button type="button" data-timeline-zoom-out aria-label="Expand timeline" title="Expand timeline">−</button><span>ZOOM</span><button type="button" data-timeline-zoom-in aria-label="Shrink timeline" title="Shrink timeline">＋</button></div><input data-timeline-slider type="range" aria-label="${labelText.charAt(0) + labelText.slice(1).toLowerCase()}" min="-1440" max="1440" step="1" value="${value}"><div class="timeline-markers" data-timeline-markers hidden></div><div class="timeline-ticks" data-timeline-ticks></div><div class="timeline-ends" data-timeline-ends><span data-timeline-origin></span></div>`;
+  return `<div class="timeline-label"><span>${labelText}</span><strong data-timeline-date></strong></div>
+    <div class="timeline-exact-row"><button type="button" class="timeline-exact" data-timeline-exact title="Type a date to go to"></button></div>
+    <div class="timeline-zoom" data-timeline-zoom><button type="button" class="timeline-center" data-timeline-center title="Back to the view's own moment (0)">Center</button><button type="button" data-timeline-zoom-out aria-label="Show a longer stretch of time" title="Zoom out (longer stretch)">−</button><span data-timeline-span>ZOOM</span><button type="button" data-timeline-zoom-in aria-label="Show a shorter stretch of time" title="Zoom in (shorter stretch)">＋</button></div>
+    <div class="timeline-track">
+      <button type="button" class="timeline-pan" data-timeline-pan="-1" aria-label="Earlier" title="Earlier (half the window)">‹</button>
+      <div class="timeline-rail">
+        <input data-timeline-slider type="range" aria-label="${labelText.charAt(0) + labelText.slice(1).toLowerCase()}" min="-1440" max="1440" step="1" value="${value}">
+        <div class="timeline-markers" data-timeline-markers hidden></div>
+        <div class="timeline-ticks" data-timeline-ticks></div>
+      </div>
+      <button type="button" class="timeline-pan" data-timeline-pan="1" aria-label="Later" title="Later (half the window)">›</button>
+    </div>
+    <div class="timeline-ends" data-timeline-ends></div>`;
 }
 function timelineSliderMarkup(labelText, value = 0) {
   return `<div class="timeline-control">${timelineSliderInnerMarkup(labelText, value)}</div>`;
@@ -188,78 +339,201 @@ function updateTimelineReadout(container, chart, offsetMinutes) {
   container.querySelector('[data-timeline-date]').textContent = timelineOffsetLabel(offsetMinutes);
   container.querySelector('[data-timeline-exact]').textContent = exactChartTime(chart, offsetMinutes);
 }
-// `container` already holds the markup above. `onChange(offsetMinutes)` is whatever
-// that particular view needs to re-render at the new offset — this function only
-// owns the slider's own mechanics (zoom span, dblclick reset, firing onChange), and
-// fires onChange once immediately so callers don't need to separately compute the
-// slider's initial state.
-// `markers()` (optional) lists moments to show along the slider — [{from, to, label,
-// color, current}], minutes from its origin (to > from for a period) — redrawn on zoom;
-// clicking one moves the slider there.
-function bindTimelineSlider(container, { onChange, originLabel = 'Birth moment', initialSpan = 1440, markers = null }) {
+// `container` already holds the markup above. `onChange(offsetMinutes)` redraws the view
+// at that offset from the origin; it fires once right away. Options:
+//   originLabel — the origin's name (tooltip of its mark); anchorName — short, for
+//     "Back to …" ("birth", "now"…); initialSpan — half the window's width, in minutes;
+//   originTime (ms) and clock (timelineClock) — the origin as a real moment, and the
+//     clock the ticks and typed dates use (default: the explorer chart's birth, on
+//     its own clock);
+//   initial { value, center, span } — to start where the view was left; onView(state)
+//     — told whenever the window or thumb moves (the Cycle Explorer carries it across tabs);
+//   markers() — moments to show along the track: [{ from, to, label, color, current }],
+//     minutes from the origin (to > from for a period); clicking one goes there.
+function bindTimelineSlider(container, { onChange, originLabel = 'Birth moment', anchorName = null, initialSpan = 1440, markers = null, originTime = null, clock = null, initial = null, onView = null }) {
   const slider = container.querySelector('[data-timeline-slider]');
-  const zoom = container.querySelector('[data-timeline-zoom]');
-  const originEl = container.querySelector('[data-timeline-origin]');
-  const tickList = container.querySelector('[data-timeline-ticks]');
   if (!slider) return null;
-  let span = initialSpan;
-  const updateRange = () => {
-    slider.min = String(-span);
-    slider.max = String(span);
-    slider.value = String(Math.max(-span, Math.min(span, Number(slider.value))));
-    if (originEl) originEl.textContent = originLabel;
-    if (tickList) tickList.innerHTML = timelineTicksMarkup(span);
-    drawMarkers();
+  // Without an originTime, the origin is the explorer's chart, looked up as it's needed
+  // (the Chart and Timeline explorers keep one slider while their chart changes).
+  let origin, theClock, name, lowest, highest, MIN_SPAN = 5, MAX_SPAN;
+  const resolveOrigin = () => {
+    const chart = originTime == null ? currentExplorerChart() : null;
+    const next = originTime ?? (chart ? chartBirthMomentUTC(chart).getTime() : Date.now());
+    if (next === origin && theClock) return false;
+    origin = next;
+    theClock = clock || chartTimelineClock(chart);
+    name = anchorName || (explorerMode === 'timeline' ? 'now' : 'birth');
+    // The ephemeris's range, as offsets from the origin.
+    lowest = Math.ceil((TIMELINE_MIN_UTC - origin) / 60000);
+    highest = Math.floor((TIMELINE_MAX_UTC - origin) / 60000);
+    MAX_SPAN = Math.max(MIN_SPAN, Math.floor((highest - lowest) / 2));
+    return true;
   };
+  resolveOrigin();
+  let span = Math.min(MAX_SPAN, Math.max(MIN_SPAN, initial?.span || initialSpan));
+  let center = initial?.center ?? 0;
+  const clampCenter = () => { center = Math.max(lowest + span, Math.min(highest - span, center)); };
+  clampCenter();
+  slider.min = String(Math.round(center - span));
+  slider.max = String(Math.round(center + span));
+  slider.value = String(initial?.value ?? 0);
+  const tickList = container.querySelector('[data-timeline-ticks]');
   const markerList = container.querySelector('[data-timeline-markers]');
+  const ends = container.querySelector('[data-timeline-ends]');
+  const spanLabel = container.querySelector('[data-timeline-span]');
+  const centerButton = container.querySelector('[data-timeline-center]');
+  const nameButton = () => { if (centerButton) { centerButton.textContent = `Back to ${name}`; centerButton.title = `Back to ${originLabel} (0)`; } };
+  nameButton();
+  const percent = value => ((value - (center - span)) / (2 * span)) * 100;
+  const utcOf = value => origin + value * 60000;
+  const updateRange = () => {
+    clampCenter();
+    slider.min = String(Math.round(center - span));
+    slider.max = String(Math.round(center + span));
+    slider.value = String(Math.max(Number(slider.min), Math.min(Number(slider.max), Number(slider.value))));
+    if (spanLabel) spanLabel.textContent = formatTimelineSpan(2 * span).toUpperCase();
+    if (tickList) {
+      const ticks = timelineWindowTicks(utcOf(center - span), utcOf(center + span), theClock);
+      const anchor = percent(0);
+      tickList.innerHTML = ticks.map(tick => {
+        const at = percent((tick.utc - origin) / 60000);
+        const edge = at < 6 ? ' start' : at > 94 ? ' end' : '';
+        return `<span class="timeline-tick${edge}" style="left:${at}%"><i></i><b>${tick.top}</b>${tick.context ? `<small>${tick.context}</small>` : ''}</span>`;
+      }).join('') + (anchor >= 0 && anchor <= 100 ? `<span class="timeline-anchor" style="left:${anchor}%" title="${escapeHtml(originLabel)}"></span>` : '');
+    }
+    if (ends) {
+      const away = value => formatTimelineSpan(value);
+      ends.innerHTML = center - span > 0
+        ? `<button type="button" class="timeline-away" data-timeline-back title="Back to ${escapeHtml(originLabel)}">◂ ${escapeHtml(name)} · ${away(center - span)} earlier</button><span></span>`
+        : center + span < 0
+          ? `<span></span><button type="button" class="timeline-away" data-timeline-back title="Back to ${escapeHtml(originLabel)}">${escapeHtml(name)} · ${away(-(center + span))} later ▸</button>`
+          : `<span class="timeline-origin">${escapeHtml(originLabel)}</span>`;
+    }
+    drawMarkers();
+    onView?.({ value: Number(slider.value), center, span });
+  };
   const drawMarkers = () => {
     if (!markerList || !markers) return;
-    const percent = value => ((value + span) / (2 * span)) * 100;
-    const shown = markers().filter(marker => marker.to >= -span && marker.from <= span);
+    const lo = center - span, hi = center + span;
+    const shown = markers().filter(marker => marker.to >= lo && marker.from <= hi);
     markerList.hidden = !shown.length;
     markerList.innerHTML = shown.map(marker => {
-      const from = percent(Math.max(-span, marker.from)), to = percent(Math.min(span, marker.to));
+      const from = percent(Math.max(lo, marker.from)), to = percent(Math.min(hi, marker.to));
       const band = to - from > 0.8;
-      const target = Math.max(-span, Math.min(span, Math.round(band ? (marker.from + marker.to) / 2 : marker.from)));
+      const target = Math.round(band ? (marker.from + marker.to) / 2 : marker.from);
       return `<button type="button" class="timeline-marker${band ? ' band' : ''}${marker.current ? ' current' : ''}" style="left:${band ? from : (from + to) / 2}%;${band ? `width:${to - from}%;` : ''}--marker-color:${marker.color || 'var(--accent)'}" data-marker-offset="${target}" title="${escapeHtml(marker.label)}" aria-label="Move the slider to ${escapeHtml(marker.label)}"></button>`;
     }).join('');
   };
+  // Screen readers announce the moment (the date readout), not the raw minute offset.
+  const dateReadout = container.querySelector('[data-timeline-date]');
+  const change = () => {
+    // A new chart in the explorer: a new origin, so the window starts again around it.
+    if (resolveOrigin()) { nameButton(); center = Number(slider.value); updateRange(); }
+    onChange(Number(slider.value));
+    if (dateReadout) slider.setAttribute('aria-valuetext', dateReadout.textContent);
+    onView?.({ value: Number(slider.value), center, span });
+  };
+  // Goes to `value` (clamped to the ephemeris's range), moving the window along only as
+  // far as needed, or centring it there (`recentre`).
+  const moveTo = (value, recentre = false) => {
+    const target = Math.max(lowest, Math.min(highest, Math.round(value)));
+    if (recentre) center = target;
+    else if (target > center + span) center = target - span;
+    else if (target < center - span) center = target + span;
+    updateRange();
+    slider.value = String(target);
+    change();
+  };
+  const shift = minutes => { center += minutes; const before = center; clampCenter(); moveTo(Number(slider.value) + minutes - (before - center)); };
+  const zoomTo = next => {
+    const value = Number(slider.value);
+    const ratio = Math.min(MAX_SPAN, Math.max(MIN_SPAN, Math.round(next))) / span;
+    center = value - (value - center) * ratio;
+    span = Math.min(MAX_SPAN, Math.max(MIN_SPAN, Math.round(next)));
+    updateRange();
+  };
   markerList?.addEventListener('click', event => {
     const marker = event.target.closest('[data-marker-offset]');
-    if (!marker) return;
-    slider.value = marker.dataset.markerOffset;
-    slider.dispatchEvent(new Event('input'));
+    if (marker) moveTo(Number(marker.dataset.markerOffset));
   });
-  if (zoom) {
-    zoom.querySelector('[data-timeline-zoom-out]')?.addEventListener('click', () => { span = Math.min(5256000000, span * 2); updateRange(); });
-    zoom.querySelector('[data-timeline-zoom-in]')?.addEventListener('click', () => { span = Math.max(5, Math.round(span / 2)); updateRange(); });
-  }
-  const recenter = () => { slider.value = '0'; slider.dispatchEvent(new Event('input')); };
-  container.querySelector('[data-timeline-center]')?.addEventListener('click', recenter);
-  slider.addEventListener('wheel', event => {
-    event.preventDefault();
-    span = event.deltaY < 0 ? Math.max(5, Math.round(span / 2)) : Math.min(525600, span * 2);
-    updateRange();
-  }, {passive: false});
+  container.querySelector('[data-timeline-zoom-out]')?.addEventListener('click', () => zoomTo(span * 2));
+  container.querySelector('[data-timeline-zoom-in]')?.addEventListener('click', () => zoomTo(span / 2));
+  container.querySelectorAll('[data-timeline-pan]').forEach(button => button.addEventListener('click', () => shift(Number(button.dataset.timelinePan) * span)));
+  const recenter = () => moveTo(0, true);
+  centerButton?.addEventListener('click', recenter);
+  ends?.addEventListener('click', event => { if (event.target.closest('[data-timeline-back]')) recenter(); });
   slider.addEventListener('dblclick', recenter);
-  // Arrow keys step by the zoom's units (timelineKeySteps) instead of the range's 1 minute.
+  // A trackpad's sideways scroll (or Shift + wheel) moves through time; the wheel zooms.
+  container.querySelector('.timeline-track')?.addEventListener('wheel', event => {
+    event.preventDefault();
+    const sideways = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.shiftKey ? event.deltaY : 0;
+    if (sideways) shift(Math.round((sideways / 400) * 2 * span));
+    else if (event.deltaY) zoomTo(event.deltaY < 0 ? span / 1.5 : span * 1.5);
+  }, { passive: false });
+  // Holding the thumb against an end keeps the window scrolling that way.
+  let dragging = false, scrolling = 0;
+  const stopScrolling = () => { clearInterval(scrolling); scrolling = 0; };
+  slider.addEventListener('pointerdown', () => { dragging = true; });
+  window.addEventListener('pointerup', () => { dragging = false; stopScrolling(); });
+  const edgeScroll = () => {
+    const value = Number(slider.value), room = span * 0.01;
+    const direction = value >= Number(slider.max) - room ? 1 : value <= Number(slider.min) + room ? -1 : 0;
+    if (!dragging || !direction) return stopScrolling();
+    if (scrolling) return;
+    scrolling = setInterval(() => {
+      const edge = Number(direction > 0 ? slider.max : slider.min);
+      if (!dragging || Math.abs(Number(slider.value) - edge) > span * 0.01) return stopScrolling();
+      center += direction * span * 0.04;
+      updateRange();
+      slider.value = direction > 0 ? slider.max : slider.min;
+      change();
+    }, 60);
+  };
+  // Arrow keys step by the zoom's units (timelineKeySteps), carrying the window along.
   const ARROW_DIRECTIONS = { ArrowRight: 1, ArrowUp: 1, ArrowLeft: -1, ArrowDown: -1 };
   slider.addEventListener('keydown', event => {
     const direction = ARROW_DIRECTIONS[event.key];
     if (!direction || event.altKey || event.ctrlKey || event.metaKey) return;
     event.preventDefault();
     const steps = timelineKeySteps(span);
-    const next = Number(slider.value) + direction * (event.shiftKey ? steps.large : steps.small);
-    slider.value = String(Math.max(-span, Math.min(span, next)));
-    slider.dispatchEvent(new Event('input'));
+    moveTo(Number(slider.value) + direction * (event.shiftKey ? steps.large : steps.small));
   });
-  // Screen readers announce the moment (the date readout), not the raw minute offset.
-  const dateReadout = container.querySelector('[data-timeline-date]');
-  const change = () => {
-    onChange(Number(slider.value));
-    if (dateReadout) slider.setAttribute('aria-valuetext', dateReadout.textContent);
-  };
-  slider.addEventListener('input', change);
+  // Clicking the readout: type a date (on the slider's clock) and go there.
+  const exact = container.querySelector('[data-timeline-exact]');
+  // (Year, BC/AD, month, day and time fields: the browser's date picker has no BC years.)
+  exact?.addEventListener('click', () => {
+    if (container.querySelector('[data-timeline-goto]')) return;
+    const at = timelineDateParts(theClock.wall(utcOf(Number(slider.value))));
+    const form = document.createElement('span');
+    form.className = 'timeline-goto';
+    form.dataset.timelineGoto = '';
+    form.innerHTML = `<input type="number" data-goto="year" min="1" max="5000" value="${at.year <= 0 ? 1 - at.year : at.year}" aria-label="Year">
+      <select data-goto="era" aria-label="Era"><option value="AD"${at.year > 0 ? ' selected' : ''}>AD</option><option value="BC"${at.year <= 0 ? ' selected' : ''}>BC</option></select>
+      <select data-goto="month" aria-label="Month">${TIMELINE_MONTHS.map((month, index) => `<option value="${index}"${index === at.month ? ' selected' : ''}>${month}</option>`).join('')}</select>
+      <input type="number" data-goto="day" min="1" max="31" value="${at.day}" aria-label="Day">
+      <input type="time" data-goto="time" value="${timelinePad(at.hours)}:${timelinePad(at.minutes)}" aria-label="Time${theClock.zone ? ` (${theClock.zone})` : ''}">
+      <button type="button" data-goto="go">Go</button><small>${theClock.zone ? escapeHtml(theClock.zone) : 'your time'} · Julian before 15 Oct 1582</small>`;
+    exact.hidden = true;
+    exact.after(form);
+    form.querySelector('[data-goto="year"]').select();
+    const close = () => { form.remove(); exact.hidden = false; };
+    const go = () => {
+      const field = name => form.querySelector(`[data-goto="${name}"]`).value;
+      const year = Number(field('year')), day = Number(field('day'));
+      if (!Number.isInteger(year) || year < 1 || !Number.isInteger(day) || day < 1 || day > 31) return;
+      const [hours, minutes] = (field('time') || '12:00').split(':').map(Number);
+      const wall = timelineWallFromParts(field('era') === 'BC' ? 1 - year : year, Number(field('month')), day, hours || 0, minutes || 0);
+      close();
+      moveTo((theClock.utc(wall) - origin) / 60000, true);
+    };
+    form.addEventListener('keydown', event => {
+      if (event.key === 'Enter') { event.preventDefault(); go(); }
+      else if (event.key === 'Escape') { event.preventDefault(); close(); }
+    });
+    form.querySelector('[data-goto="go"]').addEventListener('click', go);
+    form.addEventListener('focusout', () => setTimeout(() => { if (form.isConnected && !form.contains(document.activeElement)) close(); }, 150));
+  });
+  slider.addEventListener('input', () => { change(); edgeScroll(); });
   updateRange();
   change();
   return slider;
@@ -458,6 +732,25 @@ function wheelHousesMarkup(cx, cy, fromR, toR, cusps, wheelRotation) {
     return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" class="house-cusp"/><text x="${labelX}" y="${labelY}" class="house-number" text-anchor="middle" dominant-baseline="middle">${index + 1}</text>`;
   }).join('');
 }
+// Single-chart wheels: a narrow shaded band (fromR..toR) holding only the house numbers,
+// each centered in its house, with the cusps running from the band's inner edge out
+// across the planet ring to the zodiac (cuspR).
+function wheelHouseBandMarkup(cx, cy, fromR, toR, cuspR, cusps, wheelRotation) {
+  const point = (r, longitude) => {
+    const rad = (wheelRotation - longitude - 90) * Math.PI / 180;
+    return [cx + r * Math.cos(rad), cy + r * Math.sin(rad)];
+  };
+  const middle = (fromR + toR) / 2;
+  let markup = `<circle cx="${cx}" cy="${cy}" r="${middle}" class="house-band" stroke-width="${toR - fromR}"/>`
+    + `<circle cx="${cx}" cy="${cy}" r="${toR}" class="house-band-edge"/><circle cx="${cx}" cy="${cy}" r="${fromR}" class="house-band-edge"/>`;
+  cusps.forEach((cusp, index) => {
+    const [x1, y1] = point(fromR, cusp), [x2, y2] = point(cuspR, cusp);
+    const span = (((cusps[(index + 1) % cusps.length] - cusp) % 360) + 360) % 360;
+    const [lx, ly] = point(middle, cusp + span / 2);
+    markup += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" class="house-cusp"/><text x="${lx}" y="${ly}" class="house-number house-band-number" text-anchor="middle" dominant-baseline="central">${index + 1}</text>`;
+  });
+  return markup;
+}
 // Aspect lines on the circle of radius r, between the TRUE wheel angles anglesOf(aspect)
 // returns (traditional wheels never spread the lines with the glyphs), plus invisible,
 // wider twins (.aspect-hit, data-aspect = index) so even the thinnest line is easy to hover.
@@ -469,7 +762,7 @@ function wheelAspectLinesMarkup(cx, cy, r, aspects, anglesOf) {
   const ends = aspects.map(aspect => anglesOf(aspect).map(point));
   const lines = aspects.map((aspect, index) => {
     const [p1, p2] = ends[index];
-    const strokeWidth = aspect.intensity === 'exact' ? 4 : aspect.intensity === 'normal' ? 1.1 : 0.8;
+    const strokeWidth = { exact: 4, strong: 1.8, normal: 1.1 }[aspect.intensity] || 0.8;
     const dash = aspect.intensity === 'weak' ? ' stroke-dasharray="3 3"' : '';
     return `<line x1="${p1.x}" y1="${p1.y}" x2="${p2.x}" y2="${p2.y}" stroke="${aspect.color}" stroke-width="${strokeWidth}" opacity=".7"${dash} class="aspect-line"/>`;
   }).join('');
@@ -482,9 +775,8 @@ function renderPreciseWheel(chart, offsetMinutes, targetId = 'chartWheel') {
   // Rings, outside in: zodiac (inner..outer), planets + houses (aspectR..inner, about
   // 10% wider than the zodiac ring), then the aspect lines inside aspectR.
   const cx = 300, cy = 300, outer = 250, inner = 202;
-  const zodiacWidth = outer - inner;
-  const planetRingWidth = Math.round(zodiacWidth * 1.1);
-  const aspectR = inner - planetRingWidth;
+  const planetRingWidth = WHEEL_LABELLED_RING;
+  const aspectR = inner - planetRingWidth - WHEEL_HOUSE_BAND;
   if (!svg) return;
   let markup = `<circle cx="${cx}" cy="${cy}" r="${outer}" fill="none" stroke="var(--line)" stroke-width="1"/><circle cx="${cx}" cy="${cy}" r="${inner}" fill="none" stroke="var(--line)" stroke-width="1"/><circle cx="${cx}" cy="${cy}" r="${aspectR}" fill="none" stroke="var(--line)" stroke-width="1" opacity=".8"/>`;
   const ascendant = chart.positions.find(position => position.name === 'Ascendant');
@@ -497,13 +789,16 @@ function renderPreciseWheel(chart, offsetMinutes, targetId = 'chartWheel') {
   const wheelRotation = astroWheelFixedToAries ? 270 : (270 + ascendantAngle + 360) % 360;
   const houseCusps = houseCuspsAtTime(chart, offsetMinutes);
   markup += wheelZodiacMarkup(cx, cy, outer, inner, wheelRotation);
-  markup += wheelHousesMarkup(cx, cy, aspectR, inner, houseCusps, wheelRotation);
+  markup += wheelHouseBandMarkup(cx, cy, aspectR, aspectR + WHEEL_HOUSE_BAND, inner, houseCusps, wheelRotation);
   // Hidden bodies are dropped before clustering and aspects, so they neither push
   // neighbouring glyphs aside nor leave aspect lines behind.
   const markerPositions = chart.positions
-    .filter(position => wheelBodyVisible(position.name))
-    .map(position => ({...position, color: 'var(--ink)', angle: (wheelRotation - positionAngleAtTime(position, offsetMinutes) + 360) % 360, motion: wheelMotion(position, offsetMinutes)}));
-  spreadClusteredAngles(markerPositions);
+    .filter(position => wheelBodyVisible(position.name) && bodyShownAt(position, offsetMinutes))
+    .map(position => {
+      const longitude = positionAngleAtTime(position, offsetMinutes);
+      return {...position, color: 'var(--ink)', longitude, angle: (wheelRotation - longitude + 360) % 360, motion: wheelMotion(position, offsetMinutes)};
+    });
+  spreadClusteredAngles(markerPositions, WHEEL_LABELLED_SPREAD);
   const longitudes = new Map(markerPositions.map(position => [position.name, positionAngleAtTime(position, offsetMinutes)]));
   let aspects = [];
   // Aspect lines connect planets' TRUE positions (position.angle), not the spread-out
@@ -516,7 +811,7 @@ function renderPreciseWheel(chart, offsetMinutes, targetId = 'chartWheel') {
     aspects = calculateAspects({positions: markerPositions}).filter(aspectDrawnOnWheel);
     markup += wheelAspectLinesMarkup(cx, cy, aspectR, aspects, aspect => [angleByName.get(aspect.first), angleByName.get(aspect.second)]);
   }
-  markerPositions.forEach(position => { markup += planetMarkerMarkup(cx, cy, inner, position, planetRingWidth); });
+  markerPositions.forEach(position => { markup += planetMarkerMarkup(cx, cy, inner, position, planetRingWidth, true); });
   //markup += `<circle cx="${cx}" cy="${cy}" r="4" fill="var(--accent)"/>`;
   svg.innerHTML = markup;
   svg.querySelectorAll('.planet-marker').forEach(node => node.addEventListener('click', () => showToast(`${node.dataset.planet} · click for placement details`)));
@@ -528,6 +823,73 @@ function renderPreciseWheel(chart, offsetMinutes, targetId = 'chartWheel') {
   };
   // The wheel under the pointer just changed (timeline, filter, zodiac mode…): drop the stale tooltip.
   bindWheelHover(svg).hidden = true;
+  const list = targetId === 'chartWheel' && document.getElementById('chartPositions');
+  if (list) list.innerHTML = wheelPositionsMarkup([{ chart, offset: offsetMinutes }]);
+}
+
+// ── The positions list beside the wheel's filters ─────────────────────────
+// Every body shown on the wheel with its sign, degree and minutes, house and motion,
+// then the house cusps — for one chart; for two (synastry), both side by side with the
+// four angles. people: [{ chart, offset, name?, color?, omit? }] as the wheels take them.
+const WHEEL_POSITION_ANGLES = new Set(['Ascendant', 'Midheaven']);
+function wheelDegreeMarkup(longitude, motion) {
+  const { sign, degrees, minutes } = zodiacDegreeParts(longitude);
+  const mark = WHEEL_MOTION_MARKS[motion];
+  return `<span class="pos-value"><b class="pos-sign ${SIGN_ELEMENTS[sign]}" title="${SIGNS[sign]}">${SIGN_GLYPHS[sign]}\uFE0E</b>${degrees}°${String(minutes).padStart(2, '0')}′</span><span class="pos-motion"${mark ? ` title="${motion === 'retrograde' ? 'Retrograde' : 'Stationary'}"` : ''}>${mark || ''}</span>`;
+}
+function wheelPositionsMarkup(people) {
+  const order = (name) => {
+    const index = WHEEL_FILTER_BODIES.findIndex(item => (item.members || [item.key]).includes(name));
+    return index < 0 ? 99 : index;
+  };
+  const shown = (person) => person.chart.positions.filter(position => wheelBodyVisible(position.name) && !person.omit?.has(position.name) && bodyShownAt(position, person.offset || 0));
+  const chironGone = people.some(person => person.chart.positions.some(position => position.name === 'Chiron' && wheelBodyVisible('Chiron') && !bodyShownAt(position, person.offset || 0)));
+  const chironNote = chironGone ? `<p class="pos-note">⚷ Chiron is shown for ${CHIRON_FIRST_YEAR}–${CHIRON_LAST_YEAR} only: its orbit can't be traced reliably further.</p>` : '';
+  const readings = people.map(person => {
+    const offset = person.offset || 0;
+    const housed = !person.omit?.has('Ascendant');
+    const cusps = housed ? houseCuspsAtTime(person.chart, offset) : null;
+    const byName = new Map(shown(person).map(position => {
+      const longitude = positionAngleAtTime(position, offset);
+      return [position.name, { position, longitude, motion: wheelMotion(position, offset), house: cusps ? wheelHouseOf(longitude, cusps) : null }];
+    }));
+    const midheaven = person.chart.positions.find(position => position.name === 'Midheaven');
+    return { person, cusps, byName, midheaven: cusps && (midheaven ? positionAngleAtTime(midheaven, offset) : cusps[9]) };
+  });
+  const names = [...new Set(readings.flatMap(reading => [...reading.byName.keys()]))]
+    .filter(name => !WHEEL_POSITION_ANGLES.has(name))
+    .sort((a, b) => order(a) - order(b));
+  const glyphOf = name => readings.map(reading => reading.byName.get(name)?.position.glyph).find(Boolean) || '';
+  const system = `<span class="pos-system">(${escapeHtml(houseSystem)})</span>`;
+  if (readings.length === 1) {
+    const [{ byName, cusps, midheaven }] = readings;
+    const rows = names.map(name => {
+      const body = byName.get(name);
+      return `<div class="pos-row"><span class="pos-glyph">${body.position.glyph}</span><span class="pos-name">${escapeHtml(name)}</span>${wheelDegreeMarkup(body.longitude, body.motion)}<span class="pos-house" title="House">${body.house || ''}</span></div>`;
+    }).join('');
+    // Cusps 1–6 beside 7–12, as ephemerides print them; the angles by their names
+    // (Equal houses: the Midheaven isn't a cusp, so it gets a row of its own).
+    const placidus = houseSystem !== 'Equal Houses';
+    const labels = { 1: 'AC', 7: 'DC', ...(placidus ? { 4: 'IC', 10: 'MC' } : {}) };
+    const cusp = index => `<div class="pos-cusp"><span class="pos-name">${labels[index + 1] || index + 1}</span>${wheelDegreeMarkup(cusps[index])}</div>`;
+    const houses = cusps ? `<span class="eyebrow wheel-filter-section">HOUSES ${system}</span>
+      <div class="pos-cusps">${[0, 1, 2, 3, 4, 5].map(index => cusp(index) + cusp(index + 6)).join('')}</div>
+      ${placidus ? '' : `<div class="pos-cusps"><div class="pos-cusp"><span class="pos-name">MC</span>${wheelDegreeMarkup(midheaven)}</div></div>`}` : '';
+    return `<span class="eyebrow">POSITIONS</span><div class="pos-list">${rows}</div>${chironNote}${houses}`;
+  }
+  // Two charts: a column each, in their colors.
+  const head = `<div class="pos-row pos-pair pos-head"><span></span><span></span>${readings.map(({ person }) => `<span class="pos-who" style="color:${person.color}" title="${escapeHtml(person.chart.name)}">${escapeHtml(person.name || person.tag)}</span>`).join('')}</div>`;
+  const short = { 'North Node': 'N. Node', 'South Node': 'S. Node' };
+  const rows = names.map(name => `<div class="pos-row pos-pair"><span class="pos-glyph">${glyphOf(name)}</span><span class="pos-name" title="${escapeHtml(name)}">${escapeHtml(short[name] || name)}</span>${readings.map(reading => {
+    const body = reading.byName.get(name);
+    return `<span class="pos-cell">${body ? wheelDegreeMarkup(body.longitude, body.motion) : '<span class="pos-value">—</span>'}</span>`;
+  }).join('')}</div>`).join('');
+  const angle = (label, of) => `<div class="pos-row pos-pair"><span></span><span class="pos-name">${label}</span>${readings.map(reading => `<span class="pos-cell">${reading.cusps ? wheelDegreeMarkup(of(reading)) : '<span class="pos-value">—</span>'}</span>`).join('')}</div>`;
+  const plus = (value, degrees) => (value + degrees) % 360;
+  const angles = readings.some(reading => reading.cusps)
+    ? `<span class="eyebrow wheel-filter-section">ANGLES ${system}</span><div class="pos-list">${angle('ASC', r => r.cusps[0])}${angle('IC', r => plus(r.midheaven, 180))}${angle('DSC', r => plus(r.cusps[0], 180))}${angle('MC', r => r.midheaven)}</div>`
+    : '';
+  return `<span class="eyebrow">POSITIONS</span><div class="pos-list">${head}${rows}</div>${chironNote}${angles}`;
 }
 
 function initPreciseTimeline() {

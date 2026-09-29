@@ -11,6 +11,7 @@
 //   #/cycle/<chart>/<cycle>/<occurrence>/<system>[/<map view>]
 //   #/cycle/<chart>/event/<event id>/<start|end>/<system>[/<map view>]
 //   #/cycle/<chart>/birth/<system>[/<map view>]
+//   #/cycle/<chart>/now/<system>[/<map view>]   (transits: the sky when the link is opened)
 //
 // e.g. #/chart/mira-mercer/human-design/mandala/design
 //      #/pair/mira-mercer/jonas-sol/astrology/synastry/both
@@ -89,7 +90,7 @@ function currentRoute() {
   } else if (currentView === "cycle") {
     const system = document.querySelector("[data-cycle-system].active")?.dataset.cycleSystem || "Summary";
     // The studied moment: birth, a life event (its start or end), or a cycle's occurrence (from 1).
-    const moment = cycleEventAnchor?.birth ? ["birth"]
+    const moment = cycleEventAnchor?.now ? ["now"] : cycleEventAnchor?.birth ? ["birth"]
       : cycleEventAnchor?.eventId ? ["event", cycleEventAnchor.eventId, cycleEventAnchor.part === "end" ? "end" : "start"]
       : [activeCycleKey, String(activeOccurrenceIndex + 1)];
     parts.push(chartSlug(cycleChartId), ...moment, routeSlug(system));
@@ -175,6 +176,10 @@ function applyRoute(hash) {
     let system, subview;
     if (first === "birth") {
       cycleEventAnchor = { birth: true };
+      [system, subview] = more;
+    } else if (first === "now") {
+      // Kept at the moment already studied when the address only follows along.
+      if (!cycleEventAnchor?.now) cycleEventAnchor = { now: true, time: Date.now() };
       [system, subview] = more;
     } else if (first === "event") {
       const [id, part] = more;

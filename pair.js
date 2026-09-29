@@ -262,9 +262,11 @@ function renderAstrologyPair(container, entries) {
 // (minutes after that chart's birth at which to draw it) }. config: { subjects (view
 // button labels), state ({ subject, view }, kept by the caller), wheelId, footer
 // (markup under the wheel), composite (the Pair Explorer's: { person() → the composite
-// chart as a person, bind(box, redraw) → its settings over the wheel }) }.
+// chart as a person, bind(box, redraw) → its settings over the wheel }), extra (more
+// settings under the filters, always shown: { bind(box, redraw) }, e.g. the Cycle
+// Explorer's Cast for) }.
 // Returns { draw } for callers that change a person's offset.
-function renderSynastryView(container, people, { subjects, state, wheelId, footer = '', composite = null }) {
+function renderSynastryView(container, people, { subjects, state, wheelId, footer = '', composite = null, extra = null }) {
   container.innerHTML = `
     <div class="pair-astro-layout">
       <div class="chart-panel">
@@ -277,12 +279,13 @@ function renderSynastryView(container, people, { subjects, state, wheelId, foote
         </div>
         <div class="wheel-stage pair-astro-stage">
           <div class="pair-legend" data-pair-legend></div>
-          <svg id="${wheelId}" class="synastry-wheel" viewBox="0 0 600 600" role="img" aria-label="Synastry wheel"></svg>
+          <svg id="${wheelId}" class="synastry-wheel" viewBox="45 45 510 510" role="img" aria-label="Synastry wheel"></svg>
           <div class="pair-aspect-grid-wrap" data-pair-grid></div>
         </div>
         ${footer}
       </div>
-      <div class="acg-filters wheel-filters" data-pair-wheel-filters>${wheelFiltersMarkup()}${composite ? '<div class="pair-composite-controls" data-pair-composite hidden></div>' : ''}</div>
+      <div class="acg-filters wheel-filters" data-pair-wheel-filters>${wheelFiltersMarkup()}${composite ? '<div class="pair-composite-controls" data-pair-composite hidden></div>' : ''}${extra ? '<div class="pair-composite-controls" data-extra-controls></div>' : ''}</div>
+      <div class="acg-filters wheel-positions" data-wheel-positions></div>
       <aside class="detail-panel pair-aspect-panel">
         <div class="detail-content">
           <div class="section-heading"><span data-pair-aspect-title></span></div>
@@ -296,7 +299,7 @@ function renderSynastryView(container, people, { subjects, state, wheelId, foote
     const svg = container.querySelector('.synastry-wheel');
     const controls = container.querySelector('[data-pair-composite]');
     if (controls) controls.hidden = !compositeShown;
-    const aspects = renderPairWheel(svg, subject);
+    const aspects = renderPairWheel(svg, subject).filter(aspectIntensityShown);
     const showWheel = state.view !== 'grid', showGrid = state.view !== 'wheel';
     // toggleAttribute, not .hidden: SVG elements have no `hidden` property.
     svg.toggleAttribute('hidden', !showWheel);
@@ -310,6 +313,7 @@ function renderSynastryView(container, people, { subjects, state, wheelId, foote
       ? `CROSS-ASPECTS · ${aspects.length}`
       : `${subject[0].name.toUpperCase()} ASPECTS · ${aspects.length}`;
     container.querySelector('[data-pair-aspect-list]').innerHTML = pairAspectListMarkup(subject, aspects);
+    container.querySelector('[data-wheel-positions]').innerHTML = wheelPositionsMarkup(subject);
   };
   const bindSegmented = (attribute, set) => {
     const group = container.querySelector(`[${attribute}]`);
@@ -323,6 +327,7 @@ function renderSynastryView(container, people, { subjects, state, wheelId, foote
   };
   bindSegmented('data-pair-subject', (value) => { state.subject = value; });
   if (composite) composite.bind(container.querySelector('[data-pair-composite]'), () => draw());
+  if (extra) extra.bind(container.querySelector('[data-extra-controls]'), () => draw());
   bindSegmented('data-pair-view', (value) => { state.view = value; });
   // Both checkboxes drive the Chart Explorer's own settings (shared state), so its
   // checkboxes are kept in step too.
@@ -361,25 +366,32 @@ function pairAspectListMarkup(people, aspects) {
 function renderPairWheel(svg, people) {
   const cx = 300, cy = 300, outer = 250;
   const [inside, outside] = people;
-  // Radii, outside in. One chart: the Chart Explorer's own proportions. Two: a
-  // slightly narrower zodiac, then B's ring (40), then A's ring (48), then aspects.
+  // Radii, outside in. One chart: the Chart Explorer's own proportions, with each
+  // body's degree and sign under its glyph. Two: a slightly narrower zodiac, then B's
+  // ring (40), then A's ring (48), then aspects — no labels (too busy for two charts).
   const zodiacInner = outside ? 206 : 202;
   const outsideRingWidth = 40;
   const insideOuter = outside ? zodiacInner - outsideRingWidth : zodiacInner;
-  const insideRingWidth = outside ? 48 : Math.round((outer - zodiacInner) * 1.1);
-  const aspectR = insideOuter - insideRingWidth;
+  const insideRingWidth = outside ? 48 : WHEEL_LABELLED_RING;
+  const aspectR = insideOuter - insideRingWidth - (outside ? 0 : WHEEL_HOUSE_BAND);
   const ascendant = inside.chart.positions.find((position) => position.name === 'Ascendant');
   const ascendantAngle = ascendant ? positionAngleAtTime(ascendant, inside.offset || 0) : 0;
   const wheelRotation = astroWheelFixedToAries ? 270 : (270 + ascendantAngle + 360) % 360;
-  const houseCusps = houseCuspsAtTime(inside.chart, inside.offset || 0);
+  // Each chart's own houses (its own birth time and place). None for a ring whose angles
+  // are left out (an imprecise moment).
+  const cuspsOf = (person) => person && !person.omit?.has('Ascendant') ? houseCuspsAtTime(person.chart, person.offset || 0) : null;
+  const houseCusps = cuspsOf(inside), outsideCusps = cuspsOf(outside);
   const circle = (r, extra = '') => `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--line)" stroke-width="1"${extra}/>`;
   let markup = circle(outer) + circle(zodiacInner) + (outside ? circle(insideOuter) : '') + circle(aspectR, ' opacity=".8"');
   markup += wheelZodiacMarkup(cx, cy, outer, zodiacInner, wheelRotation);
-  // A's house cusps run across both planet rings, so B's planets read as falling in A's houses.
-  markup += wheelHousesMarkup(cx, cy, aspectR, zodiacInner, houseCusps, wheelRotation);
+  // Each ring carries its own chart's cusps and house numbers: A's inside, B's outside.
+  if (houseCusps) markup += outside
+    ? wheelHousesMarkup(cx, cy, aspectR, insideOuter, houseCusps, wheelRotation)
+    : wheelHouseBandMarkup(cx, cy, aspectR, aspectR + WHEEL_HOUSE_BAND, zodiacInner, houseCusps, wheelRotation);
+  if (outsideCusps) markup += wheelHousesMarkup(cx, cy, insideOuter, zodiacInner, outsideCusps, wheelRotation);
   // `person.omit` (optional): bodies left out of that ring (an imprecise moment's angles).
   const ringPositions = (person) => person.chart.positions
-    .filter((position) => wheelBodyVisible(position.name) && !person.omit?.has(position.name))
+    .filter((position) => wheelBodyVisible(position.name) && !person.omit?.has(position.name) && bodyShownAt(position, person.offset || 0))
     .map((position) => {
       const offset = person.offset || 0;
       const longitude = positionAngleAtTime(position, offset);
@@ -387,7 +399,7 @@ function renderPairWheel(svg, people) {
     });
   const insidePositions = ringPositions(inside);
   const outsidePositions = outside ? ringPositions(outside) : [];
-  spreadClusteredAngles(insidePositions, outside ? 7 : 6);
+  spreadClusteredAngles(insidePositions, outside ? 7 : WHEEL_LABELLED_SPREAD);
   if (outside) spreadClusteredAngles(outsidePositions);
   // Orbs come from the true longitudes; the lines join the true (unspread) wheel angles.
   const withLongitude = (positions) => positions.map((position) => ({ ...position, angle: position.longitude }));
@@ -399,23 +411,26 @@ function renderPairWheel(svg, people) {
   // Every aspect is returned for the lists, but only those between planets are drawn.
   const drawn = aspects.filter(aspectDrawnOnWheel);
   markup += wheelAspectLinesMarkup(cx, cy, aspectR, drawn, (aspect) => [insideByName.get(aspect.first).angle, outsideByName.get(aspect.second).angle]);
-  insidePositions.forEach((position) => { markup += planetMarkerMarkup(cx, cy, insideOuter, position, insideRingWidth); });
+  insidePositions.forEach((position) => { markup += planetMarkerMarkup(cx, cy, insideOuter, position, insideRingWidth, !outside); });
   outsidePositions.forEach((position) => { markup += planetMarkerMarkup(cx, cy, zodiacInner, position, outsideRingWidth); });
   svg.innerHTML = markup;
   const byKey = new Map([...insidePositions, ...outsidePositions].map((position) => [position.key, position]));
   svg._wheelHover = {
-    planet: (key) => byKey.has(key) && (() => pairPlanetTooltip(byKey.get(key), houseCusps, inside)),
+    planet: (key) => byKey.has(key) && (() => pairPlanetTooltip(byKey.get(key), byKey.get(key).person === inside ? houseCusps : outsideCusps, houseCusps, inside)),
     aspect: (index) => drawn[index] && (() => pairAspectTooltip(drawn[index], insideByName.get(drawn[index].first), outsideByName.get(drawn[index].second), people.length > 1)),
   };
   bindWheelHover(svg).hidden = true;
   return aspects;
 }
 
-function pairPlanetTooltip(position, cusps, housesOf) {
+// Its own chart's house, and for the outer chart's bodies also the inner chart's house
+// they fall in ("in Chart A's house 7").
+function pairPlanetTooltip(position, ownCusps, insideCusps, inside) {
   const { glyph, degree } = wheelSignText(position.longitude);
   const mark = WHEEL_MOTION_MARKS[position.motion];
-  const house = wheelHouseOf(position.longitude, cusps);
-  const where = !house ? '' : position.person === housesOf ? ` · House ${house}` : ` · in ${housesOf.housesName || `${housesOf.name}'s house`} ${house}`;
+  const own = ownCusps && wheelHouseOf(position.longitude, ownCusps);
+  const across = position.person !== inside && insideCusps && wheelHouseOf(position.longitude, insideCusps);
+  const where = `${own ? ` · House ${own}` : ''}${across ? ` · in ${inside.housesName || `${inside.name}'s house`} ${across}` : ''}`;
   return `<div class="wheel-tooltip-main">${position.name} ${glyph}${degree.toFixed(2)}°${mark ? ` ${mark}` : ''}</div><div class="wheel-tooltip-sub">${position.person.name}${where}</div>`;
 }
 function pairAspectTooltip(aspect, first, second, synastry) {
@@ -428,7 +443,7 @@ function pairAspectTooltip(aspect, first, second, synastry) {
 function pairAspectGridMarkup(people, aspects) {
   const [rowsPerson, columnsPerson = people[0]] = people;
   const synastry = people.length > 1;
-  const bodies = (person) => aspectBodies(person.chart.positions.filter((position) => wheelBodyVisible(position.name)));
+  const bodies = (person) => aspectBodies(person.chart.positions.filter((position) => wheelBodyVisible(position.name) && bodyShownAt(position, person.offset || 0)));
   const rows = bodies(rowsPerson), columns = bodies(columnsPerson);
   const lookup = new Map();
   aspects.forEach((aspect) => {

@@ -1419,8 +1419,10 @@ const GENE_KEYS_SHARED_SPHERE_BLENDS = {
 let geneKeysBlendCount = 0;
 // Cycle Explorer: the gate a sphere's planet is transiting at the cycle moment (the
 // planet itself, whichever side the sphere reads natally), drawn below the sphere.
+// The sphere's own side of the moment (cycle-moment.js gives a transit the Personality
+// side on both).
 function geneKeysCycleLabel(sphere, cycleHd) {
-  const influence = cycleHd?.personality.find((item) => item.planet === sphere.planet);
+  const influence = (cycleHd?.[sphere.set] || cycleHd?.personality)?.find((item) => item.planet === sphere.planet);
   return influence && influence.label ? `${influence.gate}.${influence.line}` : "—";
 }
 function geneKeysCycleLabelMarkup(sphere, r, cycleHd, active = true) {

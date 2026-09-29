@@ -429,7 +429,8 @@ function ephemerisAngleAtTime(position, offsetMinutes) {
     return realLunarNode(position.name, date);
   }
   if (position.name === 'Lilith') return realLilith(date);
-  if (position.name === 'Chiron') return chironLongitude(date);
+  // (Outside 1000–2999 Chiron isn't drawn — bodyShownAt, timeline.js — and its simulation isn't run.)
+  if (position.name === 'Chiron') { const year = date.getUTCFullYear(); return year < 1000 || year > 2999 ? null : chironLongitude(date); }
   if (REAL_ANGLE_BODIES.has(position.name)) {
     if (position.latitude == null || position.longitude == null) return null;
     const latitude = Number(position.latitude), longitude = Number(position.longitude);

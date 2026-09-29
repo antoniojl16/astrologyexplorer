@@ -112,7 +112,7 @@ function computePairComposite(chartA, chartB) {
 // The composite as a Pair Explorer "person" for the wheel, grid and aspect list.
 function pairCompositePerson(chartA, chartB) {
   const { chart, description } = computePairComposite(chartA, chartB);
-  return { key: 'C', chart, color: 'var(--gold)', name: 'Composite', tag: 'composite', legend: `Composite · ${escapeHtml(chartA.name)} & ${escapeHtml(chartB.name)}<small class="pair-composite-about">${escapeHtml(description)}</small>`, offset: 0 };
+  return { key: 'C', chart, color: 'var(--green)', name: 'Composite', tag: 'composite', legend: `Composite · ${escapeHtml(chartA.name)} & ${escapeHtml(chartB.name)}<small class="pair-composite-about">${escapeHtml(description)}</small>`, offset: 0 };
 }
 
 // The settings, at the bottom of the wheel's filter column (shown with the composite

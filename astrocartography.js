@@ -897,6 +897,7 @@ function acgTravelLines(chart, offsetMinutes) {
   const siderealDegrees = Astronomy.SiderealTime(date) * 15;
   const lines = [];
   acgEachBody(chart, (body, member, position) => {
+    if (!bodyShownAt(position, offsetMinutes)) return;
     const { rightAscension, declination } = acgBodyEquatorial(position, date, offsetMinutes);
     const mc = ((((rightAscension - siderealDegrees + 180) % 360) + 360) % 360) - 180;
     const add = (lineKey, points, extra = {}) => {
@@ -965,6 +966,7 @@ function acgLocalSpaceLines(chart, offsetMinutes, origin, directionsFrom = origi
   const observer = new Astronomy.Observer(directionsFrom.lat, directionsFrom.lon, 0);
   const lines = [];
   acgEachBody(chart, (body, member, position) => {
+    if (!bodyShownAt(position, offsetMinutes)) return;
     const { rightAscension, declination } = acgBodyEquatorial(position, date, offsetMinutes);
     const azimuth = Astronomy.Horizon(date, observer, rightAscension / 15, declination, null).azimuth;
     const segments = acgGreatCircleSegments(lat0, lon0, azimuth).map((points) => acgSegment(points, (point) => point[2] <= 180));

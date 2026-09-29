@@ -9,6 +9,8 @@
 //   Astrocartography: the lines, crossings and zenith zones at the moment's place.
 // Birth is the natal chart itself, so there it reads the natal chart: its own tight
 // aspects, defined channels and Gene Keys, and the lines at the birthplace.
+// The moment's angles are cast where the Astrology tab's Cast for says, and Human Design
+// and Gene Keys follow their Transit | Full chart switch (cycle-moment.js).
 // Nothing is stored: it's computed when shown, and kept in memory while the app is open.
 
 const cycleSummaryCache = new Map();
@@ -16,17 +18,19 @@ function cycleSummaryData(context, place) {
   const { chart, anchorOffset, omit } = context;
   const hidden = ASPECT_DEFINITIONS.filter((definition) => !aspectVisible(definition.name)).map((definition) => definition.name).join(",");
   const birth = !!context.birth;
-  const key = [birth ? "birth" : "", chart.id, chart.positions[0]?.birthMoment, anchorOffset, omit ? "approx" : "exact", place ? `${place.lat},${place.lon}` : "", hidden, EPHEMERIS_ENGINE, LUNAR_NODE_MODE].join("|");
+  const reading = cycleReading(context);
+  const cast = cycleCastChart(context);
+  const key = [birth ? "birth" : "", reading, cast.latitude, cast.longitude, chart.id, chart.positions[0]?.birthMoment, anchorOffset, omit ? "approx" : "exact", place ? `${place.lat},${place.lon}` : "", hidden, EPHEMERIS_ENGINE, LUNAR_NODE_MODE].join("|");
   if (cycleSummaryCache.has(key)) return cycleSummaryCache.get(key);
   const glyphOf = (name) => chart.positions.find((position) => position.name === name)?.glyph || "";
 
   // Astrology: the moment's bodies (without an imprecise moment's angles) against the natal ones.
   const at = (offset) => (position) => ({ ...position, angle: positionAngleAtTime(position, offset) });
   const natal = chart.positions.map(at(0));
-  const moving = chart.positions.filter((position) => !omit?.has(position.name));
+  const moving = cast.positions.filter((position) => !omit?.has(position.name) && bodyShownAt(position, anchorOffset));
   const aspects = birth ? calculateAspects({ positions: natal }) : calculateCrossAspects(moving.map(at(anchorOffset)), natal);
   const transits = aspects
-    .filter((aspect) => aspect.orb <= aspect.maxOrb * ASPECT_EXACT_FRACTION)
+    .filter((aspect) => aspect.orb <= aspect.maxOrb * ASPECT_STRONG_FRACTION)
     .map((aspect) => {
       // Applying when the orb is closing: compared an hour later (at birth, both bodies move).
       const position = moving.find((item) => item.name === aspect.first);
@@ -37,18 +41,20 @@ function cycleSummaryData(context, place) {
     })
     .sort((a, b) => a.orb / a.maxOrb - b.orb / b.maxOrb);
 
-  // Human Design: the moment's (personality) gates, and what they complete with the natal chart.
-  const momentHd = computeHumanDesignChart(chart, anchorOffset);
+  // Human Design: the moment's gates (a transit's Personality side, or a full chart's
+  // both), and what they complete with the natal chart.
+  const momentHd = cycleMomentHd(chart, anchorOffset, reading);
   const natalHd = computeHumanDesignChart(chart, 0);
-  const composite = computeCycleHumanDesign(chart, anchorOffset);
+  const composite = computeCycleHumanDesign(chart, anchorOffset, reading === "full");
   const natalChannels = birth ? hdStructureFromGates(hdActiveGates(chart)).definedChannels : [];
   const natalGates = hdActiveGates(chart);
-  const gates = momentHd.personality.filter((influence) => influence.gate != null)
-    .map((influence) => ({ planet: influence.planet, glyph: glyphOf(influence.planet), gate: influence.gate, line: influence.line, natal: natalGates.has(influence.gate) }));
+  const side = (set, design) => set.filter((influence) => influence.gate != null)
+    .map((influence) => ({ planet: influence.planet, glyph: glyphOf(influence.planet), gate: influence.gate, line: influence.line, natal: natalGates.has(influence.gate), design }));
+  const gates = [...side(momentHd.personality, false), ...(reading === "full" && !birth ? side(momentHd.design, true) : [])];
 
   // Gene Keys: every sphere's natal Key and the Key its planet transits at the moment.
   const spheres = GENE_KEYS_ALL_SPHERES.filter((sphere) => sphere.set).map((sphere) => {
-    const influence = momentHd.personality.find((item) => item.planet === sphere.planet);
+    const influence = momentHd[sphere.set].find((item) => item.planet === sphere.planet);
     return { sphere, natal: geneKeysGateLabel(sphere, natalHd), moment: influence?.label ? `${influence.gate}.${influence.line}` : "—", gate: influence?.gate ?? null };
   });
   const natalKeys = new Set(spheres.map(({ natal: label }) => Number(label.split(".")[0])).filter(Boolean));
@@ -63,7 +69,7 @@ function cycleSummaryData(context, place) {
       lines: acgNearestLines(lines, place.lat, place.lon, ACG_LOCATION_ROWS),
     };
   }
-  const data = { birth, transits, gates, composite, natalChannels, spheres, natalKeys, map };
+  const data = { birth, reading, cast, transits, gates, composite, natalChannels, spheres, natalKeys, map };
   cycleSummaryCache.set(key, data);
   return data;
 }
@@ -89,7 +95,7 @@ function renderCycleSummary(surface, context) {
           <div class="cycle-summary-row"><span><b>${aspect.glyphFirst}</b> ${escapeHtml(aspect.first)} <b style="color:${aspect.color}">${aspect.glyph}</b> ${escapeHtml(aspect.name.toLowerCase())}${data.birth ? "" : " natal"} <b>${aspect.glyphSecond}</b> ${escapeHtml(aspect.second)}</span><small>${aspect.orb.toFixed(1)}° · ${aspect.applying ? "applying" : "separating"}</small></div>
           <p>${sentence}${meaning ? ` <span class="cycle-summary-nature">${escapeHtml(meaning.nature)}</span>` : ""}</p>
         </li>`;
-      }).join("")}</ol><p class="cycle-summary-foot">Within a fifth of each aspect's orb, strongest first. Applying: still building toward exact; separating: past exact, fading. Aspects follow the aspect filters of the Astrology tab.</p>`
+      }).join("")}</ol><p class="cycle-summary-foot">Within a fifth of each aspect's orb, strongest first. Applying: still building toward exact; separating: past exact, fading. Aspects follow the aspect filters of the Astrology tab.${data.birth ? "" : ` The moment's angles are cast for ${escapeHtml(cycleCastPlace(context).place?.name || chart.location || "the birthplace")}.`}</p>`
     : empty(data.birth ? "No natal aspect is within a fifth of its orb (with the aspects currently shown in the Astrology tab)." : "No planet at this moment is within a fifth of its orb of an aspect to the natal chart (with the aspects currently shown in the Astrology tab).");
 
   // Human Design
@@ -100,8 +106,8 @@ function renderCycleSummary(surface, context) {
     <p class="cycle-summary-foot">The Personality gates at birth (the Design gates come from about 88 days before).</p>
     <span class="eyebrow cycle-info-subhead">CHANNELS DEFINED AT BIRTH · ${data.natalChannels.length}</span>
     ${hdChannelListMarkup(data.natalChannels)}` : `
-    <div class="cycle-summary-gates">${data.gates.map((gate) => `<span class="cycle-summary-gate${gate.natal ? " natal" : ""}" title="${escapeHtml(gate.planet)}: gate ${gate.gate}, line ${gate.line}${gate.natal ? " (also active in the natal chart)" : ""}"><b>${gate.glyph}</b>${gate.gate}.${gate.line}</span>`).join("")}</div>
-    <p class="cycle-summary-foot">The moment's planets and the gates they activate; outlined ones are active natally too.</p>
+    <div class="cycle-summary-gates">${data.gates.map((gate) => `<span class="cycle-summary-gate${gate.natal ? " natal" : ""}${gate.design ? " design" : ""}" title="${escapeHtml(gate.planet)}${data.reading === "full" ? ` (${gate.design ? "Design" : "Personality"})` : ""}: gate ${gate.gate}, line ${gate.line}${gate.natal ? " (also active in the natal chart)" : ""}"><b>${gate.glyph}</b>${gate.gate}.${gate.line}</span>`).join("")}</div>
+    <p class="cycle-summary-foot">${data.reading === "full" ? "The moment as a full chart: its Personality gates, then its Design gates (in the Design color)" : "The moment's planets (a transit: its Personality side) and the gates they activate"}; outlined ones are active natally too.</p>
     <div class="system-stat"><span>DEFINED ONLY WITH THE MOMENT</span><strong>${composite.newlyDefinedCenters.length ? composite.newlyDefinedCenters.map(centerName).join(", ") : "No new centers"}</strong></div>
     <span class="eyebrow cycle-info-subhead">CHANNELS THE MOMENT COMPLETES · ${composite.cycleChannels.length}</span>
     ${hdChannelListMarkup(composite.cycleChannels)}`;
@@ -119,7 +125,7 @@ function renderCycleSummary(surface, context) {
   // Astrocartography
   let astrocartography;
   if (!place) {
-    astrocartography = empty(context.occurrence ? "This cycle has no place yet. Annotate it in the Life Timeline with where you were, to read the lines there." : "This moment has no place. Add one to the event to read the planetary lines there.");
+    astrocartography = empty(context.now ? "No place chosen for now. Choose one under Cast for, in the Astrology tab, to read the planetary lines there." : context.occurrence ? "This cycle has no place yet. Annotate it in the Life Timeline with where you were, to read the lines there." : "This moment has no place. Add one to the event to read the planetary lines there.");
   } else if (context.omit) {
     astrocartography = empty(`${escapeHtml(place.name || lifeUnnamedPlace(place))}: the planetary lines depend on the exact time of day, so they need the moment's time to be read.`);
   } else {
@@ -136,8 +142,8 @@ function renderCycleSummary(surface, context) {
     ${precision ? `<p class="cycle-summary-precision">${escapeHtml(precision)}</p>` : ""}
     <div class="cycle-summary-grid">
       ${card(data.birth ? "ASTROLOGY · TIGHT NATAL ASPECTS" : "ASTROLOGY · TIGHT TRANSITS TO THE NATAL CHART", data.transits.length, astrology)}
-      ${card("HUMAN DESIGN · GATES AND CHANNELS", !data.birth && composite.cycleChannels.length ? `${composite.cycleChannels.length} new channel${composite.cycleChannels.length === 1 ? "" : "s"}` : null, humanDesign)}
-      ${card(data.birth ? "GENE KEYS · NATAL" : "GENE KEYS · NATAL AND AT THE MOMENT", null, geneKeys)}
+      ${card(`HUMAN DESIGN · GATES AND CHANNELS${data.birth ? "" : data.reading === "full" ? " · FULL CHART" : " · TRANSIT"}`, !data.birth && composite.cycleChannels.length ? `${composite.cycleChannels.length} new channel${composite.cycleChannels.length === 1 ? "" : "s"}` : null, humanDesign)}
+      ${card(data.birth ? "GENE KEYS · NATAL" : `GENE KEYS · NATAL AND AT THE MOMENT · ${data.reading === "full" ? "FULL CHART" : "TRANSIT"}`, null, geneKeys)}
       ${card(data.birth ? "ASTROCARTOGRAPHY · AT THE BIRTHPLACE" : "ASTROCARTOGRAPHY · AT THE MOMENT'S PLACE", null, astrocartography)}
     </div>
   </div>`;

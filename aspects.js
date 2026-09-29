@@ -42,21 +42,30 @@ function angularDistance(first, second) {
   return Math.min(distance, 360 - distance);
 }
 
-// exact: within a fifth of the aspect's own max orb (2° for a 10° conjunction,
-// 0.4° for a 2° minor aspect). Beyond that, normal (up to 60% of the max orb) or weak.
-const ASPECT_EXACT_FRACTION = 1 / 5;
+// Intensity, by how much of the aspect's own max orb is used (for a 10° conjunction):
+//   exact  — within a tenth (1°);   strong — within a fifth (2°);
+//   normal — within three fifths (6°);   weak — the rest, out to the max orb.
+const ASPECT_EXACT_FRACTION = 1 / 10;
+const ASPECT_STRONG_FRACTION = 1 / 5;
+const ASPECT_NORMAL_FRACTION = 3 / 5;
+const ASPECT_INTENSITIES = [['exact', 'Exact'], ['strong', 'Strong'], ['normal', 'Normal'], ['weak', 'Weak']];
 function aspectIntensity(orb, maxOrb) {
   if (orb <= maxOrb * ASPECT_EXACT_FRACTION) return 'exact';
-  return orb <= maxOrb * 0.6 ? 'normal' : 'weak';
+  if (orb <= maxOrb * ASPECT_STRONG_FRACTION) return 'strong';
+  return orb <= maxOrb * ASPECT_NORMAL_FRACTION ? 'normal' : 'weak';
 }
+// Intensities filtered out of the wheels, aspect lists and grids, shared by every astrology view.
+const wheelHiddenIntensities = new Set();
+const aspectIntensityShown = (aspect) => !wheelHiddenIntensities.has(aspect.intensity);
 
 // The South Node is always exactly opposite the North Node, so its aspects only repeat
 // the North Node's (and crowd the lists); it's left out of aspects altogether.
-const NON_ASPECT_BODIES = ['Earth', 'Lilith', 'Chiron', 'Vertex', 'Fortuna', 'South Node'];
-// Aspects to the angles are listed, but not drawn as lines across the wheel.
-const UNDRAWN_ASPECT_BODIES = new Set(['Ascendant', 'Midheaven']);
+const NON_ASPECT_BODIES = ['Earth', 'Lilith', 'Vertex', 'Fortuna', 'South Node'];
+// Aspects to the Midheaven are listed, but not drawn as lines across the wheel.
+const UNDRAWN_ASPECT_BODIES = new Set(['Midheaven']);
+// Nor are aspects of an intensity filtered out.
 function aspectDrawnOnWheel(aspect) {
-  return !UNDRAWN_ASPECT_BODIES.has(aspect.first) && !UNDRAWN_ASPECT_BODIES.has(aspect.second);
+  return !UNDRAWN_ASPECT_BODIES.has(aspect.first) && !UNDRAWN_ASPECT_BODIES.has(aspect.second) && !wheelHiddenIntensities.has(aspect.intensity);
 }
 function aspectBodies(positions) {
   return positions.filter(position => typeof position.angle === 'number' || position.sign).filter(position => NON_ASPECT_BODIES.indexOf(position.name) === -1);
@@ -139,7 +148,7 @@ function aspectTooltipHtml(row) {
   const orb = Number(row.dataset.aspectOrb), maxOrb = Number(row.dataset.aspectMaxOrb);
   const who = (owner, body) => `${owner ? `${escapeHtml(owner)}'s ` : ''}${ASPECT_BODY_THEMES[body] || escapeHtml(body)} (${escapeHtml(body)})`;
   const sentence = `${who(ownerFirst, first)} and ${who(ownerSecond, second)} ${meaning.join}.`;
-  const strength = orb <= maxOrb * ASPECT_EXACT_FRACTION / 2 ? 'Exact: felt very strongly.' : orb <= maxOrb * ASPECT_EXACT_FRACTION ? 'Very close: strongly felt.' : orb <= maxOrb * 0.6 ? 'Moderate orb: clearly felt.' : 'Wide orb: a milder, background influence.';
+  const strength = orb <= maxOrb * ASPECT_EXACT_FRACTION ? 'Exact: felt very strongly.' : orb <= maxOrb * ASPECT_STRONG_FRACTION ? 'Very close: strongly felt.' : orb <= maxOrb * ASPECT_NORMAL_FRACTION ? 'Moderate orb: clearly felt.' : 'Wide orb: a milder, background influence.';
   const between = ownerFirst && ownerFirst !== ownerSecond
     ? '<div class="gk-tip-text">Between two charts (synastry), it describes how these two parts of the people meet in the relationship.</div>' : '';
   return `<div class="gk-tip-title">${escapeHtml(first)} <span style="color:${ASPECT_COLORS[name] || 'inherit'}">${definition.glyph}</span> ${escapeHtml(name.toLowerCase())} ${escapeHtml(second)} · ${meaning.nature}</div>
@@ -203,10 +212,10 @@ function renderCalculatedAspects(offsetMinutes = window.timelineOffsetMinutes ||
   const chart = currentExplorerChart();
   const list = document.getElementById('aspectList');
   if (!chart || !list) return;
-  const transientChart = {...chart, positions: chart.positions.map(position => {
+  const transientChart = {...chart, positions: chart.positions.filter(position => bodyShownAt(position, offsetMinutes)).map(position => {
     return {...position, angle: positionAngleAtTime(position, offsetMinutes)};
   })};
-  const aspects = calculateAspects(transientChart).slice(0, 18);
+  const aspects = calculateAspects(transientChart).filter(aspectIntensityShown);
   list.innerHTML = aspects.length ? aspects.map(aspect => `<div class="aspect-row" ${aspectRowAttributes(aspect)}><span><b class="aspect-glyph" style="color:${aspect.color}">${aspect.glyph}</b>${aspect.first} ${aspect.name.toLowerCase()} ${aspect.second}</span><span>${aspect.orb.toFixed(1)}° orb</span></div>`).join('') : '<div class="aspect-empty">No aspects in this filter.</div>';
   if (chartViewMode !== 'wheel') renderAspectGrid(transientChart);
 }
@@ -220,7 +229,7 @@ function renderAspectGrid(chart) {
   let grid = document.getElementById('aspectGrid');
   if (!grid) { grid = document.createElement('div'); grid.id = 'aspectGrid'; stage.appendChild(grid); }
   const positions = chart.positions.slice(0, 17);
-  const aspects = calculateAspects(chart);
+  const aspects = calculateAspects(chart).filter(aspectIntensityShown);
   const lookup = new Map(aspects.map(aspect => [`${aspect.first}|${aspect.second}`, aspect]));
   const shortName = name => name === 'North Node' ? 'N.Node' : name === 'South Node' ? 'S.Node' : name;
   grid.innerHTML = `<div class="grid-corner"></div>${positions.map(position => `<div class="grid-label">${shortName(position.name)}</div>`).join('')}${positions.map((row, rowIndex) => `<div class="grid-label row-label">${shortName(row.name)}</div>${positions.map((column, columnIndex) => { const aspect = rowIndex === columnIndex ? null : (lookup.get(`${row.name}|${column.name}`) || lookup.get(`${column.name}|${row.name}`)); return `<div class="aspect-cell ${aspect ? 'has-aspect' : ''}" title="${aspect ? `${aspect.name}, ${aspect.orb.toFixed(1)}° orb` : 'No aspect'}"${aspect ? ` style="color:${aspect.color}"` : ''}>${aspect ? aspect.glyph : '·'}</div>`; }).join('')}`).join('')}`;
@@ -256,13 +265,16 @@ function wheelFiltersMarkup() {
   const group = (kind, name, items) => `<div class="acg-filter-group"><label class="acg-filter wheel-filter-group-toggle"><input type="checkbox" data-filter-group="${kind}:${name}"><span>${name}</span></label>${items}</div>`;
   const planets = name => group('planets', name, WHEEL_FILTER_BODIES.filter(body => body.group === name).map(planet).join(''));
   const aspects = name => group('aspects', name, ASPECT_DEFINITIONS.filter(definition => wheelFilterMembers('aspects', name).includes(definition.name)).map(aspect).join(''));
-  return `<span class="eyebrow">PLANETS</span>${planets('Primary')}${planets('Secondary')}<span class="eyebrow wheel-filter-section">ASPECTS</span>${aspects('Primary')}${aspects('Secondary')}`;
+  const intensity = ([key, label]) => `<label class="acg-filter" title="${label}: within ${{ exact: 'a tenth', strong: 'a fifth', normal: 'three fifths', weak: 'all' }[key]} of the aspect's max orb"><input type="checkbox" data-wheel-intensity="${key}" ${wheelHiddenIntensities.has(key) ? '' : 'checked'}><span><i class="intensity-swatch ${key}"></i>${label}</span></label>`;
+  // Two columns: the planets, then the aspects (types and intensities).
+  return `<div class="wheel-filter-column"><span class="eyebrow">PLANETS</span>${planets('Primary')}${planets('Secondary')}</div><div class="wheel-filter-column"><span class="eyebrow">ASPECTS</span>${aspects('Primary')}${aspects('Secondary')}<span class="eyebrow wheel-filter-section" title="Which aspects the wheel, the lists and the grids show">INTENSITY</span><div class="acg-filter-group">${ASPECT_INTENSITIES.map(intensity).join('')}</div></div>`;
 }
 // Brings every filter checkbox under `root` in line with the shared sets, including
 // each subheading's ticked / unticked / partly-ticked (dash) state.
 function syncWheelFilterInputs(root = document) {
   root.querySelectorAll('[data-wheel-body]').forEach(input => { input.checked = !wheelHiddenBodies.has(input.dataset.wheelBody); });
   root.querySelectorAll('[data-wheel-aspect]').forEach(input => { input.checked = !wheelHiddenAspects.has(input.dataset.wheelAspect); });
+  root.querySelectorAll('[data-wheel-intensity]').forEach(input => { input.checked = !wheelHiddenIntensities.has(input.dataset.wheelIntensity); });
   root.querySelectorAll('[data-filter-group]').forEach(input => {
     const [kind, group] = input.dataset.filterGroup.split(':');
     const hidden = wheelFilterHiddenSet(kind);
@@ -275,10 +287,11 @@ function syncWheelFilterInputs(root = document) {
 // Applies a filter checkbox change to the shared sets and re-syncs every filter panel on
 // the page. Returns false for anything that isn't a filter checkbox.
 function applyWheelFilterChange(input) {
-  const { wheelBody, wheelAspect, filterGroup } = input.dataset;
+  const { wheelBody, wheelAspect, wheelIntensity, filterGroup } = input.dataset;
   const set = (hidden, keys, show) => keys.forEach(key => (show ? hidden.delete(key) : hidden.add(key)));
   if (wheelBody) set(wheelHiddenBodies, [wheelBody], input.checked);
   else if (wheelAspect) set(wheelHiddenAspects, [wheelAspect], input.checked);
+  else if (wheelIntensity) set(wheelHiddenIntensities, [wheelIntensity], input.checked);
   else if (filterGroup) {
     const [kind, group] = filterGroup.split(':');
     set(wheelFilterHiddenSet(kind), wheelFilterMembers(kind, group), input.checked);

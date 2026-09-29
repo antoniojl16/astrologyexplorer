@@ -23,7 +23,8 @@ and **Import workspace** to bring charts and events back.
 - **Chart library** — every chart in an Astrology or Human Design view, with a miniature
   chart, its key facts (Sun and Rising; Type, Authority, Profile, Definition), its number
   of life events, and an Edit button (where a chart can also be deleted).
-- **Chart explorer** — the astrology wheel with aspects, filters and a timeline; the
+- **Chart explorer** — the astrology wheel with each body's degree, sign and minutes,
+  a positions list (planets and house cusps), aspects, filters and a timeline; the
   Human Design bodygraph and mandala with typology, Variable and PHS; the Gene Keys
   profile and Star Pearl; Astrocartography travel and local-space maps on a shaded-relief
   world map with city names and main roads, where clicked spots are saved with the chart
@@ -42,7 +43,10 @@ and **Import workspace** to bring charts and events back.
   nodal) and any life event, with the natal chart and the moment compared in each
   system: a Summary of what was active (tight transits, Human Design gates and channels,
   Gene Keys, and the planetary lines at the moment's place), and a Life Timeline of
-  birth, events and cycles, as a list and as a strip by age.
+  birth, events and cycles, as a list and as a strip by age. **Transits · now** (also
+  from the Chart explorer) sets the chart against the sky at this moment, to save to the
+  Life Timeline in one click. Each moment's angles and houses are cast for its own place
+  (an event's) or any other; Human Design and Gene Keys read it as a transit or a full chart.
 - Birth-location search over ~70,000 places worldwide, filling in coordinates and time zone.
 - Direct links for every view (`#/chart/<name>/<system>/<view>`), keyboard shortcuts
   (press `?`), light and dark themes.

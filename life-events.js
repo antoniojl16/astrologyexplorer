@@ -513,13 +513,18 @@ function bindRoleSuggestions(box) {
 // moment (birth, a cycle: `event.anchor`) is annotated instead: its date (and birth's
 // place) stay locked, and only what it can hold is shown — a cycle's place, tags and
 // notes; birth's tags, notes and people. Saving an empty annotation clears it.
-function openLifeEventDialog(chart, event, { onSave, withChartIds = [] } = {}) {
+// `draft` (a new record only): fields to start from — { title, start, zone, place, instant },
+// e.g. the Cycle Explorer's "now". With its exact `instant`, changing the time zone (or
+// choosing a place, which sets it) re-expresses the date and time on the new zone's
+// clock, so the record keeps meaning the same moment.
+function openLifeEventDialog(chart, event, { onSave, withChartIds = [], draft = null } = {}) {
   const dialog = lifeDialog();
   const form = dialog.querySelector("form");
   const workspace = workspaceOfChart(chart.id);
   form.reset();
   const anchor = event?.anchor || null;
   const stored = anchor ? event.stored || null : event;
+  const source = event || draft;
   const show = (element, visible) => { if (element) element.hidden = !visible; };
   const field = (name) => form.elements[name].closest("label");
   // An annotation's computed fields (title, date, time zone, and birth's place) are shown
@@ -544,16 +549,26 @@ function openLifeEventDialog(chart, event, { onSave, withChartIds = [] } = {}) {
     set(`${prefix}Day`, day ? String(Number(day)) : "");
     set(`${prefix}Time`, moment?.time);
   };
-  set("title", event?.title);
-  set("kind", event?.kind);
-  set("when", event ? (event.start ? (event.end ? "period" : "moment") : "none") : "moment");
-  setMoment("start", event?.start);
-  setMoment("end", event?.end);
-  set("location", event?.place?.name);
-  set("latitude", event?.place ? String(event.place.lat) : "");
-  set("longitude", event?.place ? String(event.place.lon) : "");
-  form.elements.timezone.innerHTML = timezoneOptionsMarkup(event?.zone || chart.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone);
-  set("notes", event?.notes);
+  set("title", source?.title);
+  set("kind", source?.kind);
+  set("when", source ? (source.start ? (source.end ? "period" : "moment") : "none") : "moment");
+  setMoment("start", source?.start);
+  setMoment("end", source?.end);
+  set("location", source?.place?.name);
+  set("latitude", source?.place ? String(source.place.lat) : "");
+  set("longitude", source?.place ? String(source.place.lon) : "");
+  form.elements.timezone.innerHTML = timezoneOptionsMarkup(source?.zone || chart.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone);
+  set("notes", source?.notes);
+  // A draft's exact moment follows the time zone, while its date and time are untouched.
+  const startFields = () => ["Year", "Month", "Day", "Time"].map((part) => form.elements[`start${part}`].value).join("|");
+  let converted = draft?.instant && draft.start ? (setMoment("start", draft.start), startFields()) : null;
+  form.elements.timezone.onchange = () => {
+    if (!converted || startFields() !== converted) return;
+    const moment = lifeLocalMoment(draft.instant, form.elements.timezone.value);
+    setMoment("start", moment);
+    converted = startFields();
+    showToast(`Time shown on the ${form.elements.timezone.value} clock: ${moment.time}, the same moment`);
+  };
   if (anchor) set("title", lifeEventTitle(event));
 
   // People: every chart in the workspace (this one always in), each with a role, then

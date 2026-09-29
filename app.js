@@ -491,6 +491,11 @@ function sanitizeChart(raw, { fromFile = false } = {}) {
     tags: (Array.isArray(raw.tags) ? raw.tags : []).map((tag) => text(tag, 40)).filter(Boolean).slice(0, 12),
     createdAt: number(raw.createdAt, 0, 8.64e15) || Date.now(),
   };
+  // Where the Cycle Explorer casts this chart's transits (cycle-moment.js); `off`: at the birthplace for now.
+  const transit = raw.transitPlace;
+  if (transit && number(transit.lat, -90, 90) != null && number(transit.lon, -180, 180) != null) {
+    chart.transitPlace = { name: text(transit.name), lat: Number(transit.lat), lon: Number(transit.lon), zone: text(transit.zone, 64), ...(transit.off ? { off: true } : {}) };
+  } else delete chart.transitPlace;
   const origin = raw.localSpaceOrigin;
   if (origin && number(origin.lat, -90, 90) != null && number(origin.lon, -180, 180) != null) chart.localSpaceOrigin = { lat: Number(origin.lat), lon: Number(origin.lon) };
   else delete chart.localSpaceOrigin;
@@ -729,46 +734,48 @@ function renderRows() {
     }),
   );
 }
+// Sets each item's displayAngle so no two sit closer than minSeparation (or 360/n when
+// they couldn't all fit), keeping each crowded run centered on its true angles. The
+// circle is cut at its widest empty gap and read as a line; a run that grows into its
+// neighbour merges with it and is re-centered, until every run is clear of the next.
 function spreadClusteredAngles(items, minSeparation = 6) {
+  const count = items.length;
+  if (!count) return;
+  const separation = Math.min(minSeparation, 360 / count);
   const sorted = [...items].sort((a, b) => a.angle - b.angle);
-  const groups = [];
-  sorted.forEach((item) => {
-    const group = groups[groups.length - 1];
-    const gap = group
-      ? Math.min(
-          Math.abs(item.angle - group[group.length - 1].angle),
-          360 - Math.abs(item.angle - group[group.length - 1].angle),
-        )
-      : Infinity;
-    if (group && gap < minSeparation) group.push(item);
-    else groups.push([item]);
+  let cut = 0, widest = -1;
+  sorted.forEach((item, index) => {
+    const gap = (index + 1 < count ? sorted[index + 1].angle : sorted[0].angle + 360) - item.angle;
+    if (gap > widest) { widest = gap; cut = (index + 1) % count; }
   });
-  if (groups.length > 1) {
-    const first = groups[0][0],
-      last = groups[groups.length - 1][groups[groups.length - 1].length - 1];
-    if (360 - last.angle + first.angle < minSeparation) groups[0] = groups.pop().concat(groups[0]);
-  }
-  groups.forEach((group) => {
-    const base = group[0].angle;
-    const normalized = group.map((item) => {
-      let diff = item.angle - base;
-      if (diff < -180) diff += 360;
-      if (diff > 180) diff -= 360;
-      return diff;
-    });
-    const centerOffset = normalized.reduce((sum, value) => sum + value, 0) / group.length;
-    group.forEach((item, index) => {
-      const spread =
-        group.length === 1
-          ? normalized[index]
-          : centerOffset + (index - (group.length - 1) / 2) * minSeparation;
-      item.displayAngle = (base + spread + 360) % 360;
-    });
+  const line = sorted.map((_, step) => {
+    const item = sorted[(cut + step) % count];
+    return { item, at: item.angle + (cut + step >= count ? 360 : 0) };
+  });
+  const start = (run) => run.sum / run.members.length - ((run.members.length - 1) * separation) / 2;
+  const runs = [];
+  line.forEach((entry) => {
+    runs.push({ members: [entry], sum: entry.at });
+    while (runs.length > 1) {
+      const last = runs[runs.length - 1], previous = runs[runs.length - 2];
+      if (start(last) - (start(previous) + (previous.members.length - 1) * separation) >= separation - 1e-9) break;
+      previous.members.push(...last.members);
+      previous.sum += last.sum;
+      runs.pop();
+    }
+  });
+  runs.forEach((run) => {
+    const first = start(run);
+    run.members.forEach((member, index) => { member.item.displayAngle = (((first + index * separation) % 360) + 360) % 360; });
   });
 }
 // `ringWidth` is the width of the planet ring inside `inner`; the position tick sits
-// just inside that ring's inner edge.
-function planetMarkerMarkup(cx, cy, inner, position, ringWidth = 34) {
+// just inside that ring's inner edge. `labelled`: under the glyph, reading inward, the
+// degree, the sign and the minutes (position.longitude) — for single-chart wheels, whose
+// ring is widened to fit them (WHEEL_LABELLED_RING). Their house band
+// (WHEEL_HOUSE_BAND) sits inside the ring, and the position ticks stick out of both of
+// its edges: outward toward the glyph, inward toward the aspect lines.
+function planetMarkerMarkup(cx, cy, inner, position, ringWidth = 34, labelled = false) {
   const trueRad = ((position.angle - 90) * Math.PI) / 180;
   const tx = cx + (inner - 4) * Math.cos(trueRad),
     ty = cy + (inner - 4) * Math.sin(trueRad);
@@ -779,12 +786,16 @@ function planetMarkerMarkup(cx, cy, inner, position, ringWidth = 34) {
   const tickInnerX = cx + tickInnerR * Math.cos(trueRad),
     tickInnerY = cy + tickInnerR * Math.sin(trueRad);
   const displayRad = ((position.displayAngle - 90) * Math.PI) / 180;
-  const x = cx + (inner - 19) * Math.cos(displayRad),
-    y = cy + (inner - 19) * Math.sin(displayRad);
+  const glyphR = labelled ? inner - 16 : inner - 19;
+  const x = cx + glyphR * Math.cos(displayRad),
+    y = cy + glyphR * Math.sin(displayRad);
   // A caller-supplied color (e.g. the Pair Explorer's per-person colors) wins over
   // the birth/design default.
   const color = position.color || (position.design ? 'var(--blue)' : 'var(--accent)');
-  const tick = `<line x1="${tickInnerX}" y1="${tickInnerY}" x2="${tickOuterX}" y2="${tickOuterY}" stroke="${color}" stroke-width="1.4" opacity=".85" class="planet-tick"/>`;
+  const tickLine = (from, to) => `<line x1="${cx + from * Math.cos(trueRad)}" y1="${cy + from * Math.sin(trueRad)}" x2="${cx + to * Math.cos(trueRad)}" y2="${cy + to * Math.sin(trueRad)}" stroke="${color}" stroke-width="1.4" opacity=".85" class="planet-tick"/>`;
+  const tick = labelled
+    ? tickLine(tickOuterR, tickOuterR + 6) + tickLine(tickOuterR - WHEEL_HOUSE_BAND, tickOuterR - WHEEL_HOUSE_BAND - 6)
+    : `<line x1="${tickInnerX}" y1="${tickInnerY}" x2="${tickOuterX}" y2="${tickOuterY}" stroke="${color}" stroke-width="1.4" opacity=".85" class="planet-tick"/>`;
   const leader =
     Math.abs(position.displayAngle - position.angle) > 0.5
       ? `<line x1="${tx}" y1="${ty}" x2="${x}" y2="${y}" stroke="${color}" stroke-width=".6" opacity=".4" stroke-dasharray="1 2"/>`
@@ -797,7 +808,28 @@ function planetMarkerMarkup(cx, cy, inner, position, ringWidth = 34) {
   // only the thin strokes of the glyph itself.
   return `${tick}${leader}<g class="planet-marker" data-planet="${position.key || position.name}" tabindex="0">
   <circle cx="${x}" cy="${y}" r="10" fill="transparent"/>
-  <text x="${x}" y="${y + 1}" text-anchor="middle" dominant-baseline="middle" fill="${color}" class="planet-glyph">${position.glyph}</text>${motion}</g>`;
+  <text x="${x}" y="${y + 1}" text-anchor="middle" dominant-baseline="middle" fill="${color}" class="planet-glyph${labelled && /^[A-Za-z]+$/.test(position.glyph) ? ' planet-glyph-letters' : ''}">${position.glyph}</text>${motion}${labelled ? planetDegreeLabelMarkup(cx, cy, inner - (/^[A-Za-z]+$/.test(position.glyph) ? 5 : 0), displayRad, position.longitude, color) : ''}</g>`;
+}
+// The labelled ring's width, the house band inside it, and the wider spacing its glyphs
+// need to keep the labels apart.
+const WHEEL_LABELLED_RING = 76;
+const WHEEL_HOUSE_BAND = 18;
+const WHEEL_LABELLED_SPREAD = 6.5;
+// "20° ♏ 31′" stacked along the glyph's radius, upright — further apart where the
+// radius runs across (left and right), since the labels are wider than they're tall.
+function planetDegreeLabelMarkup(cx, cy, inner, rad, longitude, color) {
+  const { sign, degrees, minutes } = zodiacDegreeParts(longitude);
+  const across = Math.abs(Math.cos(rad));
+  const at = (offset, widen) => `x="${cx + (inner - offset - widen * across) * Math.cos(rad)}" y="${cy + (inner - offset - widen * across) * Math.sin(rad)}" text-anchor="middle" dominant-baseline="middle"`;
+  return `<text ${at(32, 3)} fill="${color}" class="planet-degree">${degrees}°</text>`
+    + `<text ${at(45, 6)} class="planet-sign ${SIGN_ELEMENTS[sign]}">${SIGN_GLYPHS[sign]}\uFE0E</text>`
+    + `<text ${at(57, 9)} fill="${color}" class="planet-minutes">${String(minutes).padStart(2, '0')}′</text>`;
+}
+// A longitude as its sign index and whole degrees and minutes within the sign
+// (truncated, as ephemerides print them: 29°59′ is never rounded up into the next sign).
+function zodiacDegreeParts(longitude) {
+  const total = Math.floor((((longitude % 360) + 360) % 360) * 60 + 1e-6);
+  return { sign: Math.floor(total / 1800) % 12, degrees: Math.floor((total % 1800) / 60), minutes: total % 60 };
 }
 // Debug aid: hovering the bodygraph shows which SVG element is under the pointer and
 // the x,y coordinates of the SVG.

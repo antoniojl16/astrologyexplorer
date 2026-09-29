@@ -399,9 +399,11 @@ function computeCompositeFromGates(gatesA, gatesB, names = { A: 'Chart A', B: 'C
 
 // Cycle composite: the natal chart's 26 activations with the 13 planets' transits at a
 // cycle moment (`offsetMinutes` after birth). Transits have no Design side — they're
-// simply where the planets are at that moment.
-function computeCycleHumanDesign(chart, offsetMinutes) {
-  const transitGates = new Set(computeHumanDesignChart(chart, offsetMinutes).personality.filter(influence => influence.gate != null).map(influence => influence.gate));
+// simply where the planets are at that moment. `full`: the moment read as a chart of
+// its own instead, its Design side (88° of the Sun earlier) included.
+function computeCycleHumanDesign(chart, offsetMinutes, full = false) {
+  const moment = computeHumanDesignChart(chart, offsetMinutes);
+  const transitGates = new Set([...moment.personality, ...(full ? moment.design : [])].filter(influence => influence.gate != null).map(influence => influence.gate));
   const natalGates = hdActiveGates(chart);
   const composite = computeCompositeFromGates(natalGates, transitGates, { A: 'Natal', B: 'Cycle moment' });
   const natalChannels = new Set(hdStructureFromGates(natalGates).definedChannels.map(hdChannelKey));

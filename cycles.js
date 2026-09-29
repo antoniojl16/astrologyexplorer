@@ -11,7 +11,8 @@ let cycleChartId = null;
 let activeCycleKey = 'saturn-return';
 let activeOccurrenceIndex = 0;
 // A life event (or birth) chosen from the Life Timeline replaces the cycle occurrence as
-// the moment studied: null, { birth: true }, or { eventId, part: "start" | "end" }.
+// the moment studied: null, { birth: true }, { eventId, part: "start" | "end" }, or the
+// sky at a moment against the chart, { now: true, time } (cycle-moment.js).
 let cycleEventAnchor = null;
 // Which Life Timeline entries show: life events, cycles, or both.
 const cycleLifeShow = { events: true, cycles: true };
@@ -112,7 +113,7 @@ function renderCycleExplorer() {
   const select = document.getElementById('cycleChartSelect');
   if (select) {
     select.innerHTML = charts.map(item => `<option value="${item.id}" ${item.id === cycleChartId ? 'selected' : ''}>${escapeHtml(item.name)}</option>`).join('');
-    select.onchange = () => { cycleChartId = select.value; activeOccurrenceIndex = 0; cycleEventAnchor = null; renderCycleExplorer(); };
+    select.onchange = () => { cycleChartId = select.value; activeOccurrenceIndex = 0; cycleEventAnchor = cycleEventAnchor?.now ? { now: true, time: Date.now() } : null; renderCycleExplorer(); };
   }
   const tabs = document.getElementById('cycleTypeTabs');
   if (tabs) {
@@ -341,6 +342,10 @@ function renderCycleSignature() {
   const signature = document.getElementById('cycleSignature');
   const context = cycleContext();
   if (!signature || !context) return;
+  if (context.now) {
+    signature.innerHTML = cycleNowSignatureMarkup(context);
+    return;
+  }
   if (context.event || context.birth) {
     signature.innerHTML = cycleEventSignatureMarkup(context);
     return;
@@ -365,6 +370,7 @@ function cycleAcgMoment() {
   const context = cycleContext();
   if (!context) return null;
   const { chart } = context;
+  if (context.now) return { context, label: 'Transits', place: cycleCastPlace(context).place, recordId: null };
   if (context.birth) {
     const birth = lifeBirthRecord(chart);
     return { context, label: 'Birth', place: birth?.place || null, recordId: birth?.place ? birth.id : null };
@@ -400,6 +406,10 @@ function cycleContext() {
   const offsetOf = date => (date.getTime() - birthTime) / 60000;
   if (cycleEventAnchor?.birth) {
     return { chart, cycleDef, birth: true, anchorOffset: 0, anchorLabel: 'Birth', cycleName: 'Birth', momentNoun: 'Birth', span: 30 * 1440 };
+  }
+  if (cycleEventAnchor?.now) {
+    const time = cycleEventAnchor.time || Date.now();
+    return { chart, cycleDef, now: true, time, anchorOffset: offsetOf(new Date(time)), anchorLabel: `Transits · ${cycleClockLabel(new Date(time))}`, cycleName: 'Transits', momentNoun: 'Transits', span: 30 * 1440 };
   }
   const event = cycleEventAnchor && chartLifeEvents(chart).find(item => item.id === cycleEventAnchor.eventId && item.start);
   if (event) {
@@ -473,18 +483,29 @@ function renderCycleSystemView() {
 }
 // The slider under each cycle chart moves only the cycle moment (the natal chart stays
 // put); its readout shows the offset from the exact cycle moment and the date.
-// Life events show along it (periods as bands), the chosen one highlighted.
+// Life events show along it (periods as bands), the chosen one highlighted. Its ticks
+// read the birth chart's clock ("now": this device's), and its window and thumb carry
+// over from tab to tab while the moment stays the same (cycle-moment.js).
 function bindCycleSlider(container, context, onChange) {
   const noun = context.momentNoun.toLowerCase();
+  const birth = chartBirthMomentUTC(context.chart).getTime();
   bindTimelineSlider(container, {
     originLabel: context.anchorLabel,
+    anchorName: context.birth ? 'birth' : context.now ? 'then' : context.occurrence ? 'the cycle moment' : `the ${noun}`,
     initialSpan: context.span,
+    originTime: birth + context.anchorOffset * 60000,
+    clock: context.now ? timelineClock() : chartTimelineClock(context.chart),
+    initial: cycleSliderView(context),
+    onView: view => noteCycleSliderMoment(context, view),
     markers: () => cycleSliderMarkers(context),
     onChange: offset => {
       container.querySelector('[data-timeline-date]').textContent = offset === 0
-        ? (context.occurrence ? 'Exact cycle moment' : context.birth ? 'Birth moment' : `The ${noun}`)
-        : `${offset > 0 ? '+' : '-'}${formatTimelineSpan(offset)} from the ${context.occurrence ? 'cycle moment' : noun}`;
-      container.querySelector('[data-timeline-exact]').textContent = exactChartTime(context.chart, context.anchorOffset + offset);
+        ? (context.occurrence ? 'Exact cycle moment' : context.birth ? 'Birth moment' : context.now ? 'Now (when opened)' : `The ${noun}`)
+        : `${offset > 0 ? '+' : '-'}${formatTimelineSpan(offset)} from ${context.occurrence ? 'the cycle moment' : context.now ? 'then' : `the ${noun}`}`;
+      // "Now" is read on this device's clock; the others on the birth chart's.
+      container.querySelector('[data-timeline-exact]').textContent = context.now
+        ? cycleClockLabel(new Date(context.time + offset * 60000))
+        : exactChartTime(context.chart, context.anchorOffset + offset);
       onChange(context.anchorOffset + offset);
     },
   });
@@ -512,14 +533,24 @@ function cycleSliderMarkers(context) {
 // Astrology: the Pair Explorer's synastry view with the natal chart inside (blue) and the
 // sky at the cycle moment around it (red), cross-aspects between them, and a slider that
 // moves only the cycle moment.
+// The moment's ring is cast for the place chosen under Cast for (cycle-moment.js).
 const CYCLE_ASTRO_SUBJECTS = [['synastry', 'Synastry'], ['A', 'Natal'], ['B', 'Cycle']];
 function renderCycleAstrology(surface, context) {
   const { chart } = context;
+  const moment = context.now ? 'Transits' : 'Cycle';
   const people = {
     A: { key: 'A', chart, color: 'var(--blue)', name: 'Natal', tag: 'natal', housesName: 'natal house', legend: `Natal · ${escapeHtml(chart.name)}`, offset: 0 },
-    B: { key: 'B', chart, color: 'var(--accent)', name: 'Cycle', tag: 'cycle', legend: `${context.momentNoun} · ${escapeHtml(context.cycleName)}`, offset: context.anchorOffset, omit: context.omit },
+    B: { key: 'B', chart: cycleCastChart(context), color: 'var(--accent)', name: moment, tag: moment.toLowerCase(), legend: `${context.momentNoun}${context.now ? '' : ` · ${escapeHtml(context.cycleName)}`}`, offset: context.anchorOffset, omit: context.omit },
   };
-  const view = renderSynastryView(surface, people, { subjects: CYCLE_ASTRO_SUBJECTS, state: cycleAstroState, wheelId: 'cycleWheel', footer: timelineSliderMarkup(context.momentNoun.toUpperCase(), 0) });
+  const subjects = CYCLE_ASTRO_SUBJECTS.map(([value, label]) => [value, value === 'B' ? moment : label]);
+  const extra = context.birth ? null : {
+    bind: (box, redraw) => bindCycleCastControls(box, context, () => {
+      people.B.chart = cycleCastChart(context);
+      renderCycleSignature();
+      redraw();
+    }),
+  };
+  const view = renderSynastryView(surface, people, { subjects, state: cycleAstroState, wheelId: 'cycleWheel', footer: timelineSliderMarkup(context.momentNoun.toUpperCase(), 0), extra });
   bindCycleSlider(surface.querySelector('.timeline-control'), context, offset => {
     people.B.offset = offset;
     view.draw();
@@ -533,12 +564,13 @@ function renderCycleHumanDesign(surface, context) {
       <div class="system-visual">
         <div class="panel-toolbar pair-astro-toolbar">
           ${pairSegmentedMarkup('data-cycle-hd-view', PAIR_HD_VIEWS, cycleHdView)}
+          ${cycleReadingSwitchMarkup(context)}
           <span class="eyebrow cycle-toolbar-label">${escapeHtml(context.anchorLabel.toUpperCase())}</span>
         </div>
         <div class="pair-hd-stage">
           <div class="pair-legend">
             <span><i class="legend-dot" style="background:${CYCLE_NATAL_COLOR}"></i>Natal · ${escapeHtml(chart.name)}</span>
-            <span><i class="legend-dot" style="background:${CYCLE_MOMENT_COLOR}"></i>${context.momentNoun} · ${escapeHtml(context.cycleName)}</span>
+            <span><i class="legend-dot" style="background:${CYCLE_MOMENT_COLOR}"></i>${context.momentNoun}${context.now ? '' : ` · ${escapeHtml(context.cycleName)}`}</span>
             <span><i class="legend-swatch halo"></i>Electromagnetic — formed only together</span>
           </div>
           <div data-cycle-graphic></div>
@@ -548,8 +580,9 @@ function renderCycleHumanDesign(surface, context) {
       <aside class="system-info" data-cycle-info></aside>
     </div>`;
   let momentOffset = context.anchorOffset;
+  const full = cycleReading(context) === 'full';
   const draw = () => {
-    const composite = computeCycleHumanDesign(chart, momentOffset);
+    const composite = computeCycleHumanDesign(chart, momentOffset, full);
     const graphic = surface.querySelector('[data-cycle-graphic]');
     if (cycleHdView === 'mandala') {
       // Natal planets (both sides) in the natal color, the cycle moment's planets in the cycle color.
@@ -559,7 +592,7 @@ function renderCycleHumanDesign(surface, context) {
         sides.forEach(side => glyphs.get(gate).items.push(...entry[side].map(glyph => ({ glyph, color, side: label }))));
       });
       add(humanDesignGateGlyphMap(chart, 0), CYCLE_NATAL_COLOR, 'Natal', ['personality', 'design']);
-      add(humanDesignGateGlyphMap(chart, momentOffset), CYCLE_MOMENT_COLOR, 'Cycle moment', ['personality']);
+      add(humanDesignGateGlyphMap(chart, momentOffset), CYCLE_MOMENT_COLOR, context.momentNoun, full ? ['personality', 'design'] : ['personality']);
       graphic.innerHTML = hdMandalaSvgMarkup(composite.state, glyphs);
     } else {
       graphic.innerHTML = `<svg class="bodygraph hd-bodygraph pair-bodygraph" viewBox="0 0 440 640" role="img" aria-label="Cycle composite bodygraph">
@@ -571,7 +604,7 @@ function renderCycleHumanDesign(surface, context) {
     const centerName = id => HD_CENTERS.find(center => center.id === id)?.name || id;
     const stat = (label, value) => `<div class="system-stat"><span>${label}</span><strong>${value}</strong></div>`;
     surface.querySelector('[data-cycle-info]').innerHTML = `
-      <span class="eyebrow">CYCLE COMPOSITE</span>
+      <span class="eyebrow">CYCLE COMPOSITE · ${full ? 'FULL CHART' : 'TRANSIT'}</span>
       <h3>${structure.type} composite</h3>
       <p>${structure.definition}</p>
       ${stat('CENTERS DEFINED / UNDEFINED', `${structure.definedCenters.size} / ${9 - structure.definedCenters.size}`)}
@@ -587,6 +620,7 @@ function renderCycleHumanDesign(surface, context) {
     surface.querySelectorAll('[data-cycle-hd-view] button').forEach(item => item.classList.toggle('active', item === button));
     draw();
   });
+  bindCycleReadingSwitch(surface, context, () => renderCycleHumanDesign(surface, context));
   bindCycleSlider(surface.querySelector('.timeline-control'), context, offset => { momentOffset = offset; draw(); });
 }
 
@@ -595,17 +629,18 @@ function renderCycleGeneKeys(surface, context) {
   const tabs = Object.keys(GENE_KEYS_TAB_ACTIVE_INDEXES);
   if (!tabs.includes(cycleGkTab)) cycleGkTab = tabs[0];
   const natalHd = computeHumanDesignChart(chart, 0);
+  const reading = cycleReading(context);
   surface.innerHTML = `
     <div class="system-tabs">${tabs.map(tab => `<button type="button" class="${tab === cycleGkTab ? 'active' : ''}" data-cycle-gk-tab="${tab}">${tab}</button>`).join('')}</div>
     <div class="system-layout cycle-system-layout">
       <div class="system-visual gene-visual">
-        <div class="system-toolbar"><span class="eyebrow">${cycleGkTab.toUpperCase()}</span><span class="sample-badge">${escapeHtml(context.anchorLabel.toUpperCase())}</span></div>
+        <div class="system-toolbar"><span class="eyebrow">${cycleGkTab.toUpperCase()}</span>${cycleReadingSwitchMarkup(context)}<span class="sample-badge">${escapeHtml(context.anchorLabel.toUpperCase())}</span></div>
         <div class="pair-hd-stage">
           <div class="pair-legend">
             <span><i class="legend-dot" style="background:var(--muted)"></i>Natal gate (in each sphere) · ${escapeHtml(chart.name)}</span>
-            <span><i class="legend-dot" style="background:${CYCLE_MOMENT_COLOR}"></i>${context.momentNoun} gate (below) · ${escapeHtml(context.cycleName)}</span>
+            <span><i class="legend-dot" style="background:${CYCLE_MOMENT_COLOR}"></i>${context.momentNoun} gate (below)${context.now ? '' : ` · ${escapeHtml(context.cycleName)}`}</span>
           </div>
-          <div data-cycle-graphic>${geneKeysDiagramSvg(natalHd, cycleGkTab, `Gene Keys ${cycleGkTab} at the cycle moment`, computeHumanDesignChart(chart, context.anchorOffset))}</div>
+          <div data-cycle-graphic>${geneKeysDiagramSvg(natalHd, cycleGkTab, `Gene Keys ${cycleGkTab} at the cycle moment`, cycleMomentHd(chart, context.anchorOffset, reading))}</div>
         </div>
         ${timelineSliderMarkup(context.momentNoun.toUpperCase(), 0)}
       </div>
@@ -614,13 +649,14 @@ function renderCycleGeneKeys(surface, context) {
   const card = surface.querySelector('.gene-visual');
   bindGeneKeysAllPathsClicks(card);
   bindGeneKeysHoverDebug(card.querySelector('svg'));
+  bindCycleReadingSwitch(surface, context, () => renderCycleGeneKeys(surface, context));
   surface.querySelectorAll('[data-cycle-gk-tab]').forEach(button => button.addEventListener('click', () => {
     cycleGkTab = button.dataset.cycleGkTab;
     renderCycleGeneKeys(surface, context);
   }));
   bindCycleSlider(surface.querySelector('.timeline-control'), context, offset => {
     const layer = surface.querySelector('[data-gene-spheres]');
-    layer.innerHTML = geneKeysSpheresLayerMarkup(natalHd, cycleGkTab, computeHumanDesignChart(chart, offset));
+    layer.innerHTML = geneKeysSpheresLayerMarkup(natalHd, cycleGkTab, cycleMomentHd(chart, offset, reading));
     bindGeneKeysAllPathsClicks(layer);
   });
 }
@@ -630,6 +666,19 @@ function initCycleExplorer() {
   document.getElementById('cycleButton')?.addEventListener('click', () => {
     if (selectedChartId) { cycleChartId = selectedChartId; activeOccurrenceIndex = 0; cycleEventAnchor = null; }
     setView('cycle');
+  });
+  // Transits: the chart against the sky now — from the Chart Explorer, or the Cycle Explorer's own button.
+  document.getElementById('transitsButton')?.addEventListener('click', () => {
+    openCycleTransits(selectedChartId);
+    setView('cycle');
+  });
+  document.getElementById('cycleNowButton')?.addEventListener('click', () => {
+    openCycleTransits();
+    refreshCycleMoment();
+  });
+  document.getElementById('cycleSignature')?.addEventListener('click', event => {
+    if (event.target.closest('[data-cycle-now-refresh]')) { openCycleTransits(); refreshCycleMoment(); }
+    else if (event.target.closest('[data-cycle-now-save]')) saveCycleMomentToTimeline();
   });
 }
 

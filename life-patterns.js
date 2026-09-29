@@ -33,7 +33,7 @@ function lifeMomentTransits(chart, record) {
   const at = (minutes) => (position) => ({ ...position, angle: positionAngleAtTime(position, minutes) });
   const glyphOf = (name) => chart.positions.find((position) => position.name === name)?.glyph || "";
   const transits = calculateCrossAspects(chart.positions.filter(readable).map(at(offset)), chart.positions.map(at(0)))
-    .filter((aspect) => aspect.orb <= aspect.maxOrb * ASPECT_EXACT_FRACTION)
+    .filter((aspect) => aspect.orb <= aspect.maxOrb * ASPECT_STRONG_FRACTION)
     .map((aspect) => ({ ...aspect, glyphFirst: glyphOf(aspect.first), glyphSecond: glyphOf(aspect.second) }))
     .sort((a, b) => a.orb / a.maxOrb - b.orb / b.maxOrb);
   const result = { transits, precision: range.precision };
