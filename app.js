@@ -1050,51 +1050,8 @@ function importWorkspace(event) {
   }
   reader.onload = () => {
     try {
-      const imported = JSON.parse(reader.result);
-      if (!Array.isArray(imported.charts)) throw new Error('No charts');
-      const workspace = state.workspaces.find((item) => item.name === state.activeWorkspace);
-      // Everything from a file is cleaned first (see sanitizeChart); charts without a
-      // usable birth date are skipped.
-      // File chart ids → the ids they end up with here (new ones when they'd collide).
-      const idMap = new Map();
-      const names = new Map();
-      const charts = imported.charts.map((raw) => {
-        const chart = sanitizeChart(raw, { fromFile: true });
-        if (!chart) return null;
-        if (state.charts.some((existing) => existing.id === chart.id))
-          chart.id = `chart-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-        if (raw && raw.id != null) idMap.set(String(raw.id), chart.id);
-        names.set(String(raw?.id), chart.name);
-        return chart;
-      }).filter(Boolean);
-      charts.forEach((chart) => {
-        chart.designTime = designTimeFor(chart);
-        state.charts.push(chart);
-        workspace.chartIds.push(chart.id);
-        migrateChartLocations(chart, workspace);
-      });
-      // Events: links follow the charts' new ids; people whose chart isn't in the
-      // file keep their name, unlinked. Event ids that already exist here get new ones.
-      workspace.events = workspace.events || [];
-      const members = new Set(workspace.chartIds);
-      const existingIds = new Set(workspace.events.map((event) => event.id));
-      let events = 0, unlinked = 0;
-      (Array.isArray(imported.events) ? imported.events : []).forEach((raw) => {
-        const remapped = { ...raw, anchor: raw?.anchor ? { ...raw.anchor, chartId: idMap.get(String(raw.anchor.chartId)) || null } : undefined, people: (Array.isArray(raw?.people) ? raw.people : []).filter(Boolean).map((person) => ({ ...person, chartId: idMap.get(String(person?.chartId)) || null, name: person?.name || names.get(String(person?.chartId)) || 'Unnamed person' })) };
-        const event = sanitizeEvent(remapped, members);
-        if (!event) return;
-        if (existingIds.has(event.id)) event.id = `event-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-        existingIds.add(event.id);
-        if (event.people.some((person) => !person.chartId)) unlinked += 1;
-        workspace.events.push(event);
-        events += 1;
-      });
-      saveState();
-      renderRows();
-      const skipped = imported.charts.length - charts.length;
-      showToast(
-        `${charts.length} chart${charts.length === 1 ? '' : 's'}${events ? ` and ${events} event${events === 1 ? '' : 's'}` : ''} imported${skipped ? ` · ${skipped} skipped (no valid birth date)` : ''}${unlinked ? ` · ${unlinked} event${unlinked === 1 ? ' includes' : 's include'} people without a chart here (kept as names only)` : ''}`,
-      );
+      // Duplicates of charts already here are reviewed first (workspace-files.js).
+      importWorkspaceFile(JSON.parse(reader.result));
     } catch (error) {
       showToast('Could not read that workspace file');
     }

@@ -21,9 +21,10 @@ function renderSelectionBar() {
   }
   const count = selectedCharts().length;
   bar.hidden = count === 0;
-  bar.innerHTML = `<strong>${count} chart${count === 1 ? '' : 's'} selected</strong><span>Choose a destination workspace:</span><button type="button" class="secondary-button" data-selection-action="copy">Copy to workspace</button><button type="button" class="secondary-button" data-selection-action="move">Move to workspace</button><button type="button" class="text-button" data-selection-action="clear">Clear</button>`;
+  bar.innerHTML = `<strong>${count} chart${count === 1 ? '' : 's'} selected</strong><span>Choose a destination workspace:</span><button type="button" class="secondary-button" data-selection-action="copy">Copy to workspace</button><button type="button" class="secondary-button" data-selection-action="move">Move to workspace</button><button type="button" class="secondary-button" data-selection-action="export" title="Save these charts (and, if you like, their life events) to a file">Export…</button><button type="button" class="text-button" data-selection-action="clear">Clear</button>`;
   bar.querySelectorAll('[data-selection-action]').forEach(button => button.addEventListener('click', () => {
     if (button.dataset.selectionAction === 'clear') { selectedChartIds.clear(); renderRows(); renderSelectionBar(); return; }
+    if (button.dataset.selectionAction === 'export') { openExportSelected(); return; }
     openWorkspaceTransfer(button.dataset.selectionAction);
   }));
 }

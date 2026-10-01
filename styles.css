@@ -425,3 +425,7 @@ body.dark .life-tag-chip.active{color:var(--ink)}
 .csv-place-find{display:block;position:relative;margin-top:4px}.csv-place-find input{width:100%;font:10px 'DM Mono',monospace;border:1px solid var(--line);background:var(--paper);color:var(--ink);padding:3px 6px}.csv-place-find .place-results{position:absolute;left:0;right:0;z-index:5;min-width:280px}
 .csv-offset{font-family:'DM Mono',monospace;white-space:nowrap}.csv-offset small{color:var(--muted);font-size:9px}.csv-choice{display:flex;align-items:center;gap:5px;cursor:pointer}.csv-choice input{accent-color:var(--accent);margin:0}
 .csv-note{color:var(--accent);font-size:10px;max-width:220px}
+
+/* Export selected, and the import review */
+.export-options{display:grid;gap:12px;margin-top:16px}.export-options .acg-filter{align-items:flex-start}.export-options .acg-filter input{margin-top:2px}.export-options small{display:block;color:var(--muted);font-size:10px;margin-top:2px;line-height:1.4}.export-options input:disabled+span{opacity:.5}
+.import-review-all{display:flex;align-items:center;gap:8px;margin-top:12px;font:10px 'DM Mono',monospace;color:var(--muted)}.import-review-choice{display:flex;gap:12px;white-space:nowrap}
