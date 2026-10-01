@@ -9,6 +9,8 @@
 //                  (the Cycle Explorer has no Life Events tab: E opens or closes its Life Timeline)
 //   L / I / P / T / C   Library / Chart / Pair / Timeline / Cycle explorer
 // Plain keys:
+//   J / K   Library: next / previous chart (↵ opens it), as in Gmail
+//   X   Library: select or deselect that chart (for Copy, Move, Export…)
 //   Z   Fix Zodiac on the astrology wheel
 //   P / D / X   Human Design: Personality / Design / Incarnation Cross only (again: all)
 //   D   ACG Local Space: Relocated ↔ Natal directions
@@ -64,7 +66,9 @@ document.addEventListener("keydown", (event) => {
 
   const key = event.key.toLowerCase();
   let handled = false;
-  if (key === "z") {
+  if (currentView === "library" && (key === "j" || key === "k" || key === "x")) {
+    handled = libraryKeyboardStep(key);
+  } else if (key === "z") {
     handled = shortcutPress("#fixZodiacToggleChart, [data-pair-fix-zodiac]");
   } else if (SHORTCUT_HD_FILTERS[key]) {
     // Pressing the active filter's key again goes back to the full chart.
@@ -104,6 +108,27 @@ document.addEventListener("keydown", (event) => {
   }
   if (handled) event.preventDefault();
 });
+
+// The library's highlighted chart (the one ↵ opens): J and K move it down and up the
+// rows shown, X ticks or unticks its checkbox (the selection bar follows).
+function libraryKeyboardStep(key) {
+  const rows = [...document.querySelectorAll("#chartRows tr[data-id]")];
+  if (!rows.length) return false;
+  let index = rows.findIndex((row) => row.dataset.id === selectedChartId);
+  if (key === "x") {
+    if (index < 0) return false;
+    const box = rows[index].querySelector('input[type="checkbox"]');
+    box.checked = !box.checked;
+    box.dispatchEvent(new Event("change", { bubbles: true }));
+    return true;
+  }
+  index = index < 0 ? (key === "j" ? 0 : rows.length - 1) : Math.max(0, Math.min(rows.length - 1, index + (key === "j" ? 1 : -1)));
+  selectedChartId = rows[index].dataset.id;
+  selectedRowIndex = index;
+  rows.forEach((row, at) => row.classList.toggle("selected", at === index));
+  rows[index].scrollIntoView({ block: "nearest" });
+  return true;
+}
 
 // Keyboard access to the diagrams' tooltips. Planets, gates, centers, spheres and the
 // other focusable SVG elements explain themselves on hover; every tooltip here follows
