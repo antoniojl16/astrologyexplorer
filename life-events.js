@@ -282,14 +282,14 @@ function renderLifeEventsPanel(container, chart) {
     }
     if (lifeEventsFilter.tag && !tags.includes(lifeEventsFilter.tag)) lifeEventsFilter.tag = "";
     container.querySelector("[data-life-tag]").innerHTML = `<option value="">All tags</option>${tags.map((tag) => `<option value="${escapeHtml(tag)}" ${tag === lifeEventsFilter.tag ? "selected" : ""}>${escapeHtml(tag)}</option>`).join("")}`;
-    const query = lifeEventsFilter.query.trim().toLowerCase();
+    const query = lifeEventsFilter.query.trim();
     const shown = events.filter((event) => {
       if (lifeEventsFilter.show === "events" && !event.start) return false;
       if (lifeEventsFilter.show === "places" && !event.place) return false;
       if (lifeEventsFilter.tag && !event.tags.includes(lifeEventsFilter.tag)) return false;
       if (!query) return true;
       const people = event.people.map((person) => (person.chartId ? chartById(person.chartId)?.name : person.name) || "");
-      return [lifeEventTitle(event), event.place?.name, event.notes, ...event.tags, ...people, LIFE_EVENT_KIND_LABELS.get(event.kind)].some((value) => value && value.toLowerCase().includes(query));
+      return searchMatches([lifeEventTitle(event), event.place?.name, event.notes, ...event.tags, ...people, LIFE_EVENT_KIND_LABELS.get(event.kind)], query);
     });
     container.querySelector("[data-life-count]").textContent = events.length
       ? `${shown.length === events.length ? events.length : `${shown.length} of ${events.length}`} record${events.length === 1 ? "" : "s"}`

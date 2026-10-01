@@ -695,12 +695,22 @@ function formatDate(date) {
 function getSun(chart) {
   return chart.positions.find((position) => position.name === 'Sun') || chart.positions[0];
 }
+// Text as search compares it: lowercase, accents dropped (é, ë, è, ê → e; ç → c; ñ → n;
+// ő, ô → o…) by Unicode decomposition, and the letters that don't decompose written
+// out (ø → o, ß → ss, æ → ae, ł → l…). Both what's typed and what's searched are folded,
+// so "Zurich" finds "Zürich" and "Zürich" finds "Zurich".
+const SEARCH_LETTERS = { ø: 'o', ß: 'ss', æ: 'ae', œ: 'oe', ł: 'l', đ: 'd', ð: 'd', þ: 'th', ı: 'i', ħ: 'h', ŧ: 't', ŋ: 'n', ĸ: 'k' };
+function searchFold(text) {
+  return String(text ?? '').normalize('NFKD').replace(/\p{M}/gu, '').toLowerCase().replace(/[øßæœłđðþıħŧŋĸ]/g, (letter) => SEARCH_LETTERS[letter]);
+}
+function searchMatches(values, query) {
+  const term = searchFold(query).trim();
+  return !term || values.some((value) => value && searchFold(value).includes(term));
+}
 function renderRows() {
   const rows = document.getElementById('chartRows');
-  const query = document.getElementById('searchInput').value.toLowerCase();
-  const charts = activeCharts().filter((chart) =>
-    [chart.name, chart.location, ...chart.tags].join(' ').toLowerCase().includes(query),
-  );
+  const query = document.getElementById('searchInput').value;
+  const charts = activeCharts().filter((chart) => searchMatches([[chart.name, chart.location, ...chart.tags].join(' ')], query));
   document.getElementById('chartCount').textContent = activeCharts().length;
   document.getElementById('activeChartStat').textContent = activeCharts().length;
   document.getElementById('tableSummary').textContent =

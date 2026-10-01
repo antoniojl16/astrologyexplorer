@@ -18,7 +18,7 @@ const placeWaiting = new Set(); // inputs to refresh once the data arrives
 // (St/Saint, Ste/Sainte, Ft/Fort, Mt/Mount), both in names and in what's typed.
 const PLACE_ABBREVIATIONS = { saint: "st", sainte: "ste", fort: "ft", mount: "mt" };
 function placeFold(text) {
-  return String(text).normalize("NFKD").replace(/\p{M}/gu, "").toLowerCase().replace(/\./g, " ")
+  return searchFold(text).replace(/\./g, " ")
     .replace(/\b(saint|sainte|fort|mount)\b/g, (word) => PLACE_ABBREVIATIONS[word]).replace(/\s+/g, " ").trim();
 }
 function loadPlaces() {

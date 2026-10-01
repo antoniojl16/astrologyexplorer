@@ -67,10 +67,10 @@ function bindChartCombo(root, { selectedId, onPick, onShow = () => {} }) {
   };
   // An empty query (or the current selection's own name) lists the whole library.
   const open = (query = '') => {
-    const text = query.trim().toLowerCase();
+    const text = searchFold(query).trim();
     const all = activeCharts();
-    matches = text && text !== (selectedChart()?.name || '').toLowerCase()
-      ? all.filter((chart) => `${chart.name} ${chart.location} ${chart.birthDate} ${formatDate(chart.birthDate)}`.toLowerCase().includes(text))
+    matches = text && text !== searchFold(selectedChart()?.name || '')
+      ? all.filter((chart) => searchMatches([`${chart.name} ${chart.location} ${chart.birthDate} ${formatDate(chart.birthDate)}`], query))
       : all;
     highlighted = Math.max(0, matches.findIndex((chart) => chart.id === selectedId()));
     list.hidden = false;
