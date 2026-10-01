@@ -295,7 +295,7 @@ body:not(.developer-mode) #ephemerisDebugBar,body:not(.developer-mode) #mandalaH
 .life-fixed{font:9px 'DM Mono',monospace;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);cursor:help}
 .life-item.birth .life-title strong::before,.acg-location.birth .acg-location-toggle strong::before{content:"☉ ";color:var(--accent)}
 .life-dialog-delete{margin-right:auto;color:var(--accent)}
-.edit-col{width:1%;text-align:right;padding-right:17px}.edit-col .acg-origin-button{padding:4px 9px}
+.edit-col{width:1%;text-align:right;padding-right:17px}.edit-col .acg-origin-button{padding:4px 9px;display:block;width:100%;text-align:center}.edit-col .acg-origin-button+.acg-origin-button{margin-top:5px}
 .chart-dialog-delete{margin-right:auto}
 .life-annotation-note{margin:0;padding:10px 12px;background:var(--paper-deep);border:1px solid var(--line);font-size:12px;line-height:1.5}.life-annotation-note small{font:10px 'DM Mono',monospace;color:var(--muted)}
 .cycle-life-item.annotated .cycle-life-title{color:var(--ink)}

@@ -729,18 +729,20 @@ function renderRows() {
   rows.innerHTML = typeof libraryRowMarkup === 'function' ? charts.map(libraryRowMarkup).join('') : '';
   rows.querySelectorAll('tr').forEach((row) =>
     row.addEventListener('click', (event) => {
+      // A click anywhere on the row makes it the current chart (J / K move from it, X
+      // selects it, ↵ opens it); only Open, the name (a real link) and ↵ open it.
+      selectedChartId = row.dataset.id;
+      selectedRowIndex = [...rows.children].indexOf(row);
+      rows.querySelectorAll('tr').forEach((item) => item.classList.toggle('selected', item === row));
       if (event.target.type === 'checkbox') return;
-      // Edit opens the chart's edit dialog (where it can also be deleted), not the chart.
+      // Edit opens the chart's edit dialog (where it can also be deleted).
       if (event.target.closest('[data-library-edit]')) { editChart(chartById(row.dataset.id)); return; }
       // The event count links to the chart's Life Events tab (the router follows it).
       if (event.target.closest('.library-events')) return;
-      // The chart name is a real link (keyboard focus, open in a new tab); a plain
-      // click on it opens the chart here like a click anywhere else on the row.
-      if (event.target.closest('a') && (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)) return;
-      event.preventDefault();
-      selectedChartId = row.dataset.id;
-      selectedRowIndex = [...rows.children].indexOf(row);
-      openExplorer();
+      // The name opens the chart (with a modifier key, the browser's own: a new tab…).
+      const link = event.target.closest('a');
+      if (link && (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)) return;
+      if (link || event.target.closest('[data-library-open]')) { event.preventDefault(); openExplorer(); }
     }),
   );
 }
@@ -1134,12 +1136,18 @@ function init() {
     if (event.key === 'Escape') {
       document.querySelectorAll('dialog[open]').forEach((dialog) => dialog.close());
     }
+    // ↵ opens the current chart (selected or not), unless it's pressing a focused
+    // button or link, or typing in a field (a checkbox is fine).
+    const focused = document.activeElement;
     if (
       event.key === 'Enter' &&
       currentView === 'library' &&
       selectedChartId &&
-      document.activeElement.tagName !== 'INPUT'
+      !document.querySelector('dialog[open]') &&
+      !['BUTTON', 'A', 'SELECT', 'TEXTAREA'].includes(focused.tagName) &&
+      !(focused.tagName === 'INPUT' && focused.type !== 'checkbox')
     ) {
+      event.preventDefault();
       openExplorer();
     }
   });
