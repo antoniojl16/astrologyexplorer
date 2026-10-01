@@ -25,7 +25,7 @@ function loadPlaces() {
   if (placesRequested) return;
   placesRequested = true;
   const script = document.createElement("script");
-  script.src = "places.js";
+  script.src = `places.js?v=${ORBITAL_VERSION}`;
   script.onerror = () => { placesRequested = false; };
   document.head.appendChild(script);
 }

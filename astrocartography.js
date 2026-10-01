@@ -50,7 +50,7 @@ function acgLoadWorldMap() {
   if (acgWorldMapRequested) return;
   acgWorldMapRequested = true;
   const script = document.createElement("script");
-  script.src = "world-map.js";
+  script.src = `world-map.js?v=${ORBITAL_VERSION}`;
   script.onerror = () => { acgWorldMapRequested = false; };
   document.head.appendChild(script);
 }
@@ -64,7 +64,7 @@ function acgLoadRoads() {
   if (acgRoadsRequested) return;
   acgRoadsRequested = true;
   const script = document.createElement("script");
-  script.src = "roads.js";
+  script.src = `roads.js?v=${ORBITAL_VERSION}`;
   script.onerror = () => { acgRoadsRequested = false; };
   document.head.appendChild(script);
 }

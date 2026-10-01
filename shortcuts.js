@@ -11,6 +11,7 @@
 // Plain keys:
 //   J / K   Library: next / previous chart (↵ opens it), as in Gmail
 //   X   Library: select or deselect that chart (for Copy, Move, Export…)
+//   E   Library: edit that chart; Chart Explorer: edit the chart
 //   Z   Fix Zodiac on the astrology wheel
 //   P / D / X   Human Design: Personality / Design / Incarnation Cross only (again: all)
 //   D   ACG Local Space: Relocated ↔ Natal directions
@@ -94,7 +95,9 @@ document.addEventListener("keydown", (event) => {
   } else if (key === "0") {
     handled = shortcutPress("[data-timeline-center]");
   } else if (key === "e") {
-    handled = currentView === "explorer" && shortcutPress("#editChartButton");
+    if (currentView === "explorer") handled = shortcutPress("#editChartButton");
+    // The library's highlighted chart (J / K).
+    else if (currentView === "library" && document.querySelector(`#chartRows tr[data-id="${CSS.escape(selectedChartId || "")}"]`)) { editChart(chartById(selectedChartId)); handled = true; }
   } else if (key === "r") {
     handled = currentView === "pair" && shortcutPress("[data-pair-swap]");
   } else if (key === "1" || key === "2") {
