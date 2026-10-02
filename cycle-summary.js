@@ -88,63 +88,67 @@ function renderCycleSummary(surface, context) {
   const astrology = data.transits.length
     ? `<ol class="cycle-summary-list">${data.transits.map((aspect) => {
         const meaning = ASPECT_MEANINGS[aspect.name];
-        const theme = (body) => ASPECT_BODY_THEMES[body] || body.toLowerCase();
-        const first = data.birth ? `${who}'s ${escapeHtml(aspect.first)}` : `The moment's ${escapeHtml(aspect.first)}`;
-        const sentence = meaning ? `${first} (${escapeHtml(theme(aspect.first))}) and ${data.birth ? "" : `${who}'s natal `}${escapeHtml(aspect.second)} (${escapeHtml(theme(aspect.second))}) ${meaning.join}.` : "";
+        const theme = (body) => ASPECT_BODY_THEMES[body] || tName(body).toLowerCase();
+        const vars = { who, first: escapeHtml(tName(aspect.first)), firstTheme: escapeHtml(theme(aspect.first)), second: escapeHtml(tName(aspect.second)), secondTheme: escapeHtml(theme(aspect.second)), join: meaning?.join };
+        const sentence = !meaning ? "" : data.birth
+          ? t("The {first} of {who} ({firstTheme}) and {second} ({secondTheme}) {join}.", vars)
+          : t("The moment's {first} ({firstTheme}) and the natal {second} of {who} ({secondTheme}) {join}.", vars);
         return `<li class="cycle-summary-aspect">
-          <div class="cycle-summary-row"><span><b>${aspect.glyphFirst}</b> ${escapeHtml(aspect.first)} <b style="color:${aspect.color}">${aspect.glyph}</b> ${escapeHtml(aspect.name.toLowerCase())}${data.birth ? "" : " natal"} <b>${aspect.glyphSecond}</b> ${escapeHtml(aspect.second)}</span><small>${aspect.orb.toFixed(1)}° · ${aspect.applying ? "applying" : "separating"}</small></div>
+          <div class="cycle-summary-row"><span><b>${aspect.glyphFirst}</b> ${escapeHtml(tName(aspect.first))} <b style="color:${aspect.color}">${aspect.glyph}</b> ${escapeHtml(tName(aspect.name).toLowerCase())}${data.birth ? "" : ` ${t("natal")}`} <b>${aspect.glyphSecond}</b> ${escapeHtml(tName(aspect.second))}</span><small>${aspect.orb.toFixed(1)}° · ${aspect.applying ? t("applying") : t("separating")}</small></div>
           <p>${sentence}${meaning ? ` <span class="cycle-summary-nature">${escapeHtml(meaning.nature)}</span>` : ""}</p>
         </li>`;
-      }).join("")}</ol><p class="cycle-summary-foot">Within a fifth of each aspect's orb, strongest first. Applying: still building toward exact; separating: past exact, fading. Aspects follow the aspect filters of the Astrology tab.${data.birth ? "" : ` The moment's angles are cast for ${escapeHtml(cycleCastPlace(context).place?.name || chart.location || "the birthplace")}.`}</p>`
-    : empty(data.birth ? "No natal aspect is within a fifth of its orb (with the aspects currently shown in the Astrology tab)." : "No planet at this moment is within a fifth of its orb of an aspect to the natal chart (with the aspects currently shown in the Astrology tab).");
+      }).join("")}</ol><p class="cycle-summary-foot">${t("Within a fifth of each aspect's orb, strongest first. Applying: still building toward exact; separating: past exact, fading. Aspects follow the aspect filters of the Astrology tab.")}${data.birth ? "" : ` ${t("The moment's angles are cast for {place}.", { place: escapeHtml(cycleCastPlace(context).place?.name || chart.location || t("the birthplace")) })}`}</p>`
+    : empty(data.birth ? t("No natal aspect is within a fifth of its orb (with the aspects currently shown in the Astrology tab).") : t("No planet at this moment is within a fifth of its orb of an aspect to the natal chart (with the aspects currently shown in the Astrology tab)."));
 
   // Human Design
   const { composite } = data;
-  const centerName = (id) => HD_CENTERS.find((center) => center.id === id)?.name || id;
+  const centerName = (id) => tName(HD_CENTERS.find((center) => center.id === id)?.name || id);
+  const gateTitle = (gate, side) => t("{planet} ({side}): gate {gate}, line {line}", { planet: escapeHtml(tName(gate.planet)), side, gate: gate.gate, line: gate.line });
   const humanDesign = data.birth ? `
-    <div class="cycle-summary-gates">${data.gates.map((gate) => `<span class="cycle-summary-gate" title="${escapeHtml(gate.planet)} (Personality): gate ${gate.gate}, line ${gate.line}"><b>${gate.glyph}</b>${gate.gate}.${gate.line}</span>`).join("")}</div>
-    <p class="cycle-summary-foot">The Personality gates at birth (the Design gates come from about 88 days before).</p>
-    <span class="eyebrow cycle-info-subhead">CHANNELS DEFINED AT BIRTH · ${data.natalChannels.length}</span>
+    <div class="cycle-summary-gates">${data.gates.map((gate) => `<span class="cycle-summary-gate" title="${gateTitle(gate, t("Personality"))}"><b>${gate.glyph}</b>${gate.gate}.${gate.line}</span>`).join("")}</div>
+    <p class="cycle-summary-foot">${t("The Personality gates at birth (the Design gates come from about 88 days before).")}</p>
+    <span class="eyebrow cycle-info-subhead">${t("CHANNELS DEFINED AT BIRTH")} · ${data.natalChannels.length}</span>
     ${hdChannelListMarkup(data.natalChannels)}` : `
-    <div class="cycle-summary-gates">${data.gates.map((gate) => `<span class="cycle-summary-gate${gate.natal ? " natal" : ""}${gate.design ? " design" : ""}" title="${escapeHtml(gate.planet)}${data.reading === "full" ? ` (${gate.design ? "Design" : "Personality"})` : ""}: gate ${gate.gate}, line ${gate.line}${gate.natal ? " (also active in the natal chart)" : ""}"><b>${gate.glyph}</b>${gate.gate}.${gate.line}</span>`).join("")}</div>
-    <p class="cycle-summary-foot">${data.reading === "full" ? "The moment as a full chart: its Personality gates, then its Design gates (in the Design color)" : "The moment's planets (a transit: its Personality side) and the gates they activate"}; outlined ones are active natally too.</p>
-    <div class="system-stat"><span>DEFINED ONLY WITH THE MOMENT</span><strong>${composite.newlyDefinedCenters.length ? composite.newlyDefinedCenters.map(centerName).join(", ") : "No new centers"}</strong></div>
-    <span class="eyebrow cycle-info-subhead">CHANNELS THE MOMENT COMPLETES · ${composite.cycleChannels.length}</span>
+    <div class="cycle-summary-gates">${data.gates.map((gate) => `<span class="cycle-summary-gate${gate.natal ? " natal" : ""}${gate.design ? " design" : ""}" title="${gateTitle(gate, data.reading === "full" && gate.design ? t("Design") : t("Personality"))}${gate.natal ? ` (${t("also active in the natal chart")})` : ""}"><b>${gate.glyph}</b>${gate.gate}.${gate.line}</span>`).join("")}</div>
+    <p class="cycle-summary-foot">${data.reading === "full" ? t("The moment as a full chart: its Personality gates, then its Design gates (in the Design color); outlined ones are active natally too.") : t("The moment's planets (a transit: its Personality side) and the gates they activate; outlined ones are active natally too.")}</p>
+    <div class="system-stat"><span>${t("DEFINED ONLY WITH THE MOMENT")}</span><strong>${composite.newlyDefinedCenters.length ? composite.newlyDefinedCenters.map(centerName).join(", ") : t("No new centers")}</strong></div>
+    <span class="eyebrow cycle-info-subhead">${t("CHANNELS THE MOMENT COMPLETES")} · ${composite.cycleChannels.length}</span>
     ${hdChannelListMarkup(composite.cycleChannels)}`;
 
   // Gene Keys
-  const geneKeys = data.birth ? `<table class="cycle-summary-keys"><thead><tr><th>SPHERE</th><th>KEY</th><th></th></tr></thead><tbody>${data.spheres.map(({ sphere, natal }) => {
+  const geneKeys = data.birth ? `<table class="cycle-summary-keys"><thead><tr><th>${t("SPHERE")}</th><th>${t("KEY")}</th><th></th></tr></thead><tbody>${data.spheres.map(({ sphere, natal }) => {
     const key = GENE_KEYS[Number(natal.split(".")[0])];
-    return `<tr><td>${escapeHtml(sphere.name)}</td><td title="${key ? escapeHtml(key.summary) : ""}"><strong>${natal}</strong></td><td>${key ? `${escapeHtml(key.shadow)} → ${escapeHtml(key.gift)} → ${escapeHtml(key.siddhi)}` : ""}</td></tr>`;
-  }).join("")}</tbody></table><p class="cycle-summary-foot">The natal Gene Keys: Shadow → Gift → Siddhi (hover for what each is about).</p>` : `<table class="cycle-summary-keys"><thead><tr><th>SPHERE</th><th>NATAL</th><th>MOMENT</th><th></th></tr></thead><tbody>${data.spheres.map(({ sphere, natal, moment: label, gate }) => {
+    return `<tr><td>${escapeHtml(tName(sphere.name))}</td><td title="${key ? escapeHtml(key.summary) : ""}"><strong>${natal}</strong></td><td>${key ? `${escapeHtml(key.shadow)} → ${escapeHtml(key.gift)} → ${escapeHtml(key.siddhi)}` : ""}</td></tr>`;
+  }).join("")}</tbody></table><p class="cycle-summary-foot">${t("The natal Gene Keys: Shadow → Gift → Siddhi (hover for what each is about).")}</p>` : `<table class="cycle-summary-keys"><thead><tr><th>${t("SPHERE")}</th><th>${t("NATAL")}</th><th>${t("MOMENT")}</th><th></th></tr></thead><tbody>${data.spheres.map(({ sphere, natal, moment: label, gate }) => {
     const key = gate != null ? GENE_KEYS[gate] : null;
     const echo = gate != null && data.natalKeys.has(gate);
-    return `<tr${echo ? ' class="echo"' : ""}><td>${escapeHtml(sphere.name)}</td><td>${natal}</td><td title="${key ? escapeHtml(key.summary) : ""}"><strong>${label}</strong></td><td>${key ? `${escapeHtml(key.shadow)} → ${escapeHtml(key.gift)} → ${escapeHtml(key.siddhi)}` : ""}</td></tr>`;
-  }).join("")}</tbody></table><p class="cycle-summary-foot">Each sphere's planet at the moment, as a Gene Key: its Shadow → Gift → Siddhi (hover for what it's about). Highlighted Keys are also among the natal ones.</p>`;
+    return `<tr${echo ? ' class="echo"' : ""}><td>${escapeHtml(tName(sphere.name))}</td><td>${natal}</td><td title="${key ? escapeHtml(key.summary) : ""}"><strong>${label}</strong></td><td>${key ? `${escapeHtml(key.shadow)} → ${escapeHtml(key.gift)} → ${escapeHtml(key.siddhi)}` : ""}</td></tr>`;
+  }).join("")}</tbody></table><p class="cycle-summary-foot">${t("Each sphere's planet at the moment, as a Gene Key: its Shadow → Gift → Siddhi (hover for what it's about). Highlighted Keys are also among the natal ones.")}</p>`;
 
   // Astrocartography
   let astrocartography;
   if (!place) {
-    astrocartography = empty(context.now ? "No place chosen for now. Choose one under Cast for, in the Astrology tab, to read the planetary lines there." : context.occurrence ? "This cycle has no place yet. Annotate it in the Life Timeline with where you were, to read the lines there." : "This moment has no place. Add one to the event to read the planetary lines there.");
+    astrocartography = empty(context.now ? t("No place chosen for now. Choose one under Cast for, in the Astrology tab, to read the planetary lines there.") : context.occurrence ? t("This cycle has no place yet. Annotate it in the Life Timeline with where you were, to read the lines there.") : t("This moment has no place. Add one to the event to read the planetary lines there."));
   } else if (context.omit) {
-    astrocartography = empty(`${escapeHtml(place.name || lifeUnnamedPlace(place))}: the planetary lines depend on the exact time of day, so they need the moment's time to be read.`);
+    astrocartography = empty(t("{place}: the planetary lines depend on the exact time of day, so they need the moment's time to be read.", { place: escapeHtml(place.name || lifeUnnamedPlace(place)) }));
   } else {
     const { map } = data;
     const location = { lat: place.lat, lon: place.lon };
     const block = (title, items) => items.length ? `<div class="cycle-summary-reading"><span class="eyebrow">${title}</span>${items.join("")}</div>` : "";
     astrocartography = `<p class="cycle-summary-place">⌖ ${escapeHtml(place.name || lifeUnnamedPlace(place))}</p>
-      ${block("ZENITH", map.zones.map(({ line, km }) => `<div class="cycle-summary-tip">${acgZenithTipHtml(line, km)}</div>`))}
-      ${block("NEAREST LINES", map.lines.map(({ line, km }) => `<div class="cycle-summary-tip">${acgLineTipHtml(line, km, location)}</div>`))}
-      ${block("NEAREST CROSSINGS", map.crossings.map(({ crossing, km }) => `<div class="cycle-summary-tip">${acgCrossingTipHtml(crossing, km, location)}</div>`))}`;
+      ${block(t("ZENITH"), map.zones.map(({ line, km }) => `<div class="cycle-summary-tip">${acgZenithTipHtml(line, km)}</div>`))}
+      ${block(t("NEAREST LINES"), map.lines.map(({ line, km }) => `<div class="cycle-summary-tip">${acgLineTipHtml(line, km, location)}</div>`))}
+      ${block(t("NEAREST CROSSINGS"), map.crossings.map(({ crossing, km }) => `<div class="cycle-summary-tip">${acgCrossingTipHtml(crossing, km, location)}</div>`))}`;
   }
 
+  const reading = data.reading === "full" ? t("FULL CHART") : t("TRANSIT");
   surface.innerHTML = `<div class="cycle-summary">
     ${precision ? `<p class="cycle-summary-precision">${escapeHtml(precision)}</p>` : ""}
     <div class="cycle-summary-grid">
-      ${card(data.birth ? "ASTROLOGY · TIGHT NATAL ASPECTS" : "ASTROLOGY · TIGHT TRANSITS TO THE NATAL CHART", data.transits.length, astrology)}
-      ${card(`HUMAN DESIGN · GATES AND CHANNELS${data.birth ? "" : data.reading === "full" ? " · FULL CHART" : " · TRANSIT"}`, !data.birth && composite.cycleChannels.length ? `${composite.cycleChannels.length} new channel${composite.cycleChannels.length === 1 ? "" : "s"}` : null, humanDesign)}
-      ${card(data.birth ? "GENE KEYS · NATAL" : `GENE KEYS · NATAL AND AT THE MOMENT · ${data.reading === "full" ? "FULL CHART" : "TRANSIT"}`, null, geneKeys)}
-      ${card(data.birth ? "ASTROCARTOGRAPHY · AT THE BIRTHPLACE" : "ASTROCARTOGRAPHY · AT THE MOMENT'S PLACE", null, astrocartography)}
+      ${card(data.birth ? t("ASTROLOGY · TIGHT NATAL ASPECTS") : t("ASTROLOGY · TIGHT TRANSITS TO THE NATAL CHART"), data.transits.length, astrology)}
+      ${card(`${t("HUMAN DESIGN · GATES AND CHANNELS")}${data.birth ? "" : ` · ${reading}`}`, !data.birth && composite.cycleChannels.length ? tn(composite.cycleChannels.length, "{n} new channel", "{n} new channels") : null, humanDesign)}
+      ${card(data.birth ? t("GENE KEYS · NATAL") : `${t("GENE KEYS · NATAL AND AT THE MOMENT")} · ${reading}`, null, geneKeys)}
+      ${card(data.birth ? t("ASTROCARTOGRAPHY · AT THE BIRTHPLACE") : t("ASTROCARTOGRAPHY · AT THE MOMENT'S PLACE"), null, astrocartography)}
     </div>
   </div>`;
 }

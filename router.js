@@ -132,7 +132,7 @@ function applyExplorerSystem(systemSlug, view, filter) {
 }
 function applyRoute(hash) {
   const [view, ...rest] = hash.replace(/^#\/?/, "").split("/").filter(Boolean).map(decodeURIComponent);
-  const missing = (slug) => routeNotice(`No chart called “${slug}” in this library`);
+  const missing = (slug) => routeNotice(t("No chart called “{name}” in this library", { name: slug }));
   if (view === "chart") {
     const [slug, system, subview, filter] = rest;
     const chart = chartFromSlug(slug);
@@ -186,7 +186,7 @@ function applyRoute(hash) {
       [system, subview] = more.slice(2);
       const event = chartLifeEvents(chartById(cycleChartId)).find((item) => item.id === id && item.start);
       if (event) cycleEventAnchor = { eventId: event.id, part: part === "end" && event.end ? "end" : "start" };
-      else routeNotice("That life event isn't in this chart's timeline");
+      else routeNotice(t("That life event isn't in this chart's timeline"));
     } else {
       const cycle = CYCLE_DEFINITIONS.find((def) => def.key === first);
       // An occurrence number (from 1) picks it; old links without one start from the first.

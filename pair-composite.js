@@ -54,7 +54,7 @@ function computePairComposite(chartA, chartB) {
   const timeA = chartBirthMomentUTC(chartA).getTime(), timeB = chartBirthMomentUTC(chartB).getTime();
   const middle = new Date((timeA + timeB) / 2);
   const between = compositeGeoMidpoint(compositePlaceOf(chartA), compositePlaceOf(chartB));
-  const base = { id: `composite:${chartA.id}:${chartB.id}`, name: 'Composite', location: '', tags: [] };
+  const base = { id: `composite:${chartA.id}:${chartB.id}`, name: t('Composite'), location: '', tags: [] };
 
   if (pairComposite.method === 'davison') {
     const birthMoment = middle.toISOString();
@@ -83,7 +83,7 @@ function computePairComposite(chartA, chartB) {
     place = choice === chartA.id ? compositePlaceOf(chartA)
       : choice === chartB.id ? compositePlaceOf(chartB)
       : typeof choice === 'object' ? choice
-      : { ...between, name: 'Halfway between the birthplaces' };
+      : { ...between, name: t('Halfway between the birthplaces') };
     // The meridian whose Midheaven, at the midpoint moment, is the composite Midheaven
     // (tropical, for the sidereal-time conversion): RAMC from the MC, then its longitude.
     const midheaven = compositeNorm(midpointOf('Midheaven') + (zodiacMode === 'Sidereal' ? LAHIRI_AYANAMSHA : 0));
@@ -105,14 +105,14 @@ function computePairComposite(chartA, chartB) {
   }
   return {
     chart, place,
-    description: cast ? `Midpoints · houses for ${place.name || `${acgCoordinate(place.lat, 'N', 'S')}, ${acgCoordinate(place.lon, 'E', 'W')}`}` : 'Midpoints · midpoint house cusps',
+    description: cast ? t('Midpoints · houses for {place}', { place: place.name || `${acgCoordinate(place.lat, 'N', 'S')}, ${acgCoordinate(place.lon, 'E', 'W')}` }) : t('Midpoints · midpoint house cusps'),
   };
 }
 
 // The composite as a Pair Explorer "person" for the wheel, grid and aspect list.
 function pairCompositePerson(chartA, chartB) {
   const { chart, description } = computePairComposite(chartA, chartB);
-  return { key: 'C', chart, color: 'var(--green)', name: 'Composite', tag: 'composite', legend: `Composite · ${escapeHtml(chartA.name)} & ${escapeHtml(chartB.name)}<small class="pair-composite-about">${escapeHtml(description)}</small>`, offset: 0 };
+  return { key: 'C', chart, color: 'var(--green)', name: t('Composite'), tag: t('composite'), legend: `${t('Composite')} · ${escapeHtml(chartA.name)} & ${escapeHtml(chartB.name)}<small class="pair-composite-about">${escapeHtml(description)}</small>`, offset: 0 };
 }
 
 // The settings, at the bottom of the wheel's filter column (shown with the composite
@@ -123,23 +123,23 @@ function pairCompositeControlsMarkup(chartA, chartB) {
   const radio = (name, value, label, checked, title = '') => `<label class="acg-filter"${title ? ` title="${escapeHtml(title)}"` : ''}><input type="radio" name="${name}" value="${escapeHtml(value)}" ${checked ? 'checked' : ''}><span>${escapeHtml(label)}</span></label>`;
   const midpoint = pairComposite.method === 'midpoint';
   const reference = midpoint && pairComposite.houses === 'reference';
-  return `<span class="eyebrow wheel-filter-section">COMPOSITE</span>
+  return `<span class="eyebrow wheel-filter-section">${t('COMPOSITE')}</span>
     <div class="acg-filter-group">
-      ${radio('composite-method', 'midpoint', 'Midpoints', midpoint, 'Each body at the midpoint of its two natal places')}
-      ${radio('composite-method', 'davison', 'Davison', !midpoint, 'A real chart for the moment and place halfway between the two births')}
+      ${radio('composite-method', 'midpoint', t('Midpoints'), midpoint, t('Each body at the midpoint of its two natal places'))}
+      ${radio('composite-method', 'davison', t('Davison'), !midpoint, t('A real chart for the moment and place halfway between the two births'))}
     </div>
-    ${midpoint ? `<span class="eyebrow wheel-filter-section">HOUSES</span>
+    ${midpoint ? `<span class="eyebrow wheel-filter-section">${t('HOUSES')}</span>
     <div class="acg-filter-group">
-      ${radio('composite-houses', 'reference', 'Reference place', reference, "The angles and houses cast from the midpoint Midheaven at a place's latitude (Robert Hand's method)")}
-      ${radio('composite-houses', 'midpoint', 'Midpoint cusps', !reference, "Each angle and house cusp at the midpoint of the two charts' own")}
+      ${radio('composite-houses', 'reference', t('Reference place'), reference, t("The angles and houses cast from the midpoint Midheaven at a place's latitude (Robert Hand's method)"))}
+      ${radio('composite-houses', 'midpoint', t('Midpoint cusps'), !reference, t("Each angle and house cusp at the midpoint of the two charts' own"))}
     </div>` : ''}
-    ${reference ? `<span class="eyebrow wheel-filter-section" title="The place the houses are cast for — often where the couple lives">REFERENCE PLACE</span>
+    ${reference ? `<span class="eyebrow wheel-filter-section" title="${t('The place the houses are cast for — often where the couple lives')}">${t('REFERENCE PLACE')}</span>
     <div class="acg-filter-group">
-      ${radio('composite-reference', 'midpoint', 'Halfway between birthplaces', choice === 'midpoint')}
-      ${radio('composite-reference', 'A', `${chartA.name}'s birthplace`, choice === chartA.id)}
-      ${radio('composite-reference', 'B', `${chartB.name}'s birthplace`, choice === chartB.id)}
-      ${custom ? radio('composite-reference', 'custom', custom.name || 'Chosen place', true) : ''}
-      <span class="pair-composite-find"><input type="search" class="pair-composite-search" data-composite-search placeholder="Another place…" aria-label="Search for a reference place"></span>
+      ${radio('composite-reference', 'midpoint', t('Halfway between birthplaces'), choice === 'midpoint')}
+      ${radio('composite-reference', 'A', t("{name}'s birthplace", { name: chartA.name }), choice === chartA.id)}
+      ${radio('composite-reference', 'B', t("{name}'s birthplace", { name: chartB.name }), choice === chartB.id)}
+      ${custom ? radio('composite-reference', 'custom', custom.name || t('Chosen place'), true) : ''}
+      <span class="pair-composite-find"><input type="search" class="pair-composite-search" data-composite-search placeholder="${t('Another place…')}" aria-label="${t('Search for a reference place')}"></span>
     </div>` : ''}`;
 }
 function bindPairCompositeControls(box, chartA, chartB, redraw) {

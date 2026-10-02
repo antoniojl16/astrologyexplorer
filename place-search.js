@@ -29,18 +29,26 @@ function loadPlaces() {
   script.onerror = () => { placesRequested = false; };
   document.head.appendChild(script);
 }
+// A country's name in the interface language (Intl's own list), or null in English or
+// for a code Intl doesn't know.
+const placeCountryNames = LANG !== "en" && typeof Intl.DisplayNames === "function" ? new Intl.DisplayNames([LOCALE], { type: "region" }) : null;
+function placeLocalCountry(code) {
+  try { return placeCountryNames?.of(code.toUpperCase()) || null; } catch { return null; }
+}
 // Called by places.js once it has run.
 function placesLoaded() {
   const { zones, regions, countries, rows } = PLACES_DATA;
   const foldedRegions = regions.map(placeFold);
   const foldedCountries = Object.fromEntries(Object.entries(countries).map(([code, name]) => [code, placeFold(name)]));
+  // The country's name in the interface language matches too ("alemania", "deutschland").
+  const foldedLocal = Object.fromEntries(Object.keys(countries).map((code) => [code, placeFold(placeLocalCountry(code) || "")]));
   placeIndex = rows.split("\n").map((row) => {
     const [name, aliases, country, region, lat, lon, zone] = row.split("|");
     const names = [name, ...(aliases ? aliases.split(";") : [])];
     return {
       name, country, region: regions[Number(region)], zone: zones[Number(zone)], lat, lon,
       folded: names.map(placeFold),
-      qualifiers: [foldedRegions[Number(region)], foldedCountries[country] || "", country.toLowerCase()],
+      qualifiers: [foldedRegions[Number(region)], foldedCountries[country] || "", foldedLocal[country] || "", country.toLowerCase()],
     };
   });
   placeWaiting.forEach((input) => input.dispatchEvent(new Event("input")));
@@ -80,7 +88,7 @@ function searchPlaces(query) {
   return results.sort((a, b) => a.rank - b.rank).slice(0, PLACE_RESULT_LIMIT).map((result) => result.place);
 }
 function placeLabel(place) {
-  const country = PLACES_DATA.countries[place.country] || place.country;
+  const country = placeLocalCountry(place.country) || PLACES_DATA.countries[place.country] || place.country;
   return [place.name, place.region && place.region !== place.name ? place.region : "", country].filter(Boolean).join(", ");
 }
 function placeCoordinates(place) {
@@ -130,12 +138,12 @@ function bindPlaceSearch(input, onChoose) {
       if (placeFold(query).length < 2) return close();
       loadPlaces();
       placeWaiting.add(input);
-      list.innerHTML = `<div class="place-status">Loading places…</div>`;
+      list.innerHTML = `<div class="place-status">${t("Loading places…")}</div>`;
     } else {
       results = searchPlaces(query);
       if (!results.length) {
         if (placeFold(query).length < 2) return close();
-        list.innerHTML = `<div class="place-status">${onChoose ? "No match in the place list." : "No match in the place list — type the place and enter its coordinates and time zone below."}</div>`;
+        list.innerHTML = `<div class="place-status">${onChoose ? t("No match in the place list.") : t("No match in the place list — type the place and enter its coordinates and time zone below.")}</div>`;
       } else {
         list.innerHTML = results.map((place, index) => `<div class="place-option" role="option" id="${list.id}-${index}" aria-selected="false" data-index="${index}"><b>${escapeHtml(placeLabel(place))}</b><small>${placeCoordinates(place)} · ${escapeHtml(place.zone)}</small></div>`).join("");
       }

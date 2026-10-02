@@ -36,17 +36,17 @@ function openExportSelected() {
   const workspace = state.workspaces.find((item) => item.name === state.activeWorkspace);
   const ids = new Set(charts.map((chart) => chart.id));
   const { own, shared } = selectedChartRecords(workspace, ids);
-  const others = [...new Set(shared.flatMap((event) => event.people.filter((person) => person.chartId && !ids.has(person.chartId)).map((person) => chartById(person.chartId)?.name || "Unnamed")))];
+  const others = [...new Set(shared.flatMap((event) => event.people.filter((person) => person.chartId && !ids.has(person.chartId)).map((person) => chartById(person.chartId)?.name || t("Unnamed"))))];
   const dialog = document.createElement("dialog");
   dialog.className = "transfer-dialog export-dialog";
-  dialog.innerHTML = `<form method="dialog"><div class="dialog-head"><div><p class="eyebrow accent-label">EXPORT</p><h2>Export ${charts.length} chart${charts.length === 1 ? "" : "s"}</h2></div><button class="close-button" value="cancel" aria-label="Close">×</button></div>
-    <p class="dialog-copy">${charts.map((chart) => escapeHtml(chart.name)).join(", ")}. The file can be read back with Import workspace, here or in another browser.</p>
+  dialog.innerHTML = `<form method="dialog"><div class="dialog-head"><div><p class="eyebrow accent-label">${t("EXPORT")}</p><h2>${tn(charts.length, "Export {n} chart", "Export {n} charts")}</h2></div><button class="close-button" value="cancel" aria-label="${t("Close")}">×</button></div>
+    <p class="dialog-copy">${charts.map((chart) => escapeHtml(chart.name)).join(", ")}. ${t("The file can be read back with Import workspace, here or in another browser.")}</p>
     <div class="export-options">
-      <label class="acg-filter"><input type="checkbox" name="events" checked><span>Include life events <small>${own.length} record${own.length === 1 ? "" : "s"}: events, places, Birth and cycle annotations</small></span></label>
-      ${shared.length ? `<label class="acg-filter export-shared"><input type="checkbox" name="shared"><span>Include ${shared.length} event${shared.length === 1 ? "" : "s"} shared with charts you're not exporting <small>with ${escapeHtml(others.join(", "))}, kept by name only: their names and these events' details go into the file</small></span></label>` : ""}
-      <label class="acg-filter"><input type="checkbox" name="notes" checked><span>Include chart notes and tags</span></label>
+      <label class="acg-filter"><input type="checkbox" name="events" checked><span>${t("Include life events")} <small>${tn(own.length, "{n} record: events, places, Birth and cycle annotations", "{n} records: events, places, Birth and cycle annotations")}</small></span></label>
+      ${shared.length ? `<label class="acg-filter export-shared"><input type="checkbox" name="shared"><span>${tn(shared.length, "Include {n} event shared with charts you're not exporting", "Include {n} events shared with charts you're not exporting")} <small>${t("with {names}, kept by name only: their names and these events' details go into the file", { names: escapeHtml(others.join(", ")) })}</small></span></label>` : ""}
+      <label class="acg-filter"><input type="checkbox" name="notes" checked><span>${t("Include chart notes and tags")}</span></label>
     </div>
-    <div class="dialog-actions"><button class="secondary-button" value="cancel">Cancel</button><button class="primary-button" value="default">Export <span>→</span></button></div></form>`;
+    <div class="dialog-actions"><button class="secondary-button" value="cancel">${t("Cancel")}</button><button class="primary-button" value="default">${t("Export")} <span>→</span></button></div></form>`;
   document.body.appendChild(dialog);
   const form = dialog.querySelector("form");
   const sharedBox = form.elements.shared;
@@ -70,7 +70,7 @@ function exportSelectedCharts(charts, options) {
     return item;
   });
   // A shared event keeps the people who aren't exported by name only.
-  const nameOnly = (event) => ({ ...copy(event), people: event.people.map((person) => (person.chartId && !ids.has(person.chartId) ? { ...person, chartId: null, name: chartById(person.chartId)?.name || "Unnamed person" } : { ...person })) });
+  const nameOnly = (event) => ({ ...copy(event), people: event.people.map((person) => (person.chartId && !ids.has(person.chartId) ? { ...person, chartId: null, name: chartById(person.chartId)?.name || t("Unnamed person") } : { ...person })) });
   const events = options.events ? [...own.map(copy), ...(options.shared ? shared.map(nameOnly) : [])] : [];
   // `includes` says what was left out, so importing (Replace) doesn't take it for "empty".
   const data = { version: 2, exportedAt: new Date().toISOString(), workspace: state.activeWorkspace, selection: true, includes: { events: options.events, notes: options.notes, shared: options.shared }, charts: fileCharts, events };
@@ -80,7 +80,7 @@ function exportSelectedCharts(charts, options) {
   link.download = `orbital-study-${slug(state.activeWorkspace)}-${charts.length === 1 ? slug(charts[0].name) : `${charts.length}-charts`}.json`;
   link.click();
   URL.revokeObjectURL(link.href);
-  showToast(`${charts.length} chart${charts.length === 1 ? "" : "s"} exported${events.length ? ` with ${events.length} life event record${events.length === 1 ? "" : "s"}` : ""}`);
+  showToast(tn(charts.length, "{n} chart exported", "{n} charts exported") + (events.length ? ` · ${tn(events.length, "{n} life event record", "{n} life event records")}` : ""));
 }
 
 // ── Import, with duplicates reviewed ─────────────────────────────────────────
@@ -108,29 +108,29 @@ function openImportReview(imported, entries, workspace, skipped) {
   const fileEvents = Array.isArray(imported.events) ? imported.events : [];
   const fileCount = (entry) => fileEvents.filter((event) => event?.anchor ? String(event.anchor.chartId) === entry.rawId : (event?.people || []).some((person) => String(person?.chartId) === entry.rawId)).length;
   const hereCount = (chart) => (workspace.events || []).filter((event) => event.anchor ? event.anchor.chartId === chart.id : event.people.some((person) => person.chartId === chart.id)).length;
-  const birth = (chart) => `${escapeHtml(chart.birthDate)} ${escapeHtml(chart.birthTime || "(no time)")}<br><span class="muted-text">${escapeHtml(chart.location || "")}</span>`;
+  const birth = (chart) => `${escapeHtml(chart.birthDate)} ${escapeHtml(chart.birthTime || t("(no time)"))}<br><span class="muted-text">${escapeHtml(chart.location || "")}</span>`;
   const dialog = document.createElement("dialog");
   dialog.className = "csv-import-dialog";
   const fresh = entries.length - duplicates.length;
   dialog.innerHTML = `<div>
-    <div class="dialog-head"><div><p class="eyebrow accent-label">IMPORT WORKSPACE</p><h2>${duplicates.length} duplicate${duplicates.length === 1 ? "" : "s"} found</h2></div><button type="button" class="close-button" data-review-close aria-label="Close">×</button></div>
-    <p class="dialog-copy">${duplicates.length} of the file's ${entries.length} charts ${duplicates.length === 1 ? "is" : "are"} already in ${escapeHtml(workspace.name)} (the same chart, or the same name and birth date)${fresh ? `; the other ${fresh} will be imported` : ""}. For each: <b>Skip</b> keeps the chart here as it is; <b>Replace</b> gives it the file's details and adds the file's life events to its own (nothing is deleted); <b>Copy</b> imports it as a separate chart.</p>
-    <div class="import-review-all"><span>All:</span><button type="button" class="acg-origin-button" data-review-all="skip">Skip all</button><button type="button" class="acg-origin-button" data-review-all="replace">Replace all</button><button type="button" class="acg-origin-button" data-review-all="copy">Copy all</button></div>
-    <div class="csv-import-table-wrap"><table class="csv-import-table"><thead><tr><th>CHART</th><th>IN THE FILE</th><th>HERE</th><th>LIFE EVENTS (FILE / HERE)</th><th>WHAT TO DO</th></tr></thead><tbody>${duplicates.map((entry, index) => `<tr>
-      <td>${escapeHtml(entry.chart.name)}${entry.existing.name !== entry.chart.name ? `<br><span class="muted-text">here: ${escapeHtml(entry.existing.name)}</span>` : ""}</td>
+    <div class="dialog-head"><div><p class="eyebrow accent-label">${t("IMPORT WORKSPACE")}</p><h2>${tn(duplicates.length, "{n} duplicate found", "{n} duplicates found")}</h2></div><button type="button" class="close-button" data-review-close aria-label="${t("Close")}">×</button></div>
+    <p class="dialog-copy">${tn(duplicates.length, "{n} of the file's {total} charts is already in {workspace} (the same chart, or the same name and birth date).", "{n} of the file's {total} charts are already in {workspace} (the same chart, or the same name and birth date).", { total: entries.length, workspace: escapeHtml(workspace.name) })}${fresh ? ` ${tn(fresh, "The other {n} will be imported.", "The other {n} will be imported.")}` : ""} ${t("For each: <b>Skip</b> keeps the chart here as it is; <b>Replace</b> gives it the file's details and adds the file's life events to its own (nothing is deleted); <b>Copy</b> imports it as a separate chart.")}</p>
+    <div class="import-review-all"><span>${t("All:")}</span><button type="button" class="acg-origin-button" data-review-all="skip">${t("Skip all")}</button><button type="button" class="acg-origin-button" data-review-all="replace">${t("Replace all")}</button><button type="button" class="acg-origin-button" data-review-all="copy">${t("Copy all")}</button></div>
+    <div class="csv-import-table-wrap"><table class="csv-import-table"><thead><tr><th>${t("CHART")}</th><th>${t("IN THE FILE")}</th><th>${t("HERE")}</th><th>${t("LIFE EVENTS (FILE / HERE)")}</th><th>${t("WHAT TO DO")}</th></tr></thead><tbody>${duplicates.map((entry, index) => `<tr>
+      <td>${escapeHtml(entry.chart.name)}${entry.existing.name !== entry.chart.name ? `<br><span class="muted-text">${t("here: {name}", { name: escapeHtml(entry.existing.name) })}</span>` : ""}</td>
       <td class="csv-born">${birth(entry.chart)}</td><td class="csv-born">${birth(entry.existing)}</td>
       <td class="csv-born">${fileCount(entry)} / ${hereCount(entry.existing)}</td>
-      <td><span class="import-review-choice">${[["skip", "Skip"], ["replace", "Replace"], ["copy", "Copy"]].map(([value, label]) => `<label class="csv-choice"><input type="radio" name="review-${index}" value="${value}" data-review="${index}" ${entry.choice === value ? "checked" : ""}>${label}</label>`).join("")}</span></td>
+      <td><span class="import-review-choice">${[["skip", t("Skip")], ["replace", t("Replace")], ["copy", t("Copy")]].map(([value, label]) => `<label class="csv-choice"><input type="radio" name="review-${index}" value="${value}" data-review="${index}" ${entry.choice === value ? "checked" : ""}>${label}</label>`).join("")}</span></td>
     </tr>`).join("")}</tbody></table></div>
-    <div class="dialog-actions"><button type="button" class="secondary-button" data-review-close>Cancel</button><button type="button" class="primary-button" data-review-import>Import</button></div>
+    <div class="dialog-actions"><button type="button" class="secondary-button" data-review-close>${t("Cancel")}</button><button type="button" class="primary-button" data-review-import>${t("Import")}</button></div>
   </div>`;
   document.body.appendChild(dialog);
   const button = dialog.querySelector("[data-review-import]");
   const label = () => {
     const counts = { skip: 0, replace: 0, copy: 0 };
     duplicates.forEach((entry) => { counts[entry.choice] += 1; });
-    const parts = [fresh ? `${fresh} new` : "", counts.replace ? `${counts.replace} replaced` : "", counts.copy ? `${counts.copy} copied` : "", counts.skip ? `${counts.skip} skipped` : ""].filter(Boolean);
-    button.textContent = `Import · ${parts.join(", ")}`;
+    const parts = [fresh ? tn(fresh, "{n} new", "{n} new") : "", counts.replace ? tn(counts.replace, "{n} replaced", "{n} replaced") : "", counts.copy ? tn(counts.copy, "{n} copied", "{n} copied") : "", counts.skip ? tn(counts.skip, "{n} skipped", "{n} skipped") : ""].filter(Boolean);
+    button.textContent = `${t("Import")} · ${parts.join(", ")}`;
   };
   dialog.addEventListener("change", (event) => {
     const index = event.target.dataset.review;
@@ -187,7 +187,7 @@ function applyWorkspaceImport(imported, entries, workspace, skipped) {
   const sameAnchor = (a, b) => a.chartId === b.chartId && (a.birth ? b.birth : a.cycle === b.cycle && a.n === b.n);
   let events = 0, unlinked = 0, doubled = 0;
   (Array.isArray(imported.events) ? imported.events : []).forEach((raw) => {
-    const remapped = { ...raw, anchor: raw?.anchor ? { ...raw.anchor, chartId: idMap.get(String(raw.anchor.chartId)) || null } : undefined, people: (Array.isArray(raw?.people) ? raw.people : []).filter(Boolean).map((person) => ({ ...person, chartId: idMap.get(String(person?.chartId)) || null, name: person?.name || names.get(String(person?.chartId)) || "Unnamed person" })) };
+    const remapped = { ...raw, anchor: raw?.anchor ? { ...raw.anchor, chartId: idMap.get(String(raw.anchor.chartId)) || null } : undefined, people: (Array.isArray(raw?.people) ? raw.people : []).filter(Boolean).map((person) => ({ ...person, chartId: idMap.get(String(person?.chartId)) || null, name: person?.name || names.get(String(person?.chartId)) || t("Unnamed person") })) };
     const event = sanitizeEvent(remapped, members);
     if (!event) return;
     const linked = event.anchor ? [event.anchor.chartId] : event.people.map((person) => person.chartId).filter(Boolean);
@@ -207,13 +207,13 @@ function applyWorkspaceImport(imported, entries, workspace, skipped) {
   if (typeof renderExplorer === "function" && currentView === "explorer") renderExplorer();
   const kinds = entries.reduce((counts, entry) => ({ ...counts, [entry.choice]: (counts[entry.choice] || 0) + 1 }), {});
   const parts = [
-    `${added} chart${added === 1 ? "" : "s"} imported`,
-    kinds.replace ? `${kinds.replace} replaced` : "",
-    kinds.skip ? `${kinds.skip} duplicate${kinds.skip === 1 ? "" : "s"} skipped` : "",
-    events ? `${events} event${events === 1 ? "" : "s"} added` : "",
-    doubled ? `${doubled} already here` : "",
-    skipped ? `${skipped} without a valid birth date left out` : "",
-    unlinked ? `${unlinked} event${unlinked === 1 ? " includes" : "s include"} people by name only` : "",
+    tn(added, "{n} chart imported", "{n} charts imported"),
+    kinds.replace ? tn(kinds.replace, "{n} replaced", "{n} replaced") : "",
+    kinds.skip ? tn(kinds.skip, "{n} duplicate skipped", "{n} duplicates skipped") : "",
+    events ? tn(events, "{n} event added", "{n} events added") : "",
+    doubled ? tn(doubled, "{n} already here", "{n} already here") : "",
+    skipped ? t("{n} without a valid birth date left out", { n: skipped }) : "",
+    unlinked ? tn(unlinked, "{n} event includes people by name only", "{n} events include people by name only") : "",
   ].filter(Boolean);
   showToast(parts.join(" · "));
 }

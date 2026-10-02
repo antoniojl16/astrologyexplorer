@@ -1,15 +1,15 @@
 // Orbital Study — Copyright (c) 2026 Antonio Juarez (@antoniojl16). All rights reserved. See LICENSE.
 const ASPECT_DEFINITIONS = [
-  {name: 'Conjunction', angle: 0, orb: 10, glyph: '☌'},
-  {name: 'Opposition', angle: 180, orb: 10, glyph: '☍'},
-  {name: 'Square', angle: 90, orb: 10, glyph: '□'},
-  {name: 'Trine', angle: 120, orb: 10, glyph: '△'},
-  {name: 'Sextile', angle: 60, orb: 6, glyph: '⚹'},
-  {name: 'Quincunx', angle: 150, orb: 3, glyph: '⚻'},
-  {name: 'Semisextile', angle: 30, orb: 2, glyph: '⚺'},
-  {name: 'Semisquare', angle: 45, orb: 2, glyph: '∠'},
-  {name: 'Sesquiquadrate', angle: 135, orb: 2, glyph: '⚼'},
-  {name: 'Quintile', angle: 72, orb: 2, glyph: 'Q'}
+  {name: N_('Conjunction'), angle: 0, orb: 10, glyph: '☌'},
+  {name: N_('Opposition'), angle: 180, orb: 10, glyph: '☍'},
+  {name: N_('Square'), angle: 90, orb: 10, glyph: '□'},
+  {name: N_('Trine'), angle: 120, orb: 10, glyph: '△'},
+  {name: N_('Sextile'), angle: 60, orb: 6, glyph: '⚹'},
+  {name: N_('Quincunx'), angle: 150, orb: 3, glyph: '⚻'},
+  {name: N_('Semisextile'), angle: 30, orb: 2, glyph: '⚺'},
+  {name: N_('Semisquare'), angle: 45, orb: 2, glyph: '∠'},
+  {name: N_('Sesquiquadrate'), angle: 135, orb: 2, glyph: '⚼'},
+  {name: N_('Quintile'), angle: 72, orb: 2, glyph: 'Q'}
 ];
 const MAIN_ASPECTS = new Set(['Conjunction', 'Opposition', 'Square', 'Trine', 'Sextile']);
 // Aspect filters: which aspects are drawn and listed, shared by every astrology view.
@@ -48,7 +48,7 @@ function angularDistance(first, second) {
 const ASPECT_EXACT_FRACTION = 1 / 10;
 const ASPECT_STRONG_FRACTION = 1 / 5;
 const ASPECT_NORMAL_FRACTION = 3 / 5;
-const ASPECT_INTENSITIES = [['exact', 'Exact'], ['strong', 'Strong'], ['normal', 'Normal'], ['weak', 'Weak']];
+const ASPECT_INTENSITIES = [['exact', t('Exact')], ['strong', t('Strong')], ['normal', t('Normal')], ['weak', t('Weak')]];
 function aspectIntensity(orb, maxOrb) {
   if (orb <= maxOrb * ASPECT_EXACT_FRACTION) return 'exact';
   if (orb <= maxOrb * ASPECT_STRONG_FRACTION) return 'strong';
@@ -107,34 +107,34 @@ function calculateCrossAspects(positionsA, positionsB, visible = aspectVisible) 
 // Hovering or focusing an aspect row explains it: what the aspect does, and how it
 // joins the two bodies' themes. Built from the row's data-aspect-* attributes.
 const ASPECT_MEANINGS = {
-  Conjunction: { nature: 'Fusion', text: 'The two bodies sit together and act as one, each intensifying the other, for better or worse.', join: 'are fused, acting as one force' },
-  Opposition: { nature: 'Tension · polarity', text: 'The two bodies face each other across the zodiac: a pull between opposite needs that asks for balance, often met through other people.', join: 'pull in opposite directions, asking to be balanced' },
-  Square: { nature: 'Tension · friction', text: 'The two bodies are at cross purposes. The friction is uncomfortable, but it drives effort, action and growth.', join: 'clash and create friction that pushes for change' },
-  Trine: { nature: 'Harmony · flow', text: 'The two bodies share an element and work together easily: a natural gift, though one that can be taken for granted.', join: 'flow easily together, a natural talent' },
-  Sextile: { nature: 'Harmony · opportunity', text: 'The two bodies are compatible and support each other when you make the effort: an opportunity rather than a given.', join: 'cooperate and open opportunities when used' },
-  Quincunx: { nature: 'Adjustment', text: 'The two bodies have nothing in common (different element and mode), so they need constant small adjustments to get along.', join: 'misunderstand each other and need ongoing adjustment' },
-  Semisextile: { nature: 'Minor · subtle link', text: 'Neighbouring signs: a subtle link with mild friction that helps each body grow from the other.', join: 'are subtly linked, learning from each other' },
-  Semisquare: { nature: 'Minor · irritation', text: 'Half a square: small, nagging irritations that prompt action.', join: 'rub against each other in small, irritating ways' },
-  Sesquiquadrate: { nature: 'Minor · agitation', text: 'A square and a half: an underlying restlessness that flares up from time to time.', join: 'create an underlying agitation that flares now and then' },
-  Quintile: { nature: 'Minor · creativity', text: 'A fifth of the circle: a creative, distinctive talent that combines the two bodies in an individual way.', join: 'combine creatively, as a distinctive talent or style' },
+  Conjunction: { nature: t('Fusion'), text: t('The two bodies sit together and act as one, each intensifying the other, for better or worse.'), join: t('are fused, acting as one force') },
+  Opposition: { nature: t('Tension · polarity'), text: t('The two bodies face each other across the zodiac: a pull between opposite needs that asks for balance, often met through other people.'), join: t('pull in opposite directions, asking to be balanced') },
+  Square: { nature: t('Tension · friction'), text: t('The two bodies are at cross purposes. The friction is uncomfortable, but it drives effort, action and growth.'), join: t('clash and create friction that pushes for change') },
+  Trine: { nature: t('Harmony · flow'), text: t('The two bodies share an element and work together easily: a natural gift, though one that can be taken for granted.'), join: t('flow easily together, a natural talent') },
+  Sextile: { nature: t('Harmony · opportunity'), text: t('The two bodies are compatible and support each other when you make the effort: an opportunity rather than a given.'), join: t('cooperate and open opportunities when used') },
+  Quincunx: { nature: t('Adjustment'), text: t('The two bodies have nothing in common (different element and mode), so they need constant small adjustments to get along.'), join: t('misunderstand each other and need ongoing adjustment') },
+  Semisextile: { nature: t('Minor · subtle link'), text: t('Neighbouring signs: a subtle link with mild friction that helps each body grow from the other.'), join: t('are subtly linked, learning from each other') },
+  Semisquare: { nature: t('Minor · irritation'), text: t('Half a square: small, nagging irritations that prompt action.'), join: t('rub against each other in small, irritating ways') },
+  Sesquiquadrate: { nature: t('Minor · agitation'), text: t('A square and a half: an underlying restlessness that flares up from time to time.'), join: t('create an underlying agitation that flares now and then') },
+  Quintile: { nature: t('Minor · creativity'), text: t('A fifth of the circle: a creative, distinctive talent that combines the two bodies in an individual way.'), join: t('combine creatively, as a distinctive talent or style') },
 };
 const ASPECT_BODY_THEMES = {
-  Sun: 'identity and purpose',
-  Moon: 'emotions and needs',
-  Mercury: 'thinking and communication',
-  Venus: 'love, values and pleasure',
-  Mars: 'drive and assertion',
-  Jupiter: 'growth and optimism',
-  Saturn: 'discipline and limits',
-  Uranus: 'freedom and change',
-  Neptune: 'imagination and ideals',
-  Pluto: 'power and transformation',
-  'North Node': 'direction of growth',
-  'South Node': 'familiar patterns',
-  Ascendant: 'self-image and approach to life',
-  Midheaven: 'vocation and public role',
-  Chiron: 'wounds and healing',
-  Lilith: 'raw, untamed instinct',
+  Sun: t('identity and purpose'),
+  Moon: t('emotions and needs'),
+  Mercury: t('thinking and communication'),
+  Venus: t('love, values and pleasure'),
+  Mars: t('drive and assertion'),
+  Jupiter: t('growth and optimism'),
+  Saturn: t('discipline and limits'),
+  Uranus: t('freedom and change'),
+  Neptune: t('imagination and ideals'),
+  Pluto: t('power and transformation'),
+  'North Node': t('direction of growth'),
+  'South Node': t('familiar patterns'),
+  Ascendant: t('self-image and approach to life'),
+  Midheaven: t('vocation and public role'),
+  Chiron: t('wounds and healing'),
+  Lilith: t('raw, untamed instinct'),
 };
 function aspectRowAttributes(aspect, ownerFirst = '', ownerSecond = '') {
   const attribute = value => escapeHtml(String(value));
@@ -146,15 +146,18 @@ function aspectTooltipHtml(row) {
   const meaning = ASPECT_MEANINGS[name];
   if (!definition || !meaning) return '';
   const orb = Number(row.dataset.aspectOrb), maxOrb = Number(row.dataset.aspectMaxOrb);
-  const who = (owner, body) => `${owner ? `${escapeHtml(owner)}'s ` : ''}${ASPECT_BODY_THEMES[body] || escapeHtml(body)} (${escapeHtml(body)})`;
-  const sentence = `${who(ownerFirst, first)} and ${who(ownerSecond, second)} ${meaning.join}.`;
-  const strength = orb <= maxOrb * ASPECT_EXACT_FRACTION ? 'Exact: felt very strongly.' : orb <= maxOrb * ASPECT_STRONG_FRACTION ? 'Very close: strongly felt.' : orb <= maxOrb * ASPECT_NORMAL_FRACTION ? 'Moderate orb: clearly felt.' : 'Wide orb: a milder, background influence.';
+  const who = (owner, body) => {
+    const vars = { theme: ASPECT_BODY_THEMES[body] || escapeHtml(tName(body)), body: escapeHtml(tName(body)) };
+    return owner ? t("{owner}'s {theme} ({body})", { ...vars, owner: escapeHtml(owner) }) : t('{theme} ({body})', vars);
+  };
+  const sentence = t('{first} and {second} {join}.', { first: who(ownerFirst, first), second: who(ownerSecond, second), join: meaning.join });
+  const strength = orb <= maxOrb * ASPECT_EXACT_FRACTION ? t('Exact: felt very strongly.') : orb <= maxOrb * ASPECT_STRONG_FRACTION ? t('Very close: strongly felt.') : orb <= maxOrb * ASPECT_NORMAL_FRACTION ? t('Moderate orb: clearly felt.') : t('Wide orb: a milder, background influence.');
   const between = ownerFirst && ownerFirst !== ownerSecond
-    ? '<div class="gk-tip-text">Between two charts (synastry), it describes how these two parts of the people meet in the relationship.</div>' : '';
-  return `<div class="gk-tip-title">${escapeHtml(first)} <span style="color:${ASPECT_COLORS[name] || 'inherit'}">${definition.glyph}</span> ${escapeHtml(name.toLowerCase())} ${escapeHtml(second)} · ${meaning.nature}</div>
+    ? `<div class="gk-tip-text">${t('Between two charts (synastry), it describes how these two parts of the people meet in the relationship.')}</div>` : '';
+  return `<div class="gk-tip-title">${escapeHtml(tName(first))} <span style="color:${ASPECT_COLORS[name] || 'inherit'}">${definition.glyph}</span> ${escapeHtml(tName(name).toLowerCase())} ${escapeHtml(tName(second))} · ${meaning.nature}</div>
     <div class="gk-tip-text">${definition.angle}°: ${meaning.text}</div>
-    <div class="gk-tip-title">Here</div><div class="gk-tip-text">${sentence.charAt(0).toUpperCase()}${sentence.slice(1)}</div>${between}
-    <div class="gk-tip-title">Orb ${orb.toFixed(1)}° of ${maxOrb}°</div><div class="gk-tip-text">${strength}</div>`;
+    <div class="gk-tip-title">${t('Here')}</div><div class="gk-tip-text">${sentence.charAt(0).toUpperCase()}${sentence.slice(1)}</div>${between}
+    <div class="gk-tip-title">${t('Orb {orb}° of {max}°', { orb: orb.toFixed(1), max: maxOrb })}</div><div class="gk-tip-text">${strength}</div>`;
 }
 // A hover tooltip for every element matching `selector` (also shown under one that
 // has keyboard focus, and described to screen readers); `htmlFor(element)` builds its
@@ -217,7 +220,7 @@ function renderCalculatedAspects(offsetMinutes = window.timelineOffsetMinutes ||
     return {...position, angle: positionAngleAtTime(position, offsetMinutes)};
   })};
   const aspects = calculateAspects(transientChart).filter(aspectIntensityShown);
-  list.innerHTML = aspects.length ? aspects.map(aspect => `<div class="aspect-row" ${aspectRowAttributes(aspect)}><span><b class="aspect-glyph" style="color:${aspect.color}">${aspect.glyph}</b>${aspect.first} ${aspect.name.toLowerCase()} ${aspect.second}</span><span>${aspect.orb.toFixed(1)}° orb</span></div>`).join('') : '<div class="aspect-empty">No aspects in this filter.</div>';
+  list.innerHTML = aspects.length ? aspects.map(aspect => `<div class="aspect-row" ${aspectRowAttributes(aspect)}><span><b class="aspect-glyph" style="color:${aspect.color}">${aspect.glyph}</b>${tName(aspect.first)} ${tName(aspect.name).toLowerCase()} ${tName(aspect.second)}</span><span>${t('{orb}° orb', { orb: aspect.orb.toFixed(1) })}</span></div>`).join('') : `<div class="aspect-empty">${t('No aspects in this filter.')}</div>`;
   if (chartViewMode !== 'wheel') renderAspectGrid(transientChart);
 }
 
@@ -232,8 +235,8 @@ function renderAspectGrid(chart) {
   const positions = chart.positions.slice(0, 17);
   const aspects = calculateAspects(chart).filter(aspectIntensityShown);
   const lookup = new Map(aspects.map(aspect => [`${aspect.first}|${aspect.second}`, aspect]));
-  const shortName = name => name === 'North Node' ? 'N.Node' : name === 'South Node' ? 'S.Node' : name;
-  grid.innerHTML = `<div class="grid-corner"></div>${positions.map(position => `<div class="grid-label">${shortName(position.name)}</div>`).join('')}${positions.map((row, rowIndex) => `<div class="grid-label row-label">${shortName(row.name)}</div>${positions.map((column, columnIndex) => { const aspect = rowIndex === columnIndex ? null : (lookup.get(`${row.name}|${column.name}`) || lookup.get(`${column.name}|${row.name}`)); return `<div class="aspect-cell ${aspect ? 'has-aspect' : ''}" title="${aspect ? `${aspect.name}, ${aspect.orb.toFixed(1)}° orb` : 'No aspect'}"${aspect ? ` style="color:${aspect.color}"` : ''}>${aspect ? aspect.glyph : '·'}</div>`; }).join('')}`).join('')}`;
+  const shortName = name => name === 'North Node' ? t('N.Node') : name === 'South Node' ? t('S.Node') : tName(name);
+  grid.innerHTML = `<div class="grid-corner"></div>${positions.map(position => `<div class="grid-label">${shortName(position.name)}</div>`).join('')}${positions.map((row, rowIndex) => `<div class="grid-label row-label">${shortName(row.name)}</div>${positions.map((column, columnIndex) => { const aspect = rowIndex === columnIndex ? null : (lookup.get(`${row.name}|${column.name}`) || lookup.get(`${column.name}|${row.name}`)); return `<div class="aspect-cell ${aspect ? 'has-aspect' : ''}" title="${aspect ? `${tName(aspect.name)}, ${t('{orb}° orb', { orb: aspect.orb.toFixed(1) })}` : t('No aspect')}"${aspect ? ` style="color:${aspect.color}"` : ''}>${aspect ? aspect.glyph : '·'}</div>`; }).join('')}`).join('')}`;
 }
 
 function setChartView(mode) {
@@ -261,14 +264,14 @@ function wheelFilterHiddenSet(kind) {
   return kind === 'planets' ? wheelHiddenBodies : wheelHiddenAspects;
 }
 function wheelFiltersMarkup() {
-  const planet = body => `<label class="acg-filter"><input type="checkbox" data-wheel-body="${body.key}" ${wheelHiddenBodies.has(body.key) ? '' : 'checked'}><span>${body.glyph} ${body.key}</span></label>`;
-  const aspect = definition => `<label class="acg-filter"><input type="checkbox" data-wheel-aspect="${definition.name}" ${wheelHiddenAspects.has(definition.name) ? '' : 'checked'}><span><b class="aspect-filter-glyph" style="color:${ASPECT_COLORS[definition.name] || 'var(--muted)'}">${definition.glyph}</b> ${definition.name}</span></label>`;
-  const group = (kind, name, items) => `<div class="acg-filter-group"><label class="acg-filter wheel-filter-group-toggle"><input type="checkbox" data-filter-group="${kind}:${name}"><span>${name}</span></label>${items}</div>`;
+  const planet = body => `<label class="acg-filter"><input type="checkbox" data-wheel-body="${body.key}" ${wheelHiddenBodies.has(body.key) ? '' : 'checked'}><span>${body.glyph} ${tName(body.key)}</span></label>`;
+  const aspect = definition => `<label class="acg-filter"><input type="checkbox" data-wheel-aspect="${definition.name}" ${wheelHiddenAspects.has(definition.name) ? '' : 'checked'}><span><b class="aspect-filter-glyph" style="color:${ASPECT_COLORS[definition.name] || 'var(--muted)'}">${definition.glyph}</b> ${tName(definition.name)}</span></label>`;
+  const group = (kind, name, items) => `<div class="acg-filter-group"><label class="acg-filter wheel-filter-group-toggle"><input type="checkbox" data-filter-group="${kind}:${name}"><span>${tName(name)}</span></label>${items}</div>`;
   const planets = name => group('planets', name, WHEEL_FILTER_BODIES.filter(body => body.group === name).map(planet).join(''));
   const aspects = name => group('aspects', name, ASPECT_DEFINITIONS.filter(definition => wheelFilterMembers('aspects', name).includes(definition.name)).map(aspect).join(''));
-  const intensity = ([key, label]) => `<label class="acg-filter" title="${label}: within ${{ exact: 'a tenth', strong: 'a fifth', normal: 'three fifths', weak: 'all' }[key]} of the aspect's max orb"><input type="checkbox" data-wheel-intensity="${key}" ${wheelHiddenIntensities.has(key) ? '' : 'checked'}><span><i class="intensity-swatch ${key}"></i>${label}</span></label>`;
+  const intensity = ([key, label]) => `<label class="acg-filter" title="${{ exact: t("{label}: within a tenth of the aspect's max orb", { label }), strong: t("{label}: within a fifth of the aspect's max orb", { label }), normal: t("{label}: within three fifths of the aspect's max orb", { label }), weak: t("{label}: out to the aspect's max orb", { label }) }[key]}"><input type="checkbox" data-wheel-intensity="${key}" ${wheelHiddenIntensities.has(key) ? '' : 'checked'}><span><i class="intensity-swatch ${key}"></i>${label}</span></label>`;
   // Two columns: the planets, then the aspects (types and intensities).
-  return `<div class="wheel-filter-column"><span class="eyebrow">PLANETS</span>${planets('Primary')}${planets('Secondary')}</div><div class="wheel-filter-column"><span class="eyebrow">ASPECTS</span>${aspects('Primary')}${aspects('Secondary')}<span class="eyebrow wheel-filter-section" title="Which aspects the wheel, the lists and the grids show">INTENSITY</span><div class="acg-filter-group">${ASPECT_INTENSITIES.map(intensity).join('')}</div></div>`;
+  return `<div class="wheel-filter-column"><span class="eyebrow">${t('PLANETS')}</span>${planets('Primary')}${planets('Secondary')}</div><div class="wheel-filter-column"><span class="eyebrow">${t('ASPECTS')}</span>${aspects('Primary')}${aspects('Secondary')}<span class="eyebrow wheel-filter-section" title="${t('Which aspects the wheel, the lists and the grids show')}">${t('INTENSITY')}</span><div class="acg-filter-group">${ASPECT_INTENSITIES.map(intensity).join('')}</div></div>`;
 }
 // Brings every filter checkbox under `root` in line with the shared sets, including
 // each subheading's ticked / unticked / partly-ticked (dash) state.
@@ -305,7 +308,7 @@ function initAspectEngine() {
   const segmented = document.querySelector('.segmented');
   const bothButton = document.createElement('button');
   bothButton.type = 'button';
-  bothButton.textContent = 'Both';
+  bothButton.textContent = t('Both');
   segmented.appendChild(bothButton);
   segmented.querySelectorAll('button').forEach((button, index) => button.addEventListener('click', () => setChartView(['wheel', 'aspects', 'both'][index])));
   const wheelFilters = document.querySelector('[data-wheel-filters]');

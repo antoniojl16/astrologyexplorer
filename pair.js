@@ -25,7 +25,7 @@ function setPairSelection(slot, id) {
   saveState();
 }
 function pairChartDetails(chart) {
-  return `${formatDate(chart.birthDate)} · ${chart.birthTime || 'Time unknown'} · ${chart.location}`;
+  return `${formatDate(chart.birthDate)} · ${chart.birthTime || t('Time unknown')} · ${chart.location}`;
 }
 
 // ── Chart picker (type-to-filter combo box, or click to browse) ──────────
@@ -35,8 +35,8 @@ function pairChartDetails(chart) {
 function chartComboMarkup(ariaLabel, inputClass = 'pair-input') {
   return `
       <div class="pair-combo">
-        <input type="text" class="${inputClass}" data-chart-combo-input autocomplete="off" spellcheck="false" role="combobox" aria-expanded="false" aria-label="${ariaLabel}" placeholder="Type a name, place or date…">
-        <button type="button" class="pair-toggle" data-chart-combo-toggle tabindex="-1" aria-label="Show all charts">▾</button>
+        <input type="text" class="${inputClass}" data-chart-combo-input autocomplete="off" spellcheck="false" role="combobox" aria-expanded="false" aria-label="${ariaLabel}" placeholder="${t('Type a name, place or date…')}">
+        <button type="button" class="pair-toggle" data-chart-combo-toggle tabindex="-1" aria-label="${t('Show all charts')}">▾</button>
         <div class="pair-options" data-chart-combo-options role="listbox" hidden></div>
       </div>`;
 }
@@ -62,7 +62,7 @@ function bindChartCombo(root, { selectedId, onPick, onShow = () => {} }) {
       ? matches
           .map((chart, index) => `<div class="pair-option${index === highlighted ? ' highlighted' : ''}${chart.id === selectedId() ? ' selected' : ''}" role="option" data-id="${chart.id}"><b>${escapeHtml(chart.name)}</b><small>${escapeHtml(pairChartDetails(chart))}</small></div>`)
           .join('')
-      : '<div class="pair-empty">No matching charts</div>';
+      : `<div class="pair-empty">${t('No matching charts')}</div>`;
     list.querySelector('.highlighted')?.scrollIntoView({ block: 'nearest' });
   };
   // An empty query (or the current selection's own name) lists the whole library.
@@ -127,8 +127,8 @@ function bindChartCombo(root, { selectedId, onPick, onShow = () => {} }) {
 function pairSlotMarkup(slot) {
   return `
     <div class="pair-slot" data-pair-slot="${slot}">
-      <span class="eyebrow">CHART ${slot.toUpperCase()}</span>
-      ${chartComboMarkup(`Chart ${slot.toUpperCase()}`)}
+      <span class="eyebrow">${t('CHART {letter}', { letter: slot.toUpperCase() })}</span>
+      ${chartComboMarkup(t('Chart {letter}', { letter: slot.toUpperCase() }))}
       <p class="pair-details" data-pair-details></p>
     </div>`;
 }
@@ -141,7 +141,7 @@ function bindPairSlot(slotEl, onPick) {
       onPick();
     },
     onShow: (chart) => {
-      slotEl.querySelector('[data-pair-details]').textContent = chart ? pairChartDetails(chart) : 'No chart selected';
+      slotEl.querySelector('[data-pair-details]').textContent = chart ? pairChartDetails(chart) : t('No chart selected');
     },
   });
 }
@@ -153,7 +153,7 @@ function syncExplorerChartPicker() {
   if (!heading) return;
   if (!explorerChartCombo) {
     heading.classList.add('explorer-name-picker');
-    heading.innerHTML = chartComboMarkup('Chart', 'pair-input explorer-name-input');
+    heading.innerHTML = chartComboMarkup(t('Chart'), 'pair-input explorer-name-input');
     explorerChartCombo = bindChartCombo(heading, {
       selectedId: () => selectedChartId,
       onPick: (id) => {
@@ -175,10 +175,10 @@ function renderPairExplorer() {
     body.innerHTML = `
       <div class="pair-picker">
         ${pairSlotMarkup('a')}
-        <button type="button" class="pair-swap" data-pair-swap title="Swap charts A and B" aria-label="Swap charts A and B">⇄</button>
+        <button type="button" class="pair-swap" data-pair-swap title="${t('Swap charts A and B')}" aria-label="${t('Swap charts A and B')}">⇄</button>
         ${pairSlotMarkup('b')}
       </div>
-      <div class="explorer-system-tabs" role="tablist" aria-label="Pair system">${PAIR_SYSTEMS.map((system) => `<button type="button" role="tab" data-pair-system="${system}">${system}</button>`).join('')}</div>
+      <div class="explorer-system-tabs" role="tablist" aria-label="${t('Pair system')}">${PAIR_SYSTEMS.map((system) => `<button type="button" role="tab" data-pair-system="${system}">${tName(system)}</button>`).join('')}</div>
       <div id="pairSystemSurface"></div>`;
     pairSlots = [...body.querySelectorAll('[data-pair-slot]')].map((slotEl) => bindPairSlot(slotEl, renderPairSystem));
     body.querySelector('[data-pair-swap]').addEventListener('click', () => {
@@ -207,12 +207,12 @@ function renderPairSystem() {
   const { a, b } = pairSelection();
   const chartA = chartById(a), chartB = chartById(b);
   if (!chartA || !chartB) {
-    surface.innerHTML = '<p class="intro-copy pair-message">Add at least two charts to the library to compare them here.</p>';
+    surface.innerHTML = `<p class="intro-copy pair-message">${t('Add at least two charts to the library to compare them here.')}</p>`;
     return;
   }
   const entries = [
-    { chart: chartA, label: `CHART A · ${escapeHtml(chartA.name)}` },
-    { chart: chartB, label: `CHART B · ${escapeHtml(chartB.name)}` },
+    { chart: chartA, label: `${t('CHART {letter}', { letter: 'A' })} · ${escapeHtml(chartA.name)}` },
+    { chart: chartB, label: `${t('CHART {letter}', { letter: 'B' })} · ${escapeHtml(chartB.name)}` },
   ];
   if (pairActiveSystem === 'Life Events') return renderPairLifeEvents(surface, chartA, chartB);
   if (pairActiveSystem === 'Gene Keys') return renderGeneKeysPair(surface, entries);
@@ -230,14 +230,14 @@ function renderPairSystem() {
 // in a single chart. The synastry views (wheel, grid, lists, legend): Chart A blue, Chart B red.
 const PAIR_PEOPLE = { A: { color: 'var(--pair-blue)' }, B: { color: 'var(--pair-green)' } };
 const PAIR_ASTRO_PEOPLE = { A: { color: 'var(--blue)' }, B: { color: 'var(--accent)' } };
-const PAIR_ASTRO_SUBJECTS = [['synastry', 'Synastry'], ['composite', 'Composite'], ['A', 'Chart A'], ['B', 'Chart B']];
-const PAIR_ASTRO_VIEWS = [['wheel', 'Wheel'], ['grid', 'Aspect grid'], ['both', 'Both']];
+const PAIR_ASTRO_SUBJECTS = [['synastry', t('Synastry')], ['composite', t('Composite')], ['A', t('Chart A')], ['B', t('Chart B')]];
+const PAIR_ASTRO_VIEWS = [['wheel', t('Wheel')], ['grid', t('Aspect grid')], ['both', t('Both')]];
 let pairAstroSubject = 'synastry';
 let pairAstroView = 'wheel';
 
 // Which color belongs to which chart; `notes` adds a small hint per chart key.
 function pairLegendMarkup(people, notes = {}) {
-  return people.map((person) => `<span><i class="legend-dot" style="background:${person.color}"></i>Chart ${person.key} · ${escapeHtml(person.chart.name)}${notes[person.key] ? ` <small>${notes[person.key]}</small>` : ''}</span>`).join('');
+  return people.map((person) => `<span><i class="legend-dot" style="background:${person.color}"></i>${t('Chart {letter}', { letter: person.key })} · ${escapeHtml(person.chart.name)}${notes[person.key] ? ` <small>${notes[person.key]}</small>` : ''}</span>`).join('');
 }
 function pairSegmentedMarkup(attribute, options, current) {
   return `<div class="pair-seg" ${attribute}>${options.map(([value, label]) => `<button type="button" data-value="${value}" class="${value === current ? 'active' : ''}">${label}</button>`).join('')}</div>`;
@@ -251,7 +251,7 @@ const pairAstroState = {
   set view(value) { pairAstroView = value; },
 };
 function renderAstrologyPair(container, entries) {
-  const person = (key, entry) => ({ ...PAIR_ASTRO_PEOPLE[key], key, chart: entry.chart, name: `Chart ${key}`, tag: key, legend: `Chart ${key} · ${escapeHtml(entry.chart.name)}`, offset: 0 });
+  const person = (key, entry) => ({ ...PAIR_ASTRO_PEOPLE[key], key, chart: entry.chart, name: t('Chart {letter}', { letter: key }), tag: key, legend: `${t('Chart {letter}', { letter: key })} · ${escapeHtml(entry.chart.name)}`, offset: 0 });
   const [chartA, chartB] = [entries[0].chart, entries[1].chart];
   const composite = { person: () => pairCompositePerson(chartA, chartB), bind: (box, redraw) => bindPairCompositeControls(box, chartA, chartB, redraw) };
   renderSynastryView(container, { A: person('A', entries[0]), B: person('B', entries[1]) }, { subjects: PAIR_ASTRO_SUBJECTS, state: pairAstroState, wheelId: 'pairWheel', composite });
@@ -274,12 +274,12 @@ function renderSynastryView(container, people, { subjects, state, wheelId, foote
           ${pairSegmentedMarkup('data-pair-subject', subjects, state.subject)}
           ${pairSegmentedMarkup('data-pair-view', PAIR_ASTRO_VIEWS, state.view)}
           <div class="chart-toolbar-right">
-            <label class="fix-zodiac-toggle"><input type="checkbox" data-pair-fix-zodiac ${astroWheelFixedToAries ? 'checked' : ''}>Fix Zodiac</label>
+            <label class="fix-zodiac-toggle"><input type="checkbox" data-pair-fix-zodiac ${astroWheelFixedToAries ? 'checked' : ''}>${t('Fix Zodiac')}</label>
           </div>
         </div>
         <div class="wheel-stage pair-astro-stage">
           <div class="pair-legend" data-pair-legend></div>
-          <svg id="${wheelId}" class="synastry-wheel" viewBox="45 45 510 510" role="img" aria-label="Synastry wheel"></svg>
+          <svg id="${wheelId}" class="synastry-wheel" viewBox="45 45 510 510" role="img" aria-label="${t('Synastry wheel')}"></svg>
           <div class="pair-aspect-grid-wrap" data-pair-grid></div>
         </div>
         ${footer}
@@ -289,7 +289,7 @@ function renderSynastryView(container, people, { subjects, state, wheelId, foote
       <aside class="detail-panel pair-aspect-panel">
         <div class="detail-content">
           <div class="section-heading"><span data-pair-aspect-title></span></div>
-          <div class="aspect-list" data-pair-aspect-list tabindex="0" role="region" aria-label="Cross-aspects"></div>
+          <div class="aspect-list" data-pair-aspect-list tabindex="0" role="region" aria-label="${t('Cross-aspects')}"></div>
         </div>
       </aside>
     </div>`;
@@ -305,13 +305,13 @@ function renderSynastryView(container, people, { subjects, state, wheelId, foote
     svg.toggleAttribute('hidden', !showWheel);
     const legend = container.querySelector('[data-pair-legend]');
     legend.hidden = !showWheel;
-    legend.innerHTML = subject.map((person) => `<span><i class="legend-dot" style="background:${person.color}"></i>${person.legend}${subject.length > 1 ? ` <small>${person.key === 'A' ? 'inner' : 'outer'}</small>` : ''}</span>`).join('');
+    legend.innerHTML = subject.map((person) => `<span><i class="legend-dot" style="background:${person.color}"></i>${person.legend}${subject.length > 1 ? ` <small>${person.key === 'A' ? t('inner') : t('outer')}</small>` : ''}</span>`).join('');
     const grid = container.querySelector('[data-pair-grid]');
     grid.hidden = !showGrid;
     grid.innerHTML = showGrid ? pairAspectGridMarkup(subject, aspects) : '';
     container.querySelector('[data-pair-aspect-title]').textContent = subject.length > 1
-      ? `CROSS-ASPECTS · ${aspects.length}`
-      : `${subject[0].name.toUpperCase()} ASPECTS · ${aspects.length}`;
+      ? `${t('CROSS-ASPECTS')} · ${aspects.length}`
+      : `${t('{name} ASPECTS', { name: subject[0].name.toUpperCase() })} · ${aspects.length}`;
     container.querySelector('[data-pair-aspect-list]').innerHTML = pairAspectListMarkup(subject, aspects);
     container.querySelector('[data-wheel-positions]').innerHTML = wheelPositionsMarkup(subject);
   };
@@ -350,13 +350,13 @@ function renderSynastryView(container, people, { subjects, state, wheelId, foote
 
 // Tightest orb first (calculate*Aspects already sort them); within a fifth of its max orb reads as exact (aspectIntensity).
 function pairAspectListMarkup(people, aspects) {
-  if (!aspects.length) return '<div class="aspect-empty">No aspects in this filter.</div>';
+  if (!aspects.length) return `<div class="aspect-empty">${t('No aspects in this filter.')}</div>`;
   const [first, second = people[0]] = people;
-  const name = (person, body) => `<i class="pair-aspect-name" style="color:${person.color}">${body}${people.length > 1 ? ` ${person.tag}` : ''}</i>`;
+  const name = (person, body) => `<i class="pair-aspect-name" style="color:${person.color}">${tName(body)}${people.length > 1 ? ` ${person.tag}` : ''}</i>`;
   return aspects.map((aspect) => `
     <div class="aspect-row${aspect.intensity === 'exact' ? ' exact' : ''}" ${aspectRowAttributes(aspect, people.length > 1 ? first.chart.name : '', people.length > 1 ? second.chart.name : '')}>
-      <span><b class="aspect-glyph" style="color:${aspect.color}">${aspect.glyph}</b>${name(first, aspect.first)} ${aspect.name.toLowerCase()} ${name(second, aspect.second)}</span>
-      <span>${aspect.orb.toFixed(1)}° orb</span>
+      <span><b class="aspect-glyph" style="color:${aspect.color}">${aspect.glyph}</b>${name(first, aspect.first)} ${tName(aspect.name).toLowerCase()} ${name(second, aspect.second)}</span>
+      <span>${t('{orb}° orb', { orb: aspect.orb.toFixed(1) })}</span>
     </div>`).join('');
 }
 
@@ -430,12 +430,12 @@ function pairPlanetTooltip(position, ownCusps, insideCusps, inside) {
   const mark = WHEEL_MOTION_MARKS[position.motion];
   const own = ownCusps && wheelHouseOf(position.longitude, ownCusps);
   const across = position.person !== inside && insideCusps && wheelHouseOf(position.longitude, insideCusps);
-  const where = `${own ? ` · House ${own}` : ''}${across ? ` · in ${inside.housesName || `${inside.name}'s house`} ${across}` : ''}`;
-  return `<div class="wheel-tooltip-main">${position.name} ${glyph}${degree.toFixed(2)}°${mark ? ` ${mark}` : ''}</div><div class="wheel-tooltip-sub">${position.person.name}${where}</div>`;
+  const where = `${own ? ` · ${t('House {house}', { house: own })}` : ''}${across ? ` · ${inside.housesName ? t('in {houses} {house}', { houses: inside.housesName, house: across }) : t("in {name}'s house {house}", { name: inside.name, house: across })}` : ''}`;
+  return `<div class="wheel-tooltip-main">${tName(position.name)} ${glyph}${degree.toFixed(2)}°${mark ? ` ${mark}` : ''}</div><div class="wheel-tooltip-sub">${position.person.name}${where}</div>`;
 }
 function pairAspectTooltip(aspect, first, second, synastry) {
-  const side = (position) => `${position.name}${wheelSignText(position.longitude).glyph}${synastry ? ` (${position.person.tag})` : ''}`;
-  return `<div class="wheel-tooltip-main">${side(first)} ${aspect.name} ${side(second)}</div><div class="wheel-tooltip-sub">Orb ${aspect.orb.toFixed(1)}°</div>`;
+  const side = (position) => `${tName(position.name)}${wheelSignText(position.longitude).glyph}${synastry ? ` (${position.person.tag})` : ''}`;
+  return `<div class="wheel-tooltip-main">${side(first)} ${tName(aspect.name)} ${side(second)}</div><div class="wheel-tooltip-sub">${t('Orb {orb}°', { orb: aspect.orb.toFixed(1) })}</div>`;
 }
 
 // Rows are the inner (or only) chart's bodies; columns are Chart B's for synastry,
@@ -452,17 +452,17 @@ function pairAspectGridMarkup(people, aspects) {
     if (!synastry && !lookup.has(`${aspect.second}|${aspect.first}`)) lookup.set(`${aspect.second}|${aspect.first}`, aspect);
   });
   // Letter "glyphs" (Asc, MC) would only repeat the name.
-  const label = (person, position, row) => `<div class="grid-label${row ? ' row-label' : ''}" style="color:${person.color}">${/^[A-Za-z]+$/.test(position.glyph) ? '' : `${position.glyph} `}${position.name}</div>`;
+  const label = (person, position, row) => `<div class="grid-label${row ? ' row-label' : ''}" style="color:${person.color}">${/^[A-Za-z]+$/.test(position.glyph) ? '' : `${position.glyph} `}${tName(position.name)}</div>`;
   const cell = (row, column) => {
     const aspect = !synastry && row.name === column.name ? null : lookup.get(`${row.name}|${column.name}`);
     const title = aspect
-      ? `${row.name}${synastry ? ` (${rowsPerson.tag})` : ''} ${aspect.name} ${column.name}${synastry ? ` (${columnsPerson.tag})` : ''} · orb ${aspect.orb.toFixed(1)}°`
-      : 'No aspect';
+      ? `${tName(row.name)}${synastry ? ` (${rowsPerson.tag})` : ''} ${tName(aspect.name)} ${tName(column.name)}${synastry ? ` (${columnsPerson.tag})` : ''} · ${t('orb {orb}°', { orb: aspect.orb.toFixed(1) })}`
+      : t('No aspect');
     return `<div class="aspect-cell${aspect ? ' has-aspect' : ''}" title="${title}"${aspect ? ` style="color:${aspect.color}"` : ''}>${aspect ? aspect.glyph : '·'}</div>`;
   };
   const heading = synastry
-    ? `CROSS-ASPECTS · ${aspects.length} · <span style="color:${rowsPerson.color}">rows ${rowsPerson.name}</span> · <span style="color:${columnsPerson.color}">columns ${columnsPerson.name}</span>`
-    : `${rowsPerson.name.toUpperCase()} ASPECTS · ${aspects.length}`;
+    ? `${t('CROSS-ASPECTS')} · ${aspects.length} · <span style="color:${rowsPerson.color}">${t('rows {name}', { name: rowsPerson.name })}</span> · <span style="color:${columnsPerson.color}">${t('columns {name}', { name: columnsPerson.name })}</span>`
+    : `${t('{name} ASPECTS', { name: rowsPerson.name.toUpperCase() })} · ${aspects.length}`;
   return `<p class="eyebrow pair-grid-heading">${heading}</p>
     <div class="pair-aspect-grid" style="grid-template-columns:96px repeat(${columns.length},minmax(30px,1fr))">
       <div class="grid-corner"></div>${columns.map((position) => label(columnsPerson, position, false)).join('')}
@@ -475,19 +475,19 @@ function pairAspectGridMarkup(people, aspects) {
 // B, or both as parallel strokes), electromagnetic channels haloed, and the side
 // panel classifying every connection. "Chart A" / "Chart B" show that chart alone,
 // colored by personality/design as in the Chart Explorer.
-const PAIR_HD_SUBJECTS = [['composite', 'Composite'], ['A', 'Chart A'], ['B', 'Chart B']];
-const PAIR_HD_VIEWS = [['bodygraph', 'Bodygraph'], ['mandala', 'Mandala']];
+const PAIR_HD_SUBJECTS = [['composite', t('Composite')], ['A', t('Chart A')], ['B', t('Chart B')]];
+const PAIR_HD_VIEWS = [['bodygraph', t('Bodygraph')], ['mandala', t('Mandala')]];
 const PAIR_CONNECTION_KINDS = [
-  ['electromagnetic', 'Electromagnetic', 'Each brings one gate — the channel exists only together.'],
-  ['companionship', 'Companionship', 'Both have the whole channel.'],
-  ['dominance', 'Dominance', 'One has the whole channel; the other neither gate.'],
-  ['compromise', 'Compromise', 'One has the whole channel; the other one of its gates.'],
+  ['electromagnetic', t('Electromagnetic'), t('Each brings one gate — the channel exists only together.')],
+  ['companionship', t('Companionship'), t('Both have the whole channel.')],
+  ['dominance', t('Dominance'), t('One has the whole channel; the other neither gate.')],
+  ['compromise', t('Compromise'), t('One has the whole channel; the other one of its gates.')],
 ];
 let pairHdSubject = 'composite';
 let pairHdView = 'bodygraph';
 
 function renderHumanDesignPair(container, entries) {
-  const people = { A: { ...PAIR_PEOPLE.A, key: 'A', name: 'Chart A', tag: 'A', chart: entries[0].chart }, B: { ...PAIR_PEOPLE.B, key: 'B', name: 'Chart B', tag: 'B', chart: entries[1].chart } };
+  const people = { A: { ...PAIR_PEOPLE.A, key: 'A', name: t('Chart A'), tag: 'A', chart: entries[0].chart }, B: { ...PAIR_PEOPLE.B, key: 'B', name: t('Chart B'), tag: 'B', chart: entries[1].chart } };
   container.innerHTML = `
     <div class="pair-hd-layout">
       <div class="system-visual">
@@ -513,21 +513,21 @@ function renderHumanDesignPair(container, entries) {
       const composite = computeCompositeHumanDesign(people.A.chart, people.B.chart);
       state = composite.state;
       glyphMap = pairCompositeGlyphMap(people);
-      legend.innerHTML = `${pairLegendMarkup([people.A, people.B])}<span><i class="legend-swatch halo"></i>Electromagnetic — formed only together</span>`;
+      legend.innerHTML = `${pairLegendMarkup([people.A, people.B])}<span><i class="legend-swatch halo"></i>${t('Electromagnetic — formed only together')}</span>`;
       info.innerHTML = pairCompositeInfoMarkup(composite);
       details.innerHTML = pairCompositeDetailsMarkup(people, composite);
     } else {
       const person = people[pairHdSubject];
       state = computeBodygraphState(person.chart, 0);
       glyphMap = humanDesignGateGlyphMap(person.chart, 0);
-      legend.innerHTML = `<span><i class="legend-dot" style="background:${person.color}"></i>Chart ${person.key} · ${escapeHtml(person.chart.name)}</span><span><i class="legend-swatch" style="background:var(--ink)"></i>Personality</span><span><i class="legend-swatch" style="background:var(--accent)"></i>Design</span>`;
+      legend.innerHTML = `<span><i class="legend-dot" style="background:${person.color}"></i>${t('Chart {letter}', { letter: person.key })} · ${escapeHtml(person.chart.name)}</span><span><i class="legend-swatch" style="background:var(--ink)"></i>${t('Personality')}</span><span><i class="legend-swatch" style="background:var(--accent)"></i>${t('Design')}</span>`;
       const typology = computeHumanDesignTypology(state.hd);
       info.innerHTML = hdTypologyAsideMarkup(typology, { showFilter: false });
       details.innerHTML = hdTypologyDetailsMarkup(typology);
     }
     graphic.innerHTML = pairHdView === 'mandala'
       ? hdMandalaSvgMarkup(state, glyphMap)
-      : `<svg class="bodygraph hd-bodygraph pair-bodygraph" viewBox="0 0 440 640" role="img" aria-label="Bodygraph">
+      : `<svg class="bodygraph hd-bodygraph pair-bodygraph" viewBox="0 0 440 640" role="img" aria-label="${t('Bodygraph')}">
           ${HD_BODYGRAPH_SILHOUETTE}
           <g data-bodygraph-layers>${hdBodygraphLayersMarkup(state)}</g>
         </svg>`;
@@ -553,15 +553,15 @@ function pairCompositeGlyphMap(people) {
     humanDesignGateGlyphMap(person.chart, 0).forEach((entry, gate) => {
       if (!map.has(gate)) map.set(gate, { items: [] });
       map.get(gate).items.push(
-        ...entry.personality.map((glyph) => ({ glyph, color: person.color, side: `Chart ${person.key} Personality` })),
-        ...entry.design.map((glyph) => ({ glyph, color: person.color, side: `Chart ${person.key} Design` })),
+        ...entry.personality.map((glyph) => ({ glyph, color: person.color, side: t('Chart {letter} Personality', { letter: person.key }) })),
+        ...entry.design.map((glyph) => ({ glyph, color: person.color, side: t('Chart {letter} Design', { letter: person.key }) })),
       );
     });
   });
   return map;
 }
 
-const pairCenterName = (id) => HD_CENTERS.find((center) => center.id === id)?.name || id;
+const pairCenterName = (id) => tName(HD_CENTERS.find((center) => center.id === id)?.name || id);
 const pairCentersSplit = (definedCount) => `${definedCount} / ${9 - definedCount}`;
 
 // Side panel: the composite at a glance; the full lists sit below the chart.
@@ -569,14 +569,14 @@ function pairCompositeInfoMarkup(composite) {
   const { structure, connections, newlyDefinedCenters } = composite;
   const stat = (label, value) => `<div class="system-stat"><span>${label}</span><strong>${value}</strong></div>`;
   return `
-    <span class="eyebrow">COMPOSITE</span>
-    <h3>${structure.type} composite</h3>
-    <p>${structure.definition}</p>
-    ${stat('CENTERS DEFINED / UNDEFINED', pairCentersSplit(structure.definedCenters.size))}
-    ${stat('DEFINED CHANNELS', `${structure.definedChannels.length} / 36`)}
-    ${stat('DEFINED ONLY TOGETHER', newlyDefinedCenters.length ? newlyDefinedCenters.map(pairCenterName).join(', ') : 'None')}
+    <span class="eyebrow">${t('COMPOSITE')}</span>
+    <h3>${t('{type} composite', { type: tName(structure.type) })}</h3>
+    <p>${tName(structure.definition)}</p>
+    ${stat(t('CENTERS DEFINED / UNDEFINED'), pairCentersSplit(structure.definedCenters.size))}
+    ${stat(t('DEFINED CHANNELS'), `${structure.definedChannels.length} / 36`)}
+    ${stat(t('DEFINED ONLY TOGETHER'), newlyDefinedCenters.length ? newlyDefinedCenters.map(pairCenterName).join(', ') : t('None'))}
     ${PAIR_CONNECTION_KINDS.map(([kind, label]) => stat(label.toUpperCase(), connections[kind].length)).join('')}
-    <div class="system-note">Side-by-side comparison and every connection channel are listed below the chart.</div>`;
+    <div class="system-note">${t('Side-by-side comparison and every connection channel are listed below the chart.')}</div>`;
 }
 
 // Under the chart: A / B / composite side by side, then each connection kind's channels.
@@ -587,33 +587,33 @@ function pairCompositeDetailsMarkup(people, composite) {
   const pick = (typology, read) => (typology ? read(typology) : none);
   // Rows with a tooltip kind (hdTypologyTipHtml) explain the feature, and each value, on hover.
   const rows = [
-    ['Type', (t) => t.type, structure.type, 'type', (t) => t.type],
-    ['Aura', (t) => t.aura, HD_TYPE_INFO[structure.type]?.aura || none, 'aura', () => ''],
-    ['Strategy', (t) => t.strategy, none, 'strategy', () => ''],
-    ['Definition', (t) => t.definition, structure.definition, 'definition', (t) => t.definition],
-    ['Inner authority', (t) => t.authority, none, 'authority', (t) => t.authority],
-    ['Profile', (t) => `${t.profile} · ${t.profileNames}`, none, 'profile', (t) => t.profile],
-    ['Incarnation cross', (t) => `${t.cross.angle} · ${t.cross.gates}`, none],
-    ['Quadrant', (t) => t.quadrant.name, none],
-    ['Centers defined / undefined', (t) => pairCentersSplit(t.definedCenters.size), pairCentersSplit(structure.definedCenters.size)],
-    ['Defined channels', (t) => `${t.definedChannels.length} / 36`, `${structure.definedChannels.length} / 36`],
+    [t('Type'), (typology) => tName(typology.type), structure.type, 'type', (typology) => typology.type],
+    [t('Aura'), (typology) => tName(typology.aura), HD_TYPE_INFO[structure.type]?.aura || none, 'aura', () => ''],
+    [t('Strategy'), (typology) => tName(typology.strategy), none, 'strategy', () => ''],
+    [t('Definition'), (typology) => tName(typology.definition), structure.definition, 'definition', (typology) => typology.definition],
+    [t('Inner authority'), (typology) => tName(typology.authority), none, 'authority', (typology) => typology.authority],
+    [t('Profile'), (typology) => `${typology.profile} · ${hdProfileNamesText(typology.profileNames)}`, none, 'profile', (typology) => typology.profile],
+    [t('Incarnation cross'), (typology) => `${tName(typology.cross.angle)} · ${typology.cross.gates}`, none],
+    [t('Quadrant'), (typology) => tName(typology.quadrant.name), none],
+    [t('Centers defined / undefined'), (typology) => pairCentersSplit(typology.definedCenters.size), pairCentersSplit(structure.definedCenters.size)],
+    [t('Defined channels'), (typology) => `${typology.definedChannels.length} / 36`, `${structure.definedChannels.length} / 36`],
   ];
   const table = `
     <div class="pair-compare">
       <table class="pair-compare-table">
-        <thead><tr><th><span class="visually-hidden">Feature</span></th>${[people.A, people.B].map((person) => `<th class="pair-person-head" style="--person-color:${person.color}">Chart ${person.key} · ${escapeHtml(person.chart.name)}</th>`).join('')}<th>Composite</th></tr></thead>
+        <thead><tr><th><span class="visually-hidden">${t('Feature')}</span></th>${[people.A, people.B].map((person) => `<th class="pair-person-head" style="--person-color:${person.color}">${t('Chart {letter}', { letter: person.key })} · ${escapeHtml(person.chart.name)}</th>`).join('')}<th>${t('Composite')}</th></tr></thead>
         <tbody>${rows.map(([label, read, compositeValue, kind, tipValue]) => {
           const cell = (typology) => (kind && typology ? `<td><span class="hd-tip-value" ${hdTipAttributes(kind, tipValue(typology), typology.type)}>${read(typology)}</span></td>` : `<td>${pick(typology, read)}</td>`);
-          const composite = kind && compositeValue !== none ? `<span class="hd-tip-value" ${hdTipAttributes(kind, kind === 'aura' ? '' : compositeValue, structure.type)}>${compositeValue}</span>` : compositeValue;
+          const composite = kind && compositeValue !== none ? `<span class="hd-tip-value" ${hdTipAttributes(kind, kind === 'aura' ? '' : compositeValue, structure.type)}>${tName(compositeValue)}</span>` : compositeValue;
           return `<tr><th>${kind ? `<span class="hd-tip-value" ${hdTipAttributes(kind)}>${label}</span>` : label}</th>${cell(typologyA)}${cell(typologyB)}<td>${composite}</td></tr>`;
         }).join('')}</tbody>
       </table>
     </div>`;
   const notes = {
     electromagnetic: (channel) => `A ${channel.fromA} · B ${channel.fromB}`,
-    companionship: () => 'both charts',
-    dominance: (channel) => `Chart ${channel.owner}`,
-    compromise: (channel) => `Chart ${channel.owner} · other has ${channel.partial.join(', ')}`,
+    companionship: () => t('both charts'),
+    dominance: (channel) => t('Chart {letter}', { letter: channel.owner }),
+    compromise: (channel) => `${t('Chart {letter}', { letter: channel.owner })} · ${t('other has {gates}', { gates: channel.partial.join(', ') })}`,
   };
   const cards = PAIR_CONNECTION_KINDS.map(([kind, label, description]) => `
     <div class="pair-connection-card ${kind}">

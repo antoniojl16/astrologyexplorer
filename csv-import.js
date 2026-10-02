@@ -15,7 +15,7 @@
 // or the file's offset chosen) says so in its notes.
 // Used by Import workspace (app.js) when the chosen file is a .csv.
 
-const CSV_IMPORT_TAG = "imported";
+const CSV_IMPORT_TAG = t("imported");
 // Abbreviations such exports use, in minutes east of UTC.
 const CSV_ZONE_ABBREVIATIONS = { GMT: 0, UTC: 0, UT: 0, Z: 0, WET: 0, BST: 60, CET: 60, CEST: 120, EET: 120, EEST: 180, MSK: 180, EST: -300, EDT: -240, CST: -360, CDT: -300, MST: -420, MDT: -360, PST: -480, PDT: -420, AKST: -540, HST: -600, IST: 330, JST: 540, AEST: 600, AEDT: 660 };
 
@@ -96,25 +96,25 @@ function csvWallFor(instant, place) {
 // cityText, country, place, how, appOffset, choice, include, problem, duplicate }.
 function csvReadRows(text) {
   const [header, ...lines] = csvParse(text);
-  if (!header) return { error: "The file is empty." };
+  if (!header) return { error: t("The file is empty.") };
   const column = (name) => header.findIndex((cell) => cell.trim().toLowerCase() === name);
   const at = { name: column("name"), date: column("date"), time: column("time"), zone: column("timezone"), city: column("city"), country: column("country") };
-  if ([at.name, at.date, at.city].some((index) => index < 0)) return { error: "This CSV needs at least the columns Name, Date and City (with Time, Timezone and Country)." };
+  if ([at.name, at.date, at.city].some((index) => index < 0)) return { error: t("This CSV needs at least the columns Name, Date and City (with Time, Timezone and Country).") };
   const workspace = state.workspaces.find((item) => item.name === state.activeWorkspace);
   const existing = new Set(workspace.chartIds.map(chartById).filter(Boolean).map((chart) => `${chart.name.trim().toLowerCase()}|${chart.birthDate}`));
   const rows = lines.map((cells) => {
     const cell = (index) => (index >= 0 ? String(cells[index] ?? "").trim() : "");
-    const row = { name: cell(at.name) || "Unnamed chart", date: cell(at.date), time: "", utc: false, zoneText: cell(at.zone), cityText: cell(at.city), country: cell(at.country), choice: "app", include: true, problem: "" };
+    const row = { name: cell(at.name) || t("Unnamed chart"), date: cell(at.date), time: "", utc: false, zoneText: cell(at.zone), cityText: cell(at.city), country: cell(at.country), choice: "app", include: true, problem: "" };
     const year = Number(row.date.slice(0, 4));
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(row.date) || Number.isNaN(Date.parse(`${row.date}T12:00:00Z`)) || year < 1000 || year > 2999) row.problem = "The date isn't a valid YYYY-MM-DD between 1000 and 2999.";
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(row.date) || Number.isNaN(Date.parse(`${row.date}T12:00:00Z`)) || year < 1000 || year > 2999) row.problem = N_("The date isn't a valid YYYY-MM-DD between 1000 and 2999.");
     const time = /^(\d{1,2}):(\d{2})(?::\d{2}(?:\.\d+)?)?\s*(Z)?$/i.exec(cell(at.time));
     if (time && Number(time[1]) < 24 && Number(time[2]) < 60) {
       row.time = `${time[1].padStart(2, "0")}:${time[2]}`;
       row.utc = !!time[3];
-    } else if (cell(at.time)) row.problem ||= "The time can't be read.";
+    } else if (cell(at.time)) row.problem ||= N_("The time can't be read.");
     row.fileOffset = row.utc ? 0 : csvZoneOffset(row.zoneText);
     Object.assign(row, csvMatchPlace(row.cityText, row.country));
-    if (!row.place) row.problem ||= "The place wasn't found: search for it.";
+    if (!row.place) row.problem ||= N_("The place wasn't found: search for it.");
     row.duplicate = existing.has(`${row.name.toLowerCase()}|${row.date}`);
     row.include = !row.problem && !row.duplicate;
     csvRefreshOffset(row);
@@ -131,8 +131,8 @@ function csvChartFields(row) {
   const offset = row.utc ? 0 : row.choice === "file" && row.fileOffset != null ? row.fileOffset : null;
   const moment = offset == null ? { date: row.date, time: row.time } : csvWallFor(wall - offset * 60000, row.place);
   const notes = [];
-  if (row.utc) notes.push(`Imported from CSV: born ${row.date} ${row.time} UTC, stored as ${moment.date} ${moment.time} local time.`);
-  else if (offset != null && offset !== row.appOffset) notes.push(`Imported from CSV: born ${row.date} ${row.time} ${csvOffsetLabel(row.fileOffset)} (the file's offset; this place's own for that date is ${csvOffsetLabel(row.appOffset)}), stored as ${moment.time} local time.`);
+  if (row.utc) notes.push(t("Imported from CSV: born {date} {time} UTC, stored as {localDate} {localTime} local time.", { date: row.date, time: row.time, localDate: moment.date, localTime: moment.time }));
+  else if (offset != null && offset !== row.appOffset) notes.push(t("Imported from CSV: born {date} {time} {fileOffset} (the file's offset; this place's own for that date is {placeOffset}), stored as {localTime} local time.", { date: row.date, time: row.time, fileOffset: csvOffsetLabel(row.fileOffset), placeOffset: csvOffsetLabel(row.appOffset), localTime: moment.time }));
   return { name: row.name, birthDate: moment.date, birthTime: moment.time, ...csvPlaceFields(row.place), uncertainty: 0, tags: [CSV_IMPORT_TAG], noteText: notes.join("\n"), notes: notes.length ? 1 : 0 };
 }
 
@@ -144,24 +144,24 @@ function csvImportDialog() {
   dialog.id = "csvImportDialog";
   dialog.className = "csv-import-dialog";
   dialog.innerHTML = `<div>
-    <div class="dialog-head"><div><p class="eyebrow accent-label">IMPORT CHARTS</p><h2>Review the charts</h2></div><button type="button" class="close-button" data-csv-close aria-label="Close">×</button></div>
-    <p class="dialog-copy">Each place was matched in the place list; change any by searching. The UTC offset is the place's own for that date, from its time zone history. Where the file's offset differs it's highlighted, and either can be chosen. Imported charts are tagged “${CSV_IMPORT_TAG}”.</p>
-    <div class="csv-import-table-wrap"><table class="csv-import-table"><thead><tr><th><input type="checkbox" data-csv-all aria-label="Import all"></th><th>NAME</th><th>BORN</th><th>PLACE</th><th>UTC OFFSET</th><th></th></tr></thead><tbody data-csv-rows></tbody></table></div>
-    <div class="dialog-actions"><button type="button" class="secondary-button" data-csv-close>Cancel</button><button type="button" class="primary-button" data-csv-import>Import</button></div>
+    <div class="dialog-head"><div><p class="eyebrow accent-label">${t("IMPORT CHARTS")}</p><h2>${t("Review the charts")}</h2></div><button type="button" class="close-button" data-csv-close aria-label="${t("Close")}">×</button></div>
+    <p class="dialog-copy">${t("Each place was matched in the place list; change any by searching. The UTC offset is the place's own for that date, from its time zone history. Where the file's offset differs it's highlighted, and either can be chosen. Imported charts are tagged “{tag}”.", { tag: CSV_IMPORT_TAG })}</p>
+    <div class="csv-import-table-wrap"><table class="csv-import-table"><thead><tr><th><input type="checkbox" data-csv-all aria-label="${t("Import all")}"></th><th>${t("NAME")}</th><th>${t("BORN")}</th><th>${t("PLACE")}</th><th>${t("UTC OFFSET")}</th><th></th></tr></thead><tbody data-csv-rows></tbody></table></div>
+    <div class="dialog-actions"><button type="button" class="secondary-button" data-csv-close>${t("Cancel")}</button><button type="button" class="primary-button" data-csv-import>${t("Import")}</button></div>
   </div>`;
   document.body.appendChild(dialog);
   return dialog;
 }
 async function openCsvImport(text) {
   if (!placeIndex) {
-    showToast("Loading places…");
+    showToast(t("Loading places…"));
     const loaded = new Promise((resolve) => window.addEventListener("orbital-places-loaded", resolve, { once: true }));
     loadPlaces();
     await loaded;
   }
   const read = csvReadRows(text);
   if (read.error) return showToast(read.error);
-  if (!read.rows.length) return showToast("No charts in that file");
+  if (!read.rows.length) return showToast(t("No charts in that file"));
   const { rows } = read;
   const dialog = csvImportDialog();
   const body = dialog.querySelector("[data-csv-rows]");
@@ -171,17 +171,17 @@ async function openCsvImport(text) {
     body.innerHTML = rows.map((row, index) => {
       const differs = !row.utc && row.fileOffset != null && row.appOffset != null && row.fileOffset !== row.appOffset;
       const offset = row.utc
-        ? `<span title="The file gives the time in UTC">UTC time → ${csvOffsetLabel(row.appOffset)}</span>`
+        ? `<span title="${t("The file gives the time in UTC")}">${t("UTC time → {offset}", { offset: csvOffsetLabel(row.appOffset) })}</span>`
         : differs
-          ? `<label class="csv-choice"><input type="radio" name="csv-offset-${index}" value="app" data-csv-offset="${index}" ${row.choice === "app" ? "checked" : ""}>${csvOffsetLabel(row.appOffset)} <small>place's history</small></label><label class="csv-choice"><input type="radio" name="csv-offset-${index}" value="file" data-csv-offset="${index}" ${row.choice === "file" ? "checked" : ""}>${csvOffsetLabel(row.fileOffset)} <small>file (${escapeHtml(row.zoneText)})</small></label>`
-          : `${csvOffsetLabel(row.appOffset)}${row.fileOffset == null && row.zoneText ? ` <small title="The file's “${escapeHtml(row.zoneText)}” can't be read">file: ${escapeHtml(row.zoneText)}</small>` : ""}`;
-      const how = { exact: "", name: "matched by name (another region)", guess: "closest match: check it" }[row.how] || "";
-      const note = row.problem || (row.duplicate ? "Already in this workspace (same name and date)" : how);
+          ? `<label class="csv-choice"><input type="radio" name="csv-offset-${index}" value="app" data-csv-offset="${index}" ${row.choice === "app" ? "checked" : ""}>${csvOffsetLabel(row.appOffset)} <small>${t("place's history")}</small></label><label class="csv-choice"><input type="radio" name="csv-offset-${index}" value="file" data-csv-offset="${index}" ${row.choice === "file" ? "checked" : ""}>${csvOffsetLabel(row.fileOffset)} <small>${t("file ({zone})", { zone: escapeHtml(row.zoneText) })}</small></label>`
+          : `${csvOffsetLabel(row.appOffset)}${row.fileOffset == null && row.zoneText ? ` <small title="${t("The file's “{zone}” can't be read", { zone: escapeHtml(row.zoneText) })}">${t("file: {zone}", { zone: escapeHtml(row.zoneText) })}</small>` : ""}`;
+      const how = { exact: "", name: t("matched by name (another region)"), guess: t("closest match: check it") }[row.how] || "";
+      const note = row.problem ? tName(row.problem) : row.duplicate ? t("Already in this workspace (same name and date)") : how;
       return `<tr class="${row.include ? "" : "skipped"}${differs ? " differs" : ""}">
-        <td><input type="checkbox" data-csv-include="${index}" ${row.include ? "checked" : ""} ${row.problem ? "disabled" : ""} aria-label="Import ${escapeHtml(row.name)}"></td>
+        <td><input type="checkbox" data-csv-include="${index}" ${row.include ? "checked" : ""} ${row.problem ? "disabled" : ""} aria-label="${t("Import {name}", { name: escapeHtml(row.name) })}"></td>
         <td>${escapeHtml(row.name)}</td>
-        <td class="csv-born">${escapeHtml(row.date)} ${escapeHtml(row.time || "(no time)")}</td>
-        <td class="csv-place"><span title="${escapeHtml(`${row.cityText}, ${row.country}`)}">${row.place ? escapeHtml(placeLabel(row.place)) : `<i>${escapeHtml(row.cityText)}</i>`}</span><span class="csv-place-find"><input type="search" data-csv-place="${index}" placeholder="Change…" aria-label="Search for ${escapeHtml(row.name)}'s birthplace"></span></td>
+        <td class="csv-born">${escapeHtml(row.date)} ${escapeHtml(row.time || t("(no time)"))}</td>
+        <td class="csv-place"><span title="${escapeHtml(`${row.cityText}, ${row.country}`)}">${row.place ? escapeHtml(placeLabel(row.place)) : `<i>${escapeHtml(row.cityText)}</i>`}</span><span class="csv-place-find"><input type="search" data-csv-place="${index}" placeholder="${t("Change…")}" aria-label="${t("Search for the birthplace of {name}", { name: escapeHtml(row.name) })}"></span></td>
         <td class="csv-offset">${offset}</td>
         <td class="csv-note">${escapeHtml(note)}</td>
       </tr>`;
@@ -195,7 +195,7 @@ async function openCsvImport(text) {
       draw();
     }));
     const count = rows.filter((row) => row.include).length;
-    importButton.textContent = `Import ${count} chart${count === 1 ? "" : "s"}`;
+    importButton.textContent = tn(count, "Import {n} chart", "Import {n} charts");
     importButton.disabled = !count;
     const choosable = rows.filter((row) => !row.problem);
     all.checked = choosable.length > 0 && choosable.every((row) => row.include);
@@ -222,7 +222,7 @@ async function openCsvImport(text) {
     dialog.close();
     renderRows();
     const converted = chosen.filter((row) => row.utc || (row.choice === "file" && row.fileOffset !== row.appOffset)).length;
-    showToast(`${chosen.length} chart${chosen.length === 1 ? "" : "s"} imported into ${state.activeWorkspace}, tagged “${CSV_IMPORT_TAG}”${converted ? ` · ${converted} with a converted time (see their notes)` : ""}`);
+    showToast(tn(chosen.length, "{n} chart imported into {workspace}, tagged “{tag}”", "{n} charts imported into {workspace}, tagged “{tag}”", { workspace: state.activeWorkspace, tag: CSV_IMPORT_TAG }) + (converted ? ` · ${tn(converted, "{n} with a converted time (see its notes)", "{n} with a converted time (see their notes)")}` : ""));
   };
   draw();
   dialog.showModal();

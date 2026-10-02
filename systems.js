@@ -1,18 +1,18 @@
 // Orbital Study — Copyright (c) 2026 Antonio Juarez (@antoniojl16). All rights reserved. See LICENSE.
 const SYSTEM_TABS = {
   "Human Design": {
-    views: ["Bodygraph", "Mandala"],
-    filters: ["Complete", "Personality", "Design", "Incarnation Cross"],
+    views: [N_("Bodygraph"), N_("Mandala")],
+    filters: [N_("Complete"), N_("Personality"), N_("Design"), N_("Incarnation Cross")],
   },
   "Gene Keys": [
-    "All Paths",
-    "Golden Path",
-    "Venus Path",
-    "Pearl Path",
-    "Star Pearl",
-    "Codon Rings",
+    N_("All Paths"),
+    N_("Golden Path"),
+    N_("Venus Path"),
+    N_("Pearl Path"),
+    N_("Star Pearl"),
+    N_("Codon Rings"),
   ],
-  Astrocartography: ["ACG Travel", "ACG Local Space"],
+  Astrocartography: [N_("ACG Travel"), N_("ACG Local Space")],
 };
 let activeSystemTab = "Bodygraph";
 let activeSystemFilter = "Complete";
@@ -238,7 +238,7 @@ function bindBodygraphHoverDebug(svg) {
 // in both views.
 function hdTimelineControlMarkup(chart, offsetMinutes) {
   if (!chart) return "";
-  return timelineSliderMarkup("PERSONALITY MOMENT", offsetMinutes);
+  return timelineSliderMarkup(t("PERSONALITY MOMENT"), offsetMinutes);
 }
 // Which planets (personality and/or design) currently activate each gate, at a given
 // offset from birth. Reused by the mandala's initial render and its slider updates.
@@ -294,7 +294,7 @@ function bindMandalaGlyphClicks(container) {
   container.querySelectorAll(".mandala-planet-glyph").forEach((node) =>
     node.addEventListener("click", (event) => {
       event.stopPropagation();
-      showToast(`Gate ${node.dataset.gate} · ${node.dataset.side} influence`);
+      showToast(t('Gate {gate} · {side} influence', { gate: node.dataset.gate, side: tName(node.dataset.side) }));
     }),
   );
 }
@@ -313,8 +313,8 @@ function renderSystemPanel(container, system, chart) {
   activeSystemFilter = "Complete";
   const selectorMarkup =
     system === "Human Design"
-      ? `<div class="system-selector-stack"><div class="selector-row"><span class="selector-label">VIEW</span><div class="system-tabs">${tabs.map((tab) => `<button type="button" class="${tab === activeSystemTab ? "active" : ""}" data-panel-tab="${tab}">${tab}</button>`).join("")}</div></div><div class="selector-row"><span class="selector-label">INFLUENCES</span><div class="system-tabs influence-tabs">${systemTabs.filters.map((filter) => `<button type="button" class="${filter === activeSystemFilter ? "active" : ""}" data-panel-filter="${filter}">${filter}</button>`).join("")}</div></div></div>`
-      : `<div class="system-tabs">${tabs.map((tab) => `<button type="button" class="${tab === activeSystemTab ? "active" : ""}" data-panel-tab="${tab}">${tab}</button>`).join("")}</div>`;
+      ? `<div class="system-selector-stack"><div class="selector-row"><span class="selector-label">${t("VIEW")}</span><div class="system-tabs">${tabs.map((tab) => `<button type="button" class="${tab === activeSystemTab ? "active" : ""}" data-panel-tab="${tab}">${tName(tab)}</button>`).join("")}</div></div><div class="selector-row"><span class="selector-label">${t("INFLUENCES")}</span><div class="system-tabs influence-tabs">${systemTabs.filters.map((filter) => `<button type="button" class="${filter === activeSystemFilter ? "active" : ""}" data-panel-filter="${filter}">${tName(filter)}</button>`).join("")}</div></div></div>`
+      : `<div class="system-tabs">${tabs.map((tab) => `<button type="button" class="${tab === activeSystemTab ? "active" : ""}" data-panel-tab="${tab}">${tName(tab)}</button>`).join("")}</div>`;
   container.innerHTML = `${selectorMarkup}<div class="system-surface" data-panel-surface></div>`;
   const surface = container.querySelector("[data-panel-surface]");
   const renderInner = () => {
@@ -350,7 +350,7 @@ function renderSystemPanel(container, system, chart) {
 // and Heart; gold for G and Head (Crown); green for Ajna.
 const HD_BODYGRAPH_CENTERS = [
   {
-    name: "Head",
+    name: N_("Head"),
     id: "head",
     x: 220,
     y: 62,
@@ -358,7 +358,7 @@ const HD_BODYGRAPH_CENTERS = [
     color: "#d6a63e",
   },
   {
-    name: "Ajna",
+    name: N_("Ajna"),
     id: "ajna",
     x: 220,
     y: 137,
@@ -366,16 +366,16 @@ const HD_BODYGRAPH_CENTERS = [
     color: "#4f7d4c",
   },
   {
-    name: "Throat",
+    name: N_("Throat"),
     id: "throat",
     x: 220,
     y: 222,
     shape: "square",
     color: "#8a6446",
   },
-  { name: "G", id: "g", x: 220, y: 315, shape: "diamond", color: "#d6a63e" },
+  { name: N_("G"), id: "g", x: 220, y: 315, shape: "diamond", color: "#d6a63e" },
   {
-    name: "Heart",
+    name: N_("Heart"),
     id: "heart",
     x: 284,
     y: 356,
@@ -383,7 +383,7 @@ const HD_BODYGRAPH_CENTERS = [
     color: "#b8453b",
   },
   {
-    name: "Solar Plexus",
+    name: N_("Solar Plexus"),
     id: "solar-plexus",
     x: 342,
     y: 421,
@@ -391,7 +391,7 @@ const HD_BODYGRAPH_CENTERS = [
     color: "#8a6446",
   },
   {
-    name: "Spleen",
+    name: N_("Spleen"),
     id: "spleen",
     x: 98,
     y: 421,
@@ -399,7 +399,7 @@ const HD_BODYGRAPH_CENTERS = [
     color: "#8a6446",
   },
   {
-    name: "Sacral",
+    name: N_("Sacral"),
     id: "sacral",
     x: 220,
     y: 480,
@@ -407,7 +407,7 @@ const HD_BODYGRAPH_CENTERS = [
     color: "#b8453b",
   },
   {
-    name: "Root",
+    name: N_("Root"),
     id: "root",
     x: 220,
     y: 575,
@@ -670,10 +670,10 @@ const HD_BODYGRAPH_SILHOUETTE =
 // the right (ink), each pair's top arrow from the Sun and bottom from the North Node.
 // Each points left for a tone of 1–3 and right for 4–6 (typology.variable).
 const HD_VARIABLE_ARROWS = [
-  { key: "digestion", x: 138, y: 58, color: "var(--accent)", source: "Design Sun", tone: (t) => ["Cognition 1", t.cognitions[0]], phs: (t) => `Digestion: ${t.phs.digestion.name} - ${t.phs.digestion.side}` },
-  { key: "environment", x: 138, y: 86, color: "var(--accent)", source: "Design Node", tone: (t) => ["Cognition 2", t.cognitions[1]], phs: (t) => `Environment: ${t.phs.environment.name} - ${t.phs.environment.side}` },
-  { key: "motivation", x: 302, y: 58, color: "var(--ink)", source: "Personality Sun", tone: (t) => ["Sense 1", t.senses[0]], phs: (t) => `Motivation: ${t.phs.motivation.name} - ${t.phs.motivation.side}` },
-  { key: "perspective", x: 302, y: 86, color: "var(--ink)", source: "Personality Node", tone: (t) => ["Sense 2", t.senses[1]], phs: (t) => `Perspective: ${t.phs.perspective.name} - ${t.phs.perspective.side}` },
+  { key: "digestion", x: 138, y: 58, color: "var(--accent)", source: "Design Sun", tone: (typology) => [t("Cognition {n}", { n: 1 }), typology.cognitions[0]], phs: (typology) => t("Digestion: {name} - {side}", { name: tName(typology.phs.digestion.name), side: tName(typology.phs.digestion.side) }) },
+  { key: "environment", x: 138, y: 86, color: "var(--accent)", source: "Design Node", tone: (typology) => [t("Cognition {n}", { n: 2 }), typology.cognitions[1]], phs: (typology) => t("Environment: {name} - {side}", { name: tName(typology.phs.environment.name), side: tName(typology.phs.environment.side) }) },
+  { key: "motivation", x: 302, y: 58, color: "var(--ink)", source: "Personality Sun", tone: (typology) => [t("Sense {n}", { n: 1 }), typology.senses[0]], phs: (typology) => t("Motivation: {name} - {side}", { name: tName(typology.phs.motivation.name), side: tName(typology.phs.motivation.side) }) },
+  { key: "perspective", x: 302, y: 86, color: "var(--ink)", source: "Personality Node", tone: (typology) => [t("Sense {n}", { n: 2 }), typology.senses[1]], phs: (typology) => t("Perspective: {name} - {side}", { name: tName(typology.phs.perspective.name), side: tName(typology.phs.perspective.side) }) },
 ];
 const hdAttribute = (text) => String(text).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 // Drawn only for a single chart's state (a composite has no Variable).
@@ -690,7 +690,7 @@ function hdVariableArrowsMarkup(state) {
     const { x, y } = arrow;
     const tip = x + toward * half, tail = x - toward * half, neck = tip - toward * head;
     const [toneLabel, tone] = arrow.tone(typology);
-    const tooltip = [`${arrow.source} · tone ${tone.tone} · ${direction}`, arrow.phs(typology), `${toneLabel}: ${tone.name}`];
+    const tooltip = [t("{source} · tone {tone} · {direction}", { source: tName(arrow.source), tone: tone.tone, direction: tName(direction) }), arrow.phs(typology), `${toneLabel}: ${tName(tone.name)}`];
     return `<g class="hd-variable-arrow" data-hd-arrow="${arrow.key}" data-direction="${direction.toLowerCase()}" data-tooltip="${hdAttribute(tooltip.join("\n"))}" style="color:${arrow.color}">
       <rect x="${x - half - 4}" y="${y - wing - 4}" width="${half * 2 + 8}" height="${wing * 2 + 8}" class="hd-arrow-hit"/>
       <line x1="${tail}" y1="${y}" x2="${neck}" y2="${y}"/>
@@ -787,7 +787,7 @@ function hdBodygraphGateMarkup(state) {
       const halo = state?.gateHalo?.(g.id)
         ? `<line x1="${g.x1}" y1="${g.y1}" x2="${g.x2}" y2="${g.y2}" class="hd-channel-halo"/>`
         : "";
-      const title = state?.gateTitle?.(g.id) || `Gate ${g.id}`;
+      const title = state?.gateTitle?.(g.id) || t("Gate {gate}", { gate: g.id });
       return `<g class="hd-gate-half" tabindex="0" id="gate-pipe-${g.id}" data-gate="${g.id}">
     <title>${title}</title>${halo}<line x1="${g.x1}" y1="${g.y1}" x2="${g.x2}" y2="${g.y2}" class="channel-track hd-half-channel"/>
     ${hdGateFillMarkup(g, side)}</g>`;
@@ -826,7 +826,7 @@ function hdBodygraphChannelMarkup(state) {
     const a = HD_BODYGRAPH_GATE_GEOMETRY[gateA], b = HD_BODYGRAPH_GATE_GEOMETRY[gateB];
     const defined = Boolean(state && state.gateSide(gateA) && state.gateSide(gateB));
     const info = hdChannelInfo([gateA, gateB]);
-    return `<path id="${hdChannelId([gateA, gateB])}" class="hd-channel${defined ? " defined" : ""}" data-channel="${hdChannelKey([gateA, gateB])}" d="M ${point(a.x1, a.y1)} L ${point(a.x2, a.y2)} L ${point(b.x1, b.y1)}"><title>Channel ${info.gates} · ${info.name}</title></path>`;
+    return `<path id="${hdChannelId([gateA, gateB])}" class="hd-channel${defined ? " defined" : ""}" data-channel="${hdChannelKey([gateA, gateB])}" d="M ${point(a.x1, a.y1)} L ${point(a.x2, a.y2)} L ${point(b.x1, b.y1)}"><title>${t("Channel {gates} · {name}", { gates: info.gates, name: tName(info.name) })}</title></path>`;
   }).join("");
 }
 // Draw order: gates, then channels (above the gates), then centers (hiding the gates'
@@ -846,7 +846,7 @@ function bindHdGateClicks(container) {
   container.querySelectorAll(".hd-gate-half").forEach((node) =>
     node.addEventListener("click", (event) => {
       event.stopPropagation();
-      showToast(`Gate ${node.dataset.gate} · ${activeSystemFilter} influence`);
+      showToast(t("Gate {gate} · {side} influence", { gate: node.dataset.gate, side: tName(activeSystemFilter) }));
     }),
   );
 }
@@ -855,14 +855,14 @@ function bindHdCenterClicks(container) {
     .querySelectorAll(".design-center")
     .forEach((node) =>
       node.addEventListener("click", () =>
-        showToast(`${node.dataset.center} center · sample detail`),
+        showToast(t("{center} center", { center: tName(node.dataset.center) })),
       ),
     );
 }
 
 // ── Typology display (Chart Snapshot panel, Variable/PHS cards, Bases) ────
 function hdChannelBadgeText(typology) {
-  return `${typology ? typology.definedChannels.length : 0} / 36 CHANNELS DEFINED`;
+  return t("{count} / 36 CHANNELS DEFINED", { count: typology ? typology.definedChannels.length : 0 });
 }
 // Tooltips for the typology features (texts from hd-meanings.js): `kind` is a key of
 // HD_FEATURE_MEANINGS; `value` the chart's value for it, and `type` its Type (which
@@ -882,46 +882,46 @@ function hdTypologyTipHtml(element) {
   else if (kind === "definition") meaning = HD_DEFINITION_MEANINGS[value];
   else if (kind === "profile" && value) {
     const lines = value.split("/").map(Number);
-    meaning = `<b>${lines[0]}</b> (conscious) ${HD_LINE_MEANINGS[lines[0] - 1] || ""}<br><b>${lines[1]}</b> (unconscious) ${HD_LINE_MEANINGS[lines[1] - 1] || ""}`;
+    meaning = `<b>${lines[0]}</b> (${t("conscious")}) ${HD_LINE_MEANINGS[lines[0] - 1] || ""}<br><b>${lines[1]}</b> (${t("unconscious")}) ${HD_LINE_MEANINGS[lines[1] - 1] || ""}`;
   }
-  const title = value && kind !== "aura" && kind !== "strategy" ? `${feature.label}: ${escapeHtml(value)}` : feature.label;
-  return `<div class="gk-tip-title">${title}</div><div class="gk-tip-text">${feature.text}</div>${meaning ? `<div class="gk-tip-title">${type && (kind === "aura" || kind === "strategy") ? `For a ${escapeHtml(type)}` : "This chart"}</div><div class="gk-tip-text">${meaning}</div>` : ""}`;
+  const title = value && kind !== "aura" && kind !== "strategy" ? `${feature.label}: ${escapeHtml(kind === "profile" ? value : tName(value))}` : feature.label;
+  return `<div class="gk-tip-title">${title}</div><div class="gk-tip-text">${feature.text}</div>${meaning ? `<div class="gk-tip-title">${type && (kind === "aura" || kind === "strategy") ? t("For a {type}", { type: escapeHtml(tName(type)) }) : t("This chart")}</div><div class="gk-tip-text">${meaning}</div>` : ""}`;
 }
 bindHoverTooltips("[data-hd-tip]", hdTypologyTipHtml, "hdTooltip");
 
 function hdTypologyAsideMarkup(typology, { showFilter = true } = {}) {
-  if (!typology) return `<span class="eyebrow">CHART SNAPSHOT</span><h3>No chart</h3><p>Select a chart to see its Human Design typology.</p>`;
+  if (!typology) return `<span class="eyebrow">${t("CHART SNAPSHOT")}</span><h3>${t("No chart")}</h3><p>${t("Select a chart to see its Human Design typology.")}</p>`;
   const stat = (label, value, kind) => `<div class="system-stat${kind ? " hd-tip-stat" : ""}"${kind ? ` ${hdTipAttributes(kind, kind === "profile" ? typology.profile : typology[kind], typology.type)}` : ""}><span>${label}</span><strong>${value}</strong></div>`;
   return `
-    <span class="eyebrow">CHART SNAPSHOT</span>
-    <h3>${typology.type} · ${typology.profile}</h3>
-    <p>${typology.profileNames} · ${typology.authority} authority</p>
-    ${stat("TYPE", typology.type, "type")}
-    ${stat("AURA", typology.aura, "aura")}
-    ${stat("STRATEGY", typology.strategy, "strategy")}
-    ${stat("NOT-SELF THEME", typology.notSelf)}
-    ${stat("SIGNATURE", typology.signature)}
-    ${stat("INNER AUTHORITY", typology.authority, "authority")}
-    ${stat("DEFINITION", typology.definition, "definition")}
-    ${stat("PROFILE", `${typology.profile} · ${typology.profileNames}`, "profile")}
-    ${stat("INCARNATION CROSS", `${typology.cross.angle} · ${typology.cross.gates}`)}
-    ${stat("QUADRANT", `${typology.quadrant.name} · ${typology.quadrant.theme}`)}
-    ${stat("DEFINED CENTERS", `<span data-hd-defined-centers>${typology.definedCenters.size} / 9</span>`)}
-    ${stat("DEFINED CHANNELS", `${typology.definedChannels.length} / 36`)}
-    ${showFilter ? stat("FILTER", activeSystemFilter) : ""}`;
+    <span class="eyebrow">${t("CHART SNAPSHOT")}</span>
+    <h3>${tName(typology.type)} · ${typology.profile}</h3>
+    <p>${hdProfileNamesText(typology.profileNames)} · ${t("{authority} authority", { authority: tName(typology.authority) })}</p>
+    ${stat(t("TYPE"), tName(typology.type), "type")}
+    ${stat(t("AURA"), tName(typology.aura), "aura")}
+    ${stat(t("STRATEGY"), tName(typology.strategy), "strategy")}
+    ${stat(t("NOT-SELF THEME"), tName(typology.notSelf))}
+    ${stat(t("SIGNATURE"), tName(typology.signature))}
+    ${stat(t("INNER AUTHORITY"), tName(typology.authority), "authority")}
+    ${stat(t("DEFINITION"), tName(typology.definition), "definition")}
+    ${stat(t("PROFILE"), `${typology.profile} · ${hdProfileNamesText(typology.profileNames)}`, "profile")}
+    ${stat(t("INCARNATION CROSS"), `${tName(typology.cross.angle)} · ${typology.cross.gates}`)}
+    ${stat(t("QUADRANT"), `${tName(typology.quadrant.name)} · ${tName(typology.quadrant.theme)}`)}
+    ${stat(t("DEFINED CENTERS"), `<span data-hd-defined-centers>${typology.definedCenters.size} / 9</span>`)}
+    ${stat(t("DEFINED CHANNELS"), `${typology.definedChannels.length} / 36`)}
+    ${showFilter ? stat(t("FILTER"), tName(activeSystemFilter)) : ""}`;
 }
 // One row per channel: gates, name, the two centers it joins, and an optional note
 // (the Pair Explorer uses it for who brings which gate). Clicking a row opens a short
 // description of the channel (HD_CHANNEL_MEANINGS, hd-meanings.js).
 function hdChannelListMarkup(channels, note = () => "") {
-  if (!channels.length) return `<p class="hd-channel-empty">None</p>`;
+  if (!channels.length) return `<p class="hd-channel-empty">${t("None")}</p>`;
   return `<div class="hd-channel-list">${channels
     .map((channel) => {
       const gates = channel.gates || channel;
       const info = hdChannelInfo(gates);
       const extra = note(channel);
       const meaning = HD_CHANNEL_MEANINGS[hdChannelKey(gates)];
-      return `<details class="hd-channel-item"><summary><b>${info.gates}</b><span>${info.name}</span><small>${info.centers}${extra ? ` · ${extra}` : ""}</small></summary>${meaning ? `<p>${meaning}</p>` : ""}</details>`;
+      return `<details class="hd-channel-item"><summary><b>${info.gates}</b><span>${tName(info.name)}</span><small>${hdCentersText(info.centers)}${extra ? ` · ${extra}` : ""}</small></summary>${meaning ? `<p>${meaning}</p>` : ""}</details>`;
     })
     .join("")}</div>`;
 }
@@ -932,27 +932,27 @@ function hdTypologyDetailsMarkup(typology) {
   const { variable, phs } = typology;
   return `
     <div class="hd-channels">
-      <span class="eyebrow">DEFINED CHANNELS · ${typology.definedChannels.length} / 36</span>
+      <span class="eyebrow">${t("DEFINED CHANNELS")} · ${typology.definedChannels.length} / 36</span>
       ${hdChannelListMarkup(typology.definedChannels)}
     </div>
     <div class="hd-typology">
       <div class="hd-typology-card">
-        <h3>Variable/PHS <small>${variable.notation}</small></h3>
-        ${row("Digestion", `${phs.digestion.name} · ${phs.digestion.side}`, `Design Sun · color ${phs.digestion.color}`)}
-        ${row("Environment", `${phs.environment.name} · ${phs.environment.side}`, `Design Node · color ${phs.environment.color}`)}
-        ${row("Motivation", `${phs.motivation.name} · ${phs.motivation.side}`, `Personality Sun · color ${phs.motivation.color}`)}
-        ${row("Perspective", `${phs.perspective.name} · ${phs.perspective.side}`, `Personality Node · color ${phs.perspective.color}`)}
+        <h3>${t("Variable/PHS")} <small>${variable.notation}</small></h3>
+        ${row(t("Digestion"), `${tName(phs.digestion.name)} · ${tName(phs.digestion.side)}`, t("{source} · color {color}", { source: tName("Design Sun"), color: phs.digestion.color }))}
+        ${row(t("Environment"), `${tName(phs.environment.name)} · ${tName(phs.environment.side)}`, t("{source} · color {color}", { source: tName("Design Node"), color: phs.environment.color }))}
+        ${row(t("Motivation"), `${tName(phs.motivation.name)} · ${tName(phs.motivation.side)}`, t("{source} · color {color}", { source: tName("Personality Sun"), color: phs.motivation.color }))}
+        ${row(t("Perspective"), `${tName(phs.perspective.name)} · ${tName(phs.perspective.side)}`, t("{source} · color {color}", { source: tName("Personality Node"), color: phs.perspective.color }))}
       </div>
       <div class="hd-typology-card">
-        <h3>Senses &amp; Cognitions</h3>
-        ${typology.cognitions.map((cognition, index) => row(`Cognition ${index + 1}`, cognition.name, `${cognition.source} · tone ${cognition.tone}`)).join("")}
-        ${typology.senses.map((sense, index) => row(`Sense ${index + 1}`, sense.name, `${sense.source} · tone ${sense.tone}`)).join("")}
+        <h3>${t("Senses & Cognitions")}</h3>
+        ${typology.cognitions.map((cognition, index) => row(t("Cognition {n}", { n: index + 1 }), tName(cognition.name), t("{source} · tone {tone}", { source: tName(cognition.source), tone: cognition.tone }))).join("")}
+        ${typology.senses.map((sense, index) => row(t("Sense {n}", { n: index + 1 }), tName(sense.name), t("{source} · tone {tone}", { source: tName(sense.source), tone: sense.tone }))).join("")}
       </div>
     </div>
     <div class="hd-bases">
-      <span class="eyebrow">BASES</span>
-      <div class="hd-bases-list">${HD_BASES.map((base, index) => `<div class="hd-base"><b>${index + 1}</b><span>${base}</span></div>`).join("")}</div>
-      <p>The base is the finest division of every activation — the last number in G.L.C.T.B. It isn't assigned as a chart type, so it's listed here for reference.</p>
+      <span class="eyebrow">${t("BASES")}</span>
+      <div class="hd-bases-list">${HD_BASES.map((base, index) => `<div class="hd-base"><b>${index + 1}</b><span>${tName(base)}</span></div>`).join("")}</div>
+      <p>${t("The base is the finest division of every activation — the last number in G.L.C.T.B. It isn't assigned as a chart type, so it's listed here for reference.")}</p>
     </div>`;
 }
 // Re-renders every typology-derived part of the bodygraph view for `hd`.
@@ -1002,25 +1002,25 @@ function renderBodygraph(surface, chart) {
   surface.innerHTML = `
     <div class="hd-layout ${filterClass}">
       <div class="hd-column design-column">
-        <div class="hd-column-title">Design</div>
+        <div class="hd-column-title">${t("Design")}</div>
         ${columnData("design", "var(--accent)")}
       </div>
       <div class="system-visual hd-visual">
         <div class="system-toolbar">
-          <span class="eyebrow">BODYGRAPH / ${activeSystemTab.toUpperCase()} / ${activeSystemFilter.toUpperCase()}</span>
+          <span class="eyebrow">${t("BODYGRAPH")} / ${tName(activeSystemTab).toUpperCase()} / ${tName(activeSystemFilter).toUpperCase()}</span>
           <div class="hd-toolbar-right">
-            <label class="fix-zodiac-toggle hd-precision-toggle" title="Show gate.line.color.tone.base for every planet"><input type="checkbox" data-hd-precision ${hdFullPrecision ? "checked" : ""}>Full precision</label>
+            <label class="fix-zodiac-toggle hd-precision-toggle" title="${t("Show gate.line.color.tone.base for every planet")}"><input type="checkbox" data-hd-precision ${hdFullPrecision ? "checked" : ""}>${t("Full precision")}</label>
             <span class="sample-badge" data-hd-channel-badge></span>
           </div>
         </div>
-        <svg class="bodygraph hd-bodygraph" viewBox="0 0 440 640" role="img" aria-label="Sample Human Design bodygraph">
+        <svg class="bodygraph hd-bodygraph" viewBox="0 0 440 640" role="img" aria-label="${t("Human Design bodygraph")}">
           ${HD_BODYGRAPH_SILHOUETTE}
           <g data-bodygraph-layers>${hdBodygraphLayersMarkup(state)}</g>
         </svg>
         ${hdTimelineMarkup}
       </div>
       <div class="hd-column personality-column">
-        <div class="hd-column-title">Personality</div>
+        <div class="hd-column-title">${t("Personality")}</div>
         ${columnData("personality", "var(--ink)")}
       </div>
     </div>
@@ -1139,7 +1139,7 @@ function hdMandalaSvgMarkup(state, glyphMap = null) {
     return `<line x1="${MANDALA_CENTER}" y1="${MANDALA_CENTER}" x2="${point.x}" y2="${point.y}" class="mandala-ray"/>`;
   }).join("");
   return `
-        <svg class="hd-mandala" viewBox="0 0 660 660" role="img" aria-label="Sample Human Design mandala with zodiac and gate rings">
+        <svg class="hd-mandala" viewBox="0 0 660 660" role="img" aria-label="${t("Human Design mandala with zodiac and gate rings")}">
           ${MANDALA_GATE_SECTOR_GRADIENTS}
           ${rays}
           <circle cx="${MANDALA_CENTER}" cy="${MANDALA_CENTER}" r="318" class="mandala-outer"/>
@@ -1151,7 +1151,7 @@ function hdMandalaSvgMarkup(state, glyphMap = null) {
           ${gateRing}
           <g data-mandala-glyphs>${glyphMap ? mandalaGlyphLayerMarkup(glyphMap) : ""}</g>
           <circle cx="${MANDALA_CENTER}" cy="${MANDALA_CENTER}" r="128" class="mandala-core"/>
-          <svg class="mandala-bodygraph" x="${MANDALA_CENTER - MANDALA_BODYGRAPH_WIDTH / 2}" y="${MANDALA_CENTER - MANDALA_BODYGRAPH_HEIGHT / 2}" width="${MANDALA_BODYGRAPH_WIDTH}" height="${MANDALA_BODYGRAPH_HEIGHT}" viewBox="0 0 440 640" role="img" aria-label="Bodygraph">
+          <svg class="mandala-bodygraph" x="${MANDALA_CENTER - MANDALA_BODYGRAPH_WIDTH / 2}" y="${MANDALA_CENTER - MANDALA_BODYGRAPH_HEIGHT / 2}" width="${MANDALA_BODYGRAPH_WIDTH}" height="${MANDALA_BODYGRAPH_HEIGHT}" viewBox="0 0 440 640" role="img" aria-label="${t("Bodygraph")}">
             ${HD_BODYGRAPH_SILHOUETTE}
             <g data-bodygraph-layers>${hdBodygraphLayersMarkup(state)}</g>
           </svg>
@@ -1165,20 +1165,20 @@ function renderHumanDesignMandala(surface, chart, offsetMinutes = 0) {
     <div class="hd-mandala-layout">
       <div class="system-visual hd-mandala-visual">
         <div class="system-toolbar">
-          <span class="eyebrow">MANDALA / ${activeSystemTab.toUpperCase()}</span>
+          <span class="eyebrow">${t("MANDALA")} / ${tName(activeSystemTab).toUpperCase()}</span>
         </div>
         ${hdMandalaSvgMarkup(state)}
         ${hdTimelineMarkup}
       </div>
       <aside class="system-info">
-        <span class="eyebrow">MANDALA KEY</span>
-        <h3>Gate wheel · 64 gates</h3>
-        <p>Gate 25 begins at the leftmost cusp and the sequence advances counterclockwise. Gate 55 opens at 0°07′30″ Pisces, 1/8° past the Pisces cusp.</p>
-        <div class="system-stat"><span>GATE CUSPS</span><strong>64 / 64</strong></div>
-        <div class="system-stat"><span>ZODIAC CUSPS</span><strong>12 / 12</strong></div>
-        <div class="system-stat"><span>GATE 55</span><strong>0°07′30″ Pisces</strong></div>
-        <div class="system-stat"><span>DEFINED CENTERS</span><strong data-hd-defined-centers>0 / 9</strong></div>
-        <div class="system-note">Personality influences appear in ink; design influences appear in the accent color, matching the bodygraph.</div>
+        <span class="eyebrow">${t("MANDALA KEY")}</span>
+        <h3>${t("Gate wheel · 64 gates")}</h3>
+        <p>${t("Gate 25 begins at the leftmost cusp and the sequence advances counterclockwise. Gate 55 opens at 0°07′30″ Pisces, 1/8° past the Pisces cusp.")}</p>
+        <div class="system-stat"><span>${t("GATE CUSPS")}</span><strong>64 / 64</strong></div>
+        <div class="system-stat"><span>${t("ZODIAC CUSPS")}</span><strong>12 / 12</strong></div>
+        <div class="system-stat"><span>${t("GATE 55")}</span><strong>0°07′30″ ${tName("Pisces")}</strong></div>
+        <div class="system-stat"><span>${t("DEFINED CENTERS")}</span><strong data-hd-defined-centers>0 / 9</strong></div>
+        <div class="system-note">${t("Personality influences appear in ink; design influences appear in the accent color, matching the bodygraph.")}</div>
       </aside>
     </div>
     <aside class="system-info hd-info" data-hd-typology></aside>
@@ -1232,7 +1232,7 @@ const GK_STAR_BLUE = "#3f74d4"; // the Star Pearl paths
 const GENE_KEYS_ALL_SPHERES = [
   {
     id: "lifeswork",
-    name: "Life's Work",
+    name: N_("Life's Work"),
     x: 390,
     y: 55,
     r: 30,
@@ -1242,7 +1242,7 @@ const GENE_KEYS_ALL_SPHERES = [
   },
   {
     id: "evolution",
-    name: "Evolution",
+    name: N_("Evolution"),
     x: 690,
     y: 300,
     r: 30,
@@ -1252,7 +1252,7 @@ const GENE_KEYS_ALL_SPHERES = [
   },
   {
     id: "radiance",
-    name: "Radiance",
+    name: N_("Radiance"),
     x: 90,
     y: 300,
     r: 30,
@@ -1262,7 +1262,7 @@ const GENE_KEYS_ALL_SPHERES = [
   },
   {
     id: "purpose",
-    name: "Purpose",
+    name: N_("Purpose"),
     x: 390,
     y: 555,
     r: 30,
@@ -1272,7 +1272,7 @@ const GENE_KEYS_ALL_SPHERES = [
   },
   {
     id: "attraction",
-    name: "Attraction",
+    name: N_("Attraction"),
     x: 390,
     y: 430,
     r: 30,
@@ -1282,7 +1282,7 @@ const GENE_KEYS_ALL_SPHERES = [
   },
   {
     id: "iq",
-    name: "IQ",
+    name: N_("IQ"),
     x: 255,
     y: 365,
     r: 30,
@@ -1292,7 +1292,7 @@ const GENE_KEYS_ALL_SPHERES = [
   },
   {
     id: "eq",
-    name: "EQ",
+    name: N_("EQ"),
     x: 525,
     y: 365,
     r: 30,
@@ -1302,7 +1302,7 @@ const GENE_KEYS_ALL_SPHERES = [
   },
   {
     id: "sq",
-    name: "SQ",
+    name: N_("SQ"),
     x: 390,
     y: 300,
     r: 30,
@@ -1312,7 +1312,7 @@ const GENE_KEYS_ALL_SPHERES = [
   },
   {
     id: "vocation",
-    name: "Vocation",
+    name: N_("Vocation"),
     x: 255,
     y: 235,
     r: 30,
@@ -1322,7 +1322,7 @@ const GENE_KEYS_ALL_SPHERES = [
   },
   {
     id: "culture",
-    name: "Culture",
+    name: N_("Culture"),
     x: 525,
     y: 235,
     r: 30,
@@ -1332,7 +1332,7 @@ const GENE_KEYS_ALL_SPHERES = [
   },
   {
     id: "pearl",
-    name: "Pearl",
+    name: N_("Pearl"),
     x: 390,
     y: 175,
     r: 30,
@@ -1348,20 +1348,20 @@ const GENE_KEYS_SPHERE_INDEX_BY_ID = new Map(
   GENE_KEYS_ALL_SPHERES.map((sphere, index) => [sphere.id, index]),
 );
 const GENE_KEYS_ALL_EDGES = [
-  { a: "lifeswork", b: "evolution", label: "Challenge", color: GK_GREEN },
-  { a: "evolution", b: "radiance", label: "Breakthrough", color: GK_GREEN },
-  { a: "radiance", b: "purpose", label: "Core Stability", color: GK_GREEN },
-  { a: "purpose", b: "attraction", label: "Dharma", color: GK_RED },
-  { a: "attraction", b: "iq", label: "Karma", color: GK_RED },
-  { a: "iq", b: "eq", label: "Intelligence", color: GK_RED },
-  { a: "eq", b: "sq", label: "Love", color: GK_RED },
-  { a: "sq", b: "vocation", label: "Realisation", color: GK_RED },
-  { a: "vocation", b: "lifeswork", label: "Service", color: GK_BLUE },
-  { a: "vocation", b: "culture", label: "Initiative", color: GK_BLUE },
-  { a: "culture", b: "lifeswork", label: "Growth", color: GK_BLUE },
-  { a: "vocation", b: "pearl", label: "Quantum", color: GK_BLUE },
-  { a: "culture", b: "pearl", label: "Quantum", color: GK_BLUE },
-  { a: "lifeswork", b: "pearl", label: "Quantum", color: GK_BLUE },
+  { a: "lifeswork", b: "evolution", label: N_("Challenge"), color: GK_GREEN },
+  { a: "evolution", b: "radiance", label: N_("Breakthrough"), color: GK_GREEN },
+  { a: "radiance", b: "purpose", label: N_("Core Stability"), color: GK_GREEN },
+  { a: "purpose", b: "attraction", label: N_("Dharma"), color: GK_RED },
+  { a: "attraction", b: "iq", label: N_("Karma"), color: GK_RED },
+  { a: "iq", b: "eq", label: N_("Intelligence"), color: GK_RED },
+  { a: "eq", b: "sq", label: N_("Love"), color: GK_RED },
+  { a: "sq", b: "vocation", label: N_("Realisation"), color: GK_RED },
+  { a: "vocation", b: "lifeswork", label: N_("Service"), color: GK_BLUE },
+  { a: "vocation", b: "culture", label: N_("Initiative"), color: GK_BLUE },
+  { a: "culture", b: "lifeswork", label: N_("Growth"), color: GK_BLUE },
+  { a: "vocation", b: "pearl", label: N_("Quantum"), color: GK_BLUE },
+  { a: "culture", b: "pearl", label: N_("Quantum"), color: GK_BLUE },
+  { a: "lifeswork", b: "pearl", label: N_("Quantum"), color: GK_BLUE },
 ];
 function geneKeysGateLabel(sphere, hd) {
   if (!hd || !sphere.set) return "—";
@@ -1394,9 +1394,9 @@ function geneKeysEdgesMarkup(activeIndexes) {
         : angleDegrees;
     const slug = edge.label.toLowerCase().replace(/[^a-z0-9]+/g, "-");
     return `
-      <g class="gk-path${active ? "" : " disabled"}" tabindex="${active ? "0" : "-1"}" id="gk-path-${slug}-${index}" data-path="${edge.label}" data-from="${from.name}" data-to="${to.name}" style="--gk-path-color:${edge.color}">
+      <g class="gk-path${active ? "" : " disabled"}" tabindex="${active ? "0" : "-1"}" id="gk-path-${slug}-${index}" data-path="${tName(edge.label)}" data-from="${tName(from.name)}" data-to="${tName(to.name)}" style="--gk-path-color:${edge.color}">
         <line x1="${from.x}" y1="${from.y}" x2="${to.x}" y2="${to.y}" class="gk-path-track"/>
-        <text x="${midX}" y="${midY}" transform="rotate(${labelAngle} ${midX} ${midY})" text-anchor="middle" class="gk-path-label">${edge.label}</text>
+        <text x="${midX}" y="${midY}" transform="rotate(${labelAngle} ${midX} ${midY})" text-anchor="middle" class="gk-path-label">${tName(edge.label)}</text>
       </g>`;
   }).join("");
 }
@@ -1442,9 +1442,9 @@ function geneKeysSpheresMarkup(hd, activeIndexes, tab = "All Paths", cycleHd = n
     const label = geneKeysGateLabel(sphere, hd);
     const active = !activeIndexes || activeIndexes.has(index);
     return `
-      <g class="gk-sphere${active ? "" : " disabled"}" tabindex="${active ? "0" : "-1"}" id="gk-sphere-${sphere.id}" data-sphere="${sphere.name}" data-gate="${label}">
+      <g class="gk-sphere${active ? "" : " disabled"}" tabindex="${active ? "0" : "-1"}" id="gk-sphere-${sphere.id}" data-sphere="${tName(sphere.name)}" data-gate="${label}">
         <circle cx="${sphere.x}" cy="${sphere.y}" r="${sphere.r}" fill="${fill(sphere)}"/>
-        <text x="${sphere.x}" y="${sphere.y - 5}" text-anchor="middle" class="gk-sphere-name">${sphere.name}</text>
+        <text x="${sphere.x}" y="${sphere.y - 5}" text-anchor="middle" class="gk-sphere-name">${tName(sphere.name)}</text>
         <text x="${sphere.x}" y="${sphere.y + 13}" text-anchor="middle" class="gk-sphere-gate">${label}</text>
         ${geneKeysCycleLabelMarkup(sphere, sphere.r, cycleHd, active)}
       </g>`;
@@ -1458,7 +1458,7 @@ function bindGeneKeysAllPathsClicks(container) {
   container.querySelectorAll(".gk-sphere:not(.disabled)").forEach((node) =>
     node.addEventListener("click", (event) => {
       event.stopPropagation();
-      showToast(`${node.dataset.sphere} · Gate ${node.dataset.gate}`);
+      showToast(t("{sphere} · Gate {gate}", { sphere: node.dataset.sphere, gate: node.dataset.gate }));
     }),
   );
   container.querySelectorAll(".gk-path:not(.disabled)").forEach((node) =>
@@ -1482,9 +1482,9 @@ function geneKeysTooltipHtml(sphereId, sphereName, gateLabel) {
   const lineInfo = GENE_KEYS_LINES[line];
   const section = (title, text) => `<div class="gk-tip-title">${title}</div>${text ? `<div class="gk-tip-text">${text}</div>` : ""}`;
   let html = section(sphereName, sphere?.summary);
-  if (key) html += section(`Gate ${gate} (${key.shadow} / ${key.gift} / ${key.siddhi})`, key.summary);
+  if (key) html += section(t("Gate {gate} ({shadow} / {gift} / {siddhi})", { gate, shadow: key.shadow, gift: key.gift, siddhi: key.siddhi }), key.summary);
   if (key && lineInfo) {
-    html += section(`Line ${line} - ${GENE_KEYS_LINE_NAMES[`${gate}.${line}`] || lineInfo.name}`, lineInfo.meaning(sphere?.focus || "this sphere"));
+    html += section(t("Line {line} - {name}", { line, name: GENE_KEYS_LINE_NAMES[`${gate}.${line}`] || lineInfo.name }), lineInfo.meaning(sphere?.focus || t("this sphere")));
   }
   return html;
 }
@@ -1582,14 +1582,14 @@ const GENE_KEYS_STAR_PEARL = {
   center: { x: 390, y: 310 },
   radius: 205,
   sphereRadius: 46,
-  pearl: { id: "pearl", name: "Pearl", set: "personality", planet: "Jupiter" },
+  pearl: { id: "pearl", name: N_("Pearl"), set: "personality", planet: "Jupiter" },
   ring: [
-    { id: "brand", name: "Brand", set: "personality", planet: "Sun" },
-    { id: "relating", name: "Relating", set: "personality", planet: "Mercury" },
-    { id: "culture", name: "Culture", set: "design", planet: "Jupiter" },
-    { id: "stability", name: "Stability", set: "design", planet: "Saturn" },
-    { id: "vocation", name: "Vocation", set: "design", planet: "Mars" },
-    { id: "creativity", name: "Creativity", set: "design", planet: "Uranus" },
+    { id: "brand", name: N_("Brand"), set: "personality", planet: "Sun" },
+    { id: "relating", name: N_("Relating"), set: "personality", planet: "Mercury" },
+    { id: "culture", name: N_("Culture"), set: "design", planet: "Jupiter" },
+    { id: "stability", name: N_("Stability"), set: "design", planet: "Saturn" },
+    { id: "vocation", name: N_("Vocation"), set: "design", planet: "Mars" },
+    { id: "creativity", name: N_("Creativity"), set: "design", planet: "Uranus" },
   ],
 };
 const GENE_KEYS_STAR_PEARL_SPHERES = (() => {
@@ -1618,9 +1618,9 @@ function geneKeysStarPearlSpheresMarkup(hd, cycleHd = null) {
   return GENE_KEYS_STAR_PEARL_SPHERES.map((sphere) => {
     const label = geneKeysGateLabel(sphere, hd);
     return `
-      <g class="gk-sphere" tabindex="0" id="gk-sphere-${sphere.id}" data-sphere="${sphere.name}" data-gate="${label}">
+      <g class="gk-sphere" tabindex="0" id="gk-sphere-${sphere.id}" data-sphere="${tName(sphere.name)}" data-gate="${label}">
         <circle cx="${sphere.x}" cy="${sphere.y}" r="${r}" fill="${GENE_KEYS_STAR_PEARL_PATH_SPHERES.has(sphere.id) ? GK_BLUE : GK_NAVY}"/>
-        <text x="${sphere.x}" y="${sphere.y - 9}" text-anchor="middle" class="gk-sphere-name">${sphere.name}</text>
+        <text x="${sphere.x}" y="${sphere.y - 9}" text-anchor="middle" class="gk-sphere-name">${tName(sphere.name)}</text>
         <text x="${sphere.x}" y="${sphere.y + 17}" text-anchor="middle" class="gk-sphere-gate">${label}</text>
         ${geneKeysCycleLabelMarkup(sphere, r, cycleHd)}
       </g>`;
@@ -1631,7 +1631,7 @@ function geneKeysStarPearlEdgesMarkup() {
   return GENE_KEYS_STAR_PEARL_EDGES.map(([a, b]) => {
     const from = byId.get(a), to = byId.get(b);
     return `
-      <g class="gk-path" tabindex="0" id="gk-path-${a}-${b}" data-path="Star Pearl" data-from="${from.name}" data-to="${to.name}" style="--gk-path-color:${GK_STAR_BLUE}">
+      <g class="gk-path" tabindex="0" id="gk-path-${a}-${b}" data-path="${tName("Star Pearl")}" data-from="${tName(from.name)}" data-to="${tName(to.name)}" style="--gk-path-color:${GK_STAR_BLUE}">
         <line x1="${from.x}" y1="${from.y}" x2="${to.x}" y2="${to.y}" class="gk-path-track"/>
       </g>`;
   }).join("");
@@ -1652,7 +1652,7 @@ function geneKeysSpheresLayerMarkup(hd, tab, cycleHd = null) {
 function renderGeneKeysDiagram(surface, chart, offsetMinutes, tab) {
   const hd = chart ? computeHumanDesignChart(chart, offsetMinutes) : null;
   const timelineMarkup = chart
-    ? timelineSliderMarkup("PROFILE MOMENT", offsetMinutes)
+    ? timelineSliderMarkup(t("PROFILE MOMENT"), offsetMinutes)
     : "";
   const star = tab === "Star Pearl";
   const spheres = star ? GENE_KEYS_STAR_PEARL_SPHERES : GENE_KEYS_ALL_SPHERES;
@@ -1662,15 +1662,15 @@ function renderGeneKeysDiagram(surface, chart, offsetMinutes, tab) {
     <div class="system-layout">
       <div class="system-visual gene-visual">
         <div class="system-toolbar">
-          <span class="eyebrow">${activeSystemTab.toUpperCase()}</span>
-          <span class="sample-badge">${liveCount} LIVE · ${sphereCount - liveCount} SAMPLE SPHERES</span>
+          <span class="eyebrow">${tName(activeSystemTab).toUpperCase()}</span>
+          <span class="sample-badge">${t("{live} LIVE · {sample} SAMPLE SPHERES", { live: liveCount, sample: sphereCount - liveCount })}</span>
         </div>
-        ${geneKeysDiagramSvg(hd, tab, star ? "Gene Keys Star Pearl" : "Gene Keys full profile: Activation, Venus, and Pearl sequences")}
+        ${geneKeysDiagramSvg(hd, tab, star ? t("Gene Keys Star Pearl") : t("Gene Keys full profile: Activation, Venus, and Pearl sequences"))}
         ${timelineMarkup}
       </div>
       <aside class="system-info">
-        <span class="eyebrow">PROFILE READING</span>
-        <h3>${activeSystemTab}</h3>
+        <span class="eyebrow">${t("PROFILE READING")}</span>
+        <h3>${tName(activeSystemTab)}</h3>
       </aside>
     </div>`;
   bindGeneKeysAllPathsClicks(surface);
@@ -1702,21 +1702,21 @@ function renderGeneKeysDiagram(surface, chart, offsetMinutes, tab) {
 // Design already share, per definition, not just by coincidence.
 const GENE_KEYS_PATHS = [
   {
-    name: "Life Work",
+    name: N_("Life Work"),
     color: "#bd583e",
     x: 80,
     set: "personality",
     planet: "Sun",
   },
   {
-    name: "Evolution",
+    name: N_("Evolution"),
     color: "#b88a46",
     x: 190,
     set: "personality",
     planet: "Earth",
   },
-  { name: "Radiance", color: "#577891", x: 300, set: "design", planet: "Sun" },
-  { name: "Purpose", color: "#4f766c", x: 410, set: "design", planet: "Earth" },
+  { name: N_("Radiance"), color: "#577891", x: 300, set: "design", planet: "Sun" },
+  { name: N_("Purpose"), color: "#4f766c", x: 410, set: "design", planet: "Earth" },
 ];
 function geneKeysSphereMarkup(hd) {
   return GENE_KEYS_PATHS.map((path, index) => {
@@ -1726,10 +1726,10 @@ function geneKeysSphereMarkup(hd) {
     const gate = influence && influence.gate != null ? influence.gate : "—";
     const y = 350 - Math.abs(index - 1.5) * 65;
     return `
-      <g class="gene-sphere" tabindex="0" data-sphere="${path.name}" data-gate="${gate}">
+      <g class="gene-sphere" tabindex="0" data-sphere="${tName(path.name)}" data-gate="${gate}">
         <circle cx="${path.x}" cy="${y}" r="29" fill="${path.color}"/>
         <text x="${path.x}" y="${y + 4}" text-anchor="middle">${gate}</text>
-        <text x="${path.x}" y="395" text-anchor="middle" class="sphere-label">${path.name}</text>
+        <text x="${path.x}" y="395" text-anchor="middle" class="sphere-label">${tName(path.name)}</text>
       </g>`;
   }).join("");
 }
@@ -1737,7 +1737,7 @@ function bindGeneSphereClicks(container) {
   container.querySelectorAll(".gene-sphere").forEach((node) =>
     node.addEventListener("click", (event) => {
       event.stopPropagation();
-      showToast(`${node.dataset.sphere} · Gate ${node.dataset.gate}`);
+      showToast(t("{sphere} · Gate {gate}", { sphere: node.dataset.sphere, gate: node.dataset.gate }));
     }),
   );
 }
@@ -1746,24 +1746,24 @@ function renderGeneKeys(surface, chart) {
     return renderGeneKeysDiagram(surface, chart, 0, activeSystemTab);
   const hd = chart ? computeHumanDesignChart(chart, 0) : null;
   const timelineMarkup = chart
-    ? timelineSliderMarkup("GENE KEYS MOMENT", 0)
+    ? timelineSliderMarkup(t("GENE KEYS MOMENT"), 0)
     : "";
   surface.innerHTML = `
     <div class="system-layout">
       <div class="system-visual gene-visual">
         <div class="system-toolbar">
-          <span class="eyebrow">${activeSystemTab.toUpperCase()}</span>
-          <span class="sample-badge">GOLDEN PATH · LIVE GATES</span>
+          <span class="eyebrow">${tName(activeSystemTab).toUpperCase()}</span>
+          <span class="sample-badge">${t("GOLDEN PATH · LIVE GATES")}</span>
         </div>
-        <svg class="gene-paths" viewBox="0 0 490 430" role="img" aria-label="Gene Keys Golden Path">
+        <svg class="gene-paths" viewBox="0 0 490 430" role="img" aria-label="${t("Gene Keys Golden Path")}">
           <path d="M55 350 C120 120 350 120 435 350" class="gene-arc"/>
           <g data-gene-spheres>${geneKeysSphereMarkup(hd)}</g>
         </svg>
         ${timelineMarkup}
       </div>
       <aside class="system-info">
-        <span class="eyebrow">PATH READING</span>
-        <h3>${activeSystemTab}</h3>
+        <span class="eyebrow">${t("PATH READING")}</span>
+        <h3>${tName(activeSystemTab)}</h3>
       </aside>
     </div>`;
   bindGeneSphereClicks(surface);
@@ -1863,15 +1863,15 @@ function renderGeneKeysPair(container, entries) {
   const tabs = Object.keys(GENE_KEYS_TAB_ACTIVE_INDEXES);
   if (!tabs.includes(geneKeysPairTab)) geneKeysPairTab = tabs[0];
   container.innerHTML = `
-    <div class="system-tabs">${tabs.map((tab) => `<button type="button" class="${tab === geneKeysPairTab ? "active" : ""}" data-gk-pair-tab="${tab}">${tab}</button>`).join("")}</div>
+    <div class="system-tabs">${tabs.map((tab) => `<button type="button" class="${tab === geneKeysPairTab ? "active" : ""}" data-gk-pair-tab="${tab}">${tName(tab)}</button>`).join("")}</div>
     <div class="system-surface">
       <div class="gk-pair-layout">
         ${entries
           .map(
             ({ chart, label }) => `
           <div class="system-visual gene-visual">
-            <div class="system-toolbar"><span class="eyebrow">${label}</span><span class="sample-badge">${geneKeysPairTab.toUpperCase()}</span></div>
-            ${geneKeysDiagramSvg(computeHumanDesignChart(chart, 0), geneKeysPairTab, `Gene Keys ${geneKeysPairTab} for ${escapeHtml(chart.name)}`)}
+            <div class="system-toolbar"><span class="eyebrow">${label}</span><span class="sample-badge">${tName(geneKeysPairTab).toUpperCase()}</span></div>
+            ${geneKeysDiagramSvg(computeHumanDesignChart(chart, 0), geneKeysPairTab, t("Gene Keys {tab} for {name}", { tab: tName(geneKeysPairTab), name: escapeHtml(chart.name) }))}
           </div>`,
           )
           .join("")}

@@ -25,7 +25,7 @@ const CYCLE_DEVICE_ZONE = (() => {
 function cycleClockLabel(date, zone = null, withDate = true) {
   const options = { hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZoneName: "short", ...(withDate ? { year: "numeric", month: "short", day: "numeric" } : {}) };
   try {
-    return new Intl.DateTimeFormat("en-US", zone ? { ...options, timeZone: zone } : options).format(date);
+    return new Intl.DateTimeFormat(LOCALE, zone ? { ...options, timeZone: zone } : options).format(date);
   } catch {
     return `${date.toISOString().slice(0, 16).replace("T", " ")} UTC`;
   }
@@ -50,11 +50,11 @@ function cycleNowSignatureMarkup(context) {
   const date = new Date(context.time);
   const { place } = cycleCastPlace(context);
   const zone = place ? place.zone : context.chart.timezone;
-  const where = place ? place.name : context.chart.location || "the birthplace";
-  const elsewhere = zone && zone !== CYCLE_DEVICE_ZONE ? `${cycleClockLabel(date, zone, false)} in ${escapeHtml(where)}` : "";
-  const tip = "The sky at the moment this was opened, against the natal chart. Times are on this device's clock; the slider moves around the moment, and Jump to now brings it back to the present.";
-  return `${cycleSignatureMarkup(context.anchorOffset / CYCLE_YEAR_MINUTES, "Transits · now", [`${cycleClockLabel(date)} (your time)`, elsewhere, `⌖ cast for ${escapeHtml(where)}`], tip)}
-    <p class="cycle-signature-actions"><button type="button" class="acg-origin-button" data-cycle-now-refresh>Jump to now</button><button type="button" class="acg-origin-button" data-cycle-now-save title="Save the moment on the slider as a life event, to the minute">＋ Add to Life Timeline</button></p>`;
+  const where = place ? place.name : context.chart.location || t("the birthplace");
+  const elsewhere = zone && zone !== CYCLE_DEVICE_ZONE ? t("{time} in {place}", { time: cycleClockLabel(date, zone, false), place: escapeHtml(where) }) : "";
+  const tip = t("The sky at the moment this was opened, against the natal chart. Times are on this device's clock; the slider moves around the moment, and Jump to now brings it back to the present.");
+  return `${cycleSignatureMarkup(context.anchorOffset / CYCLE_YEAR_MINUTES, t("Transits · now"), [t("{time} (your time)", { time: cycleClockLabel(date) }), elsewhere, `⌖ ${t("cast for {place}", { place: escapeHtml(where) })}`], tip)}
+    <p class="cycle-signature-actions"><button type="button" class="acg-origin-button" data-cycle-now-refresh>${t("Jump to now")}</button><button type="button" class="acg-origin-button" data-cycle-now-save title="${t("Save the moment on the slider as a life event, to the minute")}">＋ ${t("Add to Life Timeline")}</button></p>`;
 }
 // Saves the moment on the slider as a life event: the event dialog opens with its date
 // and time on the device's clock and time zone, and the place it's cast for (if one was
@@ -130,13 +130,13 @@ function cycleCastControlsMarkup(context) {
   const { chart } = context;
   const cast = cycleCastPlace(context);
   const radio = (value, label, checked) => `<label class="acg-filter"><input type="radio" name="cycle-cast" value="${value}" ${checked ? "checked" : ""}><span>${escapeHtml(label)}</span></label>`;
-  const ownLabel = cast.own ? `${cast.own.name}${context.now ? "" : context.event ? " (the event's place)" : " (where you were)"}` : "";
-  return `<span class="eyebrow wheel-filter-section" title="Where the moment's angles and houses are cast. The planets are the same anywhere.">CAST FOR</span>
+  const ownLabel = cast.own ? `${cast.own.name}${context.now ? "" : context.event ? ` (${t("the event's place")})` : ` (${t("where you were")})`}` : "";
+  return `<span class="eyebrow wheel-filter-section" title="${t("Where the moment's angles and houses are cast. The planets are the same anywhere.")}">${t("CAST FOR")}</span>
     <div class="acg-filter-group">
-      ${radio("birthplace", `Birthplace${chart.location ? ` (${chart.location})` : ""}`, cast.kind === "birth")}
+      ${radio("birthplace", `${t("Birthplace")}${chart.location ? ` (${chart.location})` : ""}`, cast.kind === "birth")}
       ${cast.own ? radio("own", ownLabel, cast.kind === "own") : ""}
       ${cast.kind === "other" ? radio("other", cast.place.name, true) : ""}
-      <span class="pair-composite-find"><input type="search" class="pair-composite-search" data-cast-search placeholder="Another place…" aria-label="Search for a place to cast the moment for"></span>
+      <span class="pair-composite-find"><input type="search" class="pair-composite-search" data-cast-search placeholder="${t("Another place…")}" aria-label="${t("Search for a place to cast the moment for")}"></span>
     </div>`;
 }
 function bindCycleCastControls(box, context, redraw) {
@@ -158,7 +158,7 @@ function bindCycleCastControls(box, context, redraw) {
 }
 
 // ── Transit | Full chart ──────────────────────────────────────────────────
-const CYCLE_READINGS = [["transit", "Transit"], ["full", "Full chart"]];
+const CYCLE_READINGS = [["transit", t("Transit")], ["full", t("Full chart")]];
 const cycleReadings = (() => {
   const defaults = { now: "transit", cycle: "transit", event: "transit" };
   try { return { ...defaults, ...JSON.parse(acgStoredSetting("orbital-study-cycle-readings", "{}")) }; } catch { return defaults; }
@@ -174,7 +174,7 @@ function setCycleReading(context, value) {
 }
 function cycleReadingSwitchMarkup(context) {
   if (context.birth) return "";
-  return `<span class="cycle-reading" title="Transit: the moment's 13 planets (its Personality side only), as Human Design reads transits. Full chart: the moment as a chart of its own, its Design side (88° of the Sun earlier) included.">${pairSegmentedMarkup("data-cycle-reading", CYCLE_READINGS, cycleReading(context))}</span>`;
+  return `<span class="cycle-reading" title="${t("Transit: the moment's 13 planets (its Personality side only), as Human Design reads transits. Full chart: the moment as a chart of its own, its Design side (88° of the Sun earlier) included.")}">${pairSegmentedMarkup("data-cycle-reading", CYCLE_READINGS, cycleReading(context))}</span>`;
 }
 // The moment's activations as read: a transit has only the Personality set, used for
 // both sides (so a Design sphere reads its planet's transit); a full chart has both.

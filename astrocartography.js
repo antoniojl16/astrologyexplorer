@@ -157,7 +157,7 @@ let acgMapCounter = 0;
 // i.e. up to x = 2W, and the viewBox can sit anywhere in [-W/2, 2W).
 // The place search above each Astrocartography map (bindPlaceSearch, place-search.js).
 function acgSearchMarkup() {
-  return `<div class="acg-search"><input type="search" data-acg-search placeholder="Find a city or town…" aria-label="Find a city or town on the map" enterkeyhint="search"></div>`;
+  return `<div class="acg-search"><input type="search" data-acg-search placeholder="${t("Find a city or town…")}" aria-label="${t("Find a city or town on the map")}" enterkeyhint="search"></div>`;
 }
 function acgMapMarkup() {
   const worldId = `acgWorld${acgMapCounter}`;
@@ -166,7 +166,7 @@ function acgMapMarkup() {
   const tiles = (id, offsets) => offsets.map((x) => `<use href="#${id}" x="${x}"/>`).join("");
   return `
     <div class="acg-map-wrap">
-      <svg class="acg-map" role="img" aria-label="World map, Mercator projection">
+      <svg class="acg-map" role="img" aria-label="${t("World map, Mercator projection")}">
         <defs>
           <g id="${worldId}"><g data-acg-world>${acgWorldMarkup()}</g>${acgGraticuleMarkup()}</g>
           <g id="${overlayId}" class="acg-overlay" data-acg-overlay></g>
@@ -178,13 +178,13 @@ function acgMapMarkup() {
       </svg>
       <svg class="acg-label-layer" aria-hidden="true">
         <g data-acg-labels></g>
-        <g class="acg-origin" data-acg-origin visibility="hidden"><title>Drag to move the Local Space origin</title><circle class="acg-origin-hit" r="12"/><text class="acg-origin-glyph" text-anchor="middle" dominant-baseline="central">◉</text></g>
+        <g class="acg-origin" data-acg-origin visibility="hidden"><title>${t("Drag to move the Local Space origin")}</title><circle class="acg-origin-hit" r="12"/><text class="acg-origin-glyph" text-anchor="middle" dominant-baseline="central">◉</text></g>
         <text class="acg-label" data-acg-measure visibility="hidden"></text>
       </svg>
       <div class="acg-tooltip" data-acg-tooltip hidden></div>
       <div class="acg-zoom">
-        <button type="button" data-acg-zoom-in aria-label="Zoom in" title="Zoom in">＋</button>
-        <button type="button" data-acg-zoom-out aria-label="Zoom out" title="Zoom out">−</button>
+        <button type="button" data-acg-zoom-in aria-label="${t("Zoom in")}" title="${t("Zoom in")}">＋</button>
+        <button type="button" data-acg-zoom-out aria-label="${t("Zoom out")}" title="${t("Zoom out")}">−</button>
       </div>
     </div>`;
 }
@@ -197,8 +197,8 @@ function acgMapMarkup() {
 // tiles in view are requested, at the level that matches the zoom, over a level two
 // steps coarser as a backdrop while they load. The choice is remembered per browser.
 const ACG_MAP_STYLES = {
-  relief: { label: "Relief", maxZoom: 6 },
-  plain: { label: "Plain" },
+  relief: { label: t("Relief"), maxZoom: 6 },
+  plain: { label: t("Plain") },
 };
 const ACG_TILE_SIZE = 256;
 let acgMapStyle = ACG_MAP_STYLES[acgStoredSetting("orbital-study-map-style", "relief")] ? acgStoredSetting("orbital-study-map-style", "relief") : "relief";
@@ -601,10 +601,10 @@ const ACG_BODIES = [
   { key: "North Node", glyph: "☊", color: "#8a8a8a", group: "Secondary" },
 ];
 const ACG_LINE_TYPES = [
-  { key: "ASC", label: "Ascendant", short: "AS" },
-  { key: "DSC", label: "Descendant", short: "DS" },
-  { key: "IC", label: "IC", short: "IC" },
-  { key: "MC", label: "MC", short: "MC" },
+  { key: "ASC", label: t("Ascendant"), short: t("AS") },
+  { key: "DSC", label: t("Descendant"), short: t("DS") },
+  { key: "IC", label: t("IC"), short: t("IC") },
+  { key: "MC", label: t("MC"), short: t("MC") },
 ];
 // Remembered across re-renders (and shared by every map), like the viewport.
 const acgFilters = {
@@ -820,17 +820,17 @@ function acgNearestIntersections(intersections, lat, lon, count = 4) {
 }
 
 function acgNearestLinesMarkup(nearest, nearestCrossings, zenithZones = []) {
-  const km = (value) => `${value < 10 ? value.toFixed(1) : Math.round(value).toLocaleString("en-US")} km`;
+  const km = acgKm;
   const zones = zenithZones.length
-    ? `<div class="acg-tooltip-title">Zenith Zones:</div>${zenithZones
-        .map(({ line, km: distance }) => `<div class="acg-tooltip-row"><span style="color:${line.color}">◯</span> ${escapeHtml(line.zenith.name)} zenith (${km(distance)} from centre)</div>`)
+    ? `<div class="acg-tooltip-title">${t("Zenith Zones:")}</div>${zenithZones
+        .map(({ line, km: distance }) => `<div class="acg-tooltip-row"><span style="color:${line.color}">◯</span> ${t("{planet} zenith ({distance} from centre)", { planet: escapeHtml(line.zenith.name), distance: km(distance) })}</div>`)
         .join("")}<div class="acg-tooltip-section"></div>`
     : "";
-  const lines = `${zones}<div class="acg-tooltip-title">Nearest Lines:</div>${nearest
+  const lines = `${zones}<div class="acg-tooltip-title">${t("Nearest Lines:")}</div>${nearest
     .map(({ line, km: distance }) => `<div class="acg-tooltip-row"><span style="color:${line.color}">–</span> ${line.hoverName} (${km(distance)})</div>`)
     .join("")}`;
   if (!nearestCrossings) return lines;
-  return `${lines}<div class="acg-tooltip-title acg-tooltip-section">Nearest Intersections:</div>${
+  return `${lines}<div class="acg-tooltip-title acg-tooltip-section">${t("Nearest Intersections:")}</div>${
     nearestCrossings.length
       ? nearestCrossings
           .map(
@@ -838,7 +838,7 @@ function acgNearestLinesMarkup(nearest, nearestCrossings, zenithZones = []) {
               `<div class="acg-tooltip-row"><span style="color:${crossing.a.color}">–</span><span style="color:${crossing.b.color}">–</span> ${crossing.a.hoverName} × ${crossing.b.hoverName} (${km(distance)})</div>`,
           )
           .join("")
-      : `<div class="acg-tooltip-row">None among the shown lines</div>`
+      : `<div class="acg-tooltip-row">${t("None among the shown lines")}</div>`
   }`;
 }
 function acgSegmentsPath(segments) {
@@ -904,14 +904,14 @@ function acgTravelLines(chart, offsetMinutes) {
       if (points.length < 2) return;
       const short = ACG_LINE_TYPES.find((line) => line.key === lineKey).short;
       const segments = [acgSegment(points)];
-      lines.push({ bodyKey: body.key, lineKey, member: member.name, glyph: member.glyph, short, color: body.color, label: `${member.glyph} ${short}`, hoverName: `${member.name} ${short}`, segments, d: acgSegmentsPath(segments), ...extra });
+      lines.push({ bodyKey: body.key, lineKey, member: member.name, glyph: member.glyph, short, color: body.color, label: `${member.glyph} ${short}`, hoverName: `${tName(member.name)} ${short}`, segments, d: acgSegmentsPath(segments), ...extra });
     };
     // Pole to pole: the drawing is clipped at the map's edge anyway (acgProject
     // clamps latitude), but hover distances need the whole meridian. The equator
     // point splits it into two arcs, since pole-to-pole alone would be ambiguous.
     // The zenith point — where the body stood exactly overhead — lies on its MC line
     // at the latitude equal to its declination; its zone (acgZenithPath) is drawn with the MC line.
-    add("MC", [[mc, -90], [mc, 0], [mc, 90]], { zenith: { lon: mc, lat: declination, name: member.name, glyph: member.glyph, d: acgZenithPath(mc, declination) } });
+    add("MC", [[mc, -90], [mc, 0], [mc, 90]], { zenith: { lon: mc, lat: declination, name: tName(member.name), glyph: member.glyph, d: acgZenithPath(mc, declination) } });
     add("IC", [[mc + 180, -90], [mc + 180, 0], [mc + 180, 90]]);
     add("ASC", acgHorizonCurve(mc, declination, -1));
     add("DSC", acgHorizonCurve(mc, declination, 1));
@@ -971,7 +971,7 @@ function acgLocalSpaceLines(chart, offsetMinutes, origin, directionsFrom = origi
     const azimuth = Astronomy.Horizon(date, observer, rightAscension / 15, declination, null).azimuth;
     const segments = acgGreatCircleSegments(lat0, lon0, azimuth).map((points) => acgSegment(points, (point) => point[2] <= 180));
     if (!segments.length) return;
-    lines.push({ bodyKey: body.key, member: member.name, glyph: member.glyph, color: body.color, label: member.glyph, hoverName: member.name, segments, d: acgSegmentsPath(segments), azimuth });
+    lines.push({ bodyKey: body.key, member: member.name, glyph: member.glyph, color: body.color, label: member.glyph, hoverName: tName(member.name), segments, d: acgSegmentsPath(segments), azimuth });
   });
   return lines;
 }
@@ -1160,7 +1160,7 @@ function acgLabelsMarkup(placements) {
 function acgFilterMembers(kind, group) {
   return kind === "bodies" ? ACG_BODIES.filter((body) => body.group === group).map((body) => body.key) : ACG_LINE_TYPES.map((line) => line.key);
 }
-function acgGroupToggle(kind, group, label = group) {
+function acgGroupToggle(kind, group, label = tName(group)) {
   return `<label class="acg-filter wheel-filter-group-toggle"><input type="checkbox" data-acg-group="${kind}:${group}"><span>${label}</span></label>`;
 }
 // Brings every ACG filter checkbox under `root` in line with acgFilters (the shown sets).
@@ -1213,44 +1213,44 @@ function applyAcgFilterChange(input) {
 }
 function acgFiltersMarkup() {
   const bodyOption = (body) =>
-    `<label class="acg-filter"><input type="checkbox" data-acg-body="${body.key}" ${acgFilters.bodies.has(body.key) ? "checked" : ""}><i style="background:${body.color}"></i><span>${body.glyph} ${body.key}</span></label>`;
+    `<label class="acg-filter"><input type="checkbox" data-acg-body="${body.key}" ${acgFilters.bodies.has(body.key) ? "checked" : ""}><i style="background:${body.color}"></i><span>${body.glyph} ${tName(body.key)}</span></label>`;
   const group = (name) => `
     <div class="acg-filter-group">
       ${acgGroupToggle("bodies", name)}
       ${ACG_BODIES.filter((body) => body.group === name).map(bodyOption).join("")}
     </div>`;
   return `
-    <span class="eyebrow">PLANETS</span>
+    <span class="eyebrow">${t("PLANETS")}</span>
     ${group("Primary")}
     ${group("Secondary")}
     <div data-acg-line-filters>
-      <span class="eyebrow">LINES</span>
+      <span class="eyebrow">${t("LINES")}</span>
       <div class="acg-filter-group">
-        ${acgGroupToggle("lines", "All", "All lines")}
+        ${acgGroupToggle("lines", "All", t("All lines"))}
         ${ACG_LINE_TYPES.map((line) => `<label class="acg-filter"><input type="checkbox" data-acg-line="${line.key}" ${acgFilters.lines.has(line.key) ? "checked" : ""}><span>${line.label}</span></label>`).join("")}
       </div>
     </div>
     <div class="acg-origin-actions" data-acg-origin-actions>
-      <span class="eyebrow">ORIGIN</span>
-      <button type="button" class="acg-origin-button" data-acg-origin-center>Move to center</button>
-      <button type="button" class="acg-origin-button" data-acg-origin-reset>Reset birthplace</button>
-      <span class="acg-filter-subhead">Directions</span>
-      <label class="acg-filter"><input type="radio" name="acg-directions" data-acg-directions="relocated" ${acgLocalSpaceDirections === "relocated" ? "checked" : ""}><span>Relocated</span></label>
-      <label class="acg-filter"><input type="radio" name="acg-directions" data-acg-directions="natal" ${acgLocalSpaceDirections === "natal" ? "checked" : ""}><span>Natal</span></label>
+      <span class="eyebrow">${t("ORIGIN")}</span>
+      <button type="button" class="acg-origin-button" data-acg-origin-center>${t("Move to center")}</button>
+      <button type="button" class="acg-origin-button" data-acg-origin-reset>${t("Reset birthplace")}</button>
+      <span class="acg-filter-subhead">${t("Directions")}</span>
+      <label class="acg-filter"><input type="radio" name="acg-directions" data-acg-directions="relocated" ${acgLocalSpaceDirections === "relocated" ? "checked" : ""}><span>${t("Relocated")}</span></label>
+      <label class="acg-filter"><input type="radio" name="acg-directions" data-acg-directions="natal" ${acgLocalSpaceDirections === "natal" ? "checked" : ""}><span>${t("Natal")}</span></label>
     </div>
-    <span class="eyebrow">MAP</span>
+    <span class="eyebrow">${t("MAP")}</span>
     <div class="acg-filter-group">
       ${Object.entries(ACG_MAP_STYLES).map(([key, style]) => `<label class="acg-filter"><input type="radio" name="acg-map-style" data-acg-style="${key}" ${acgMapStyle === key ? "checked" : ""}><span>${style.label}</span></label>`).join("")}
-      <label class="acg-filter"><input type="checkbox" data-acg-cities ${acgShowCities ? "checked" : ""}><span>City names</span></label>
-      <label class="acg-filter"><input type="checkbox" data-acg-roads ${acgShowRoads ? "checked" : ""}><span>Main roads</span></label>
+      <label class="acg-filter"><input type="checkbox" data-acg-cities ${acgShowCities ? "checked" : ""}><span>${t("City names")}</span></label>
+      <label class="acg-filter"><input type="checkbox" data-acg-roads ${acgShowRoads ? "checked" : ""}><span>${t("Main roads")}</span></label>
     </div>`;
 }
 
 const ACG_VIEW_DESCRIPTIONS = {
   "ACG Travel":
-    "Planetary lines across the whole globe: where each planet was rising (AS), setting (DS), culminating (MC) or anti-culminating (IC) at the moment on the timeline.",
+    t("Planetary lines across the whole globe: where each planet was rising (AS), setting (DS), culminating (MC) or anti-culminating (IC) at the moment on the timeline."),
   "ACG Local Space":
-    "The compass direction to each planet at the moment on the timeline, drawn as the full great circle through the origin (◉, the birthplace unless you drag it, or double-click or double-tap the map, to move it elsewhere). Relocated directions are seen from the origin itself; natal directions keep the ones seen from the birthplace.",
+    t("The compass direction to each planet at the moment on the timeline, drawn as the full great circle through the origin (◉, the birthplace unless you drag it, or double-click or double-tap the map, to move it elsewhere). Relocated directions are seen from the origin itself; natal directions keep the ones seen from the birthplace."),
 };
 
 function acgCoordinate(value, positive, negative) {
@@ -1263,15 +1263,15 @@ function acgInfoMarkup(chart, view, linesText, originText) {
   const lat = chart ? acgCoordinate(chart.latitude, "N", "S") : null;
   const lon = chart ? acgCoordinate(chart.longitude, "E", "W") : null;
   return `
-    <span class="eyebrow">MAP READING</span>
-    <h3>${view}</h3>
+    <span class="eyebrow">${t("MAP READING")}</span>
+    <h3>${tName(view)}</h3>
     <p>${ACG_VIEW_DESCRIPTIONS[view] || ""}</p>
-    <div class="system-stat"><span>CHART</span><strong>${escapeHtml(chart?.name || "—")}</strong></div>
-    <div class="system-stat"><span>BIRTHPLACE</span><strong>${lat && lon ? `${lat}, ${lon}` : "—"}</strong></div>
-    ${originText ? `<div class="system-stat"><span>ORIGIN</span><strong>${originText}</strong></div>` : ""}
-    <div class="system-stat"><span>PROJECTION</span><strong>Mercator</strong></div>
-    <div class="system-stat"><span>PLANETARY LINES</span><strong>${linesText}</strong></div>
-    <div class="system-note">Drag to pan, scroll or use the ＋/− buttons to zoom. The map wraps east–west.${view === "ACG Local Space" ? " Double-click or double-tap the map to move the origin there." : ""}</div>`;
+    <div class="system-stat"><span>${t("CHART")}</span><strong>${escapeHtml(chart?.name || "—")}</strong></div>
+    <div class="system-stat"><span>${t("BIRTHPLACE")}</span><strong>${lat && lon ? `${lat}, ${lon}` : "—"}</strong></div>
+    ${originText ? `<div class="system-stat"><span>${t("ORIGIN")}</span><strong>${originText}</strong></div>` : ""}
+    <div class="system-stat"><span>${t("PROJECTION")}</span><strong>${t("Mercator")}</strong></div>
+    <div class="system-stat"><span>${t("PLANETARY LINES")}</span><strong>${linesText}</strong></div>
+    <div class="system-note">${t("Drag to pan, scroll or use the ＋/− buttons to zoom. The map wraps east–west.")}${view === "ACG Local Space" ? ` ${t("Double-click or double-tap the map to move the origin there.")}` : ""}</div>`;
 }
 
 // Remembered across re-renders, like the map viewport and filters above.
@@ -1335,7 +1335,7 @@ function acgSearchNearestPlace(lat, lon) {
   return nearest && { place: nearest, km: nearestKm };
 }
 function acgKm(value) {
-  return `${value < 10 ? value.toFixed(1) : Math.round(value).toLocaleString("en-US")} km`;
+  return `${value < 10 ? value.toLocaleString(LOCALE, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : Math.round(value).toLocaleString(LOCALE)} km`;
 }
 // ── Saved-location readings (hover tooltips; texts from acg-meanings.js) ──
 function acgStrength(km) {
@@ -1346,7 +1346,7 @@ function acgTipTitle(line) {
 }
 function acgStrengthHtml(km) {
   const band = acgStrength(km);
-  return `<div class="gk-tip-title">${band.label} · ${acgKm(km)} away</div><div class="gk-tip-text">${band.text}</div>`;
+  return `<div class="gk-tip-title">${band.label} · ${t("{distance} away", { distance: acgKm(km) })}</div><div class="gk-tip-text">${band.text}</div>`;
 }
 // Initial compass bearing (degrees from north) from `from` to `to`.
 function acgBearing(from, to) {
@@ -1365,16 +1365,19 @@ function acgLineTipHtml(line, km, location, origin) {
       const bearing = acgBearing(origin, location);
       const off = Math.abs((((bearing - line.azimuth) % 360) + 540) % 360 - 180);
       const distance = acgAngle(acgUnitVector(origin.lon, origin.lat), acgUnitVector(location.lon, location.lat)) * ACG_EARTH_RADIUS_KM;
-      side = `<div class="gk-tip-text">This spot is ${acgKm(distance)} from the origin, ${off <= 90 ? `toward ${escapeHtml(line.member)}'s direction` : `on the far side of its line, opposite ${escapeHtml(line.member)}'s direction`} (${Math.round(line.azimuth)}° from north). Both halves of a Local Space line carry the planet.</div>`;
+      const vars = { distance: acgKm(distance), planet: escapeHtml(tName(line.member)), bearing: Math.round(line.azimuth) };
+      side = `<div class="gk-tip-text">${off <= 90
+        ? t("This spot is {distance} from the origin, toward the direction of {planet} ({bearing}° from north). Both halves of a Local Space line carry the planet.", vars)
+        : t("This spot is {distance} from the origin, on the far side of its line, opposite the direction of {planet} ({bearing}° from north). Both halves of a Local Space line carry the planet.", vars)}</div>`;
     }
-    return `<div class="gk-tip-title">${acgTipTitle(line)} line: ${meaning.keyword || ""}</div>
-      <div class="gk-tip-text">Local Space lines are compass directions from the origin. Living, travelling or placing things along this one is said to draw in ${meaning.localSpace || "the planet's themes"}.</div>
+    return `<div class="gk-tip-title">${t("{line} line: {keyword}", { line: acgTipTitle(line), keyword: meaning.keyword || "" })}</div>
+      <div class="gk-tip-text">${t("Local Space lines are compass directions from the origin. Living, travelling or placing things along this one is said to draw in {themes}.", { themes: meaning.localSpace || t("the planet's themes") })}</div>
       ${side}${acgStrengthHtml(km)}`;
   }
   const angle = ACG_ANGLE_MEANINGS[line.lineKey];
   return `<div class="gk-tip-title">${acgTipTitle(line)}: ${meaning.keyword || ""}</div>
     <div class="gk-tip-text">${angle.text}</div>
-    <div class="gk-tip-title">Here</div><div class="gk-tip-text">${meaning[line.lineKey] || ""}</div>
+    <div class="gk-tip-title">${t("Here")}</div><div class="gk-tip-text">${meaning[line.lineKey] || ""}</div>
     ${acgStrengthHtml(km)}`;
 }
 function acgCrossingTipHtml(crossing, km, location) {
@@ -1383,19 +1386,21 @@ function acgCrossingTipHtml(crossing, km, location) {
   const offKm = Math.abs(location.lat - crossing.lat) * (Math.PI / 180) * ACG_EARTH_RADIUS_KM;
   const latitude = acgCoordinate(crossing.lat, "N", "S");
   const paran = offKm <= 111
-    ? `This spot lies on the crossing's latitude (${latitude}), where the pairing is said to hold all the way around the world (a paran), even far from the crossing itself.`
-    : `The crossing's latitude (${latitude}) carries the pairing all the way around the world (a paran); this spot is ${acgKm(offKm)} ${location.lat > crossing.lat ? "north" : "south"} of it.`;
+    ? t("This spot lies on the crossing's latitude ({latitude}), where the pairing is said to hold all the way around the world (a paran), even far from the crossing itself.", { latitude })
+    : location.lat > crossing.lat
+      ? t("The crossing's latitude ({latitude}) carries the pairing all the way around the world (a paran); this spot is {distance} north of it.", { latitude, distance: acgKm(offKm) })
+      : t("The crossing's latitude ({latitude}) carries the pairing all the way around the world (a paran); this spot is {distance} south of it.", { latitude, distance: acgKm(offKm) });
   const band = acgStrength(km);
   return `<div class="gk-tip-title">${acgTipTitle(a)} × ${acgTipTitle(b)}</div>
-    <div class="gk-tip-text">Where two lines cross, both planets are on an angle at once and their themes blend: ${meaningA.keyword || a.member} meets ${meaningB.keyword || b.member}.</div>
+    <div class="gk-tip-text">${t("Where two lines cross, both planets are on an angle at once and their themes blend: {first} meets {second}.", { first: meaningA.keyword || tName(a.member), second: meaningB.keyword || tName(b.member) })}</div>
     <div class="gk-tip-title">${escapeHtml(a.hoverName)}</div><div class="gk-tip-text">${meaningA[a.lineKey] || ""}</div>
     <div class="gk-tip-title">${escapeHtml(b.hoverName)}</div><div class="gk-tip-text">${meaningB[b.lineKey] || ""}</div>
-    <div class="gk-tip-title">${band.label} · ${acgKm(km)} from the crossing</div><div class="gk-tip-text">${band.text} ${paran}</div>`;
+    <div class="gk-tip-title">${band.label} · ${t("{distance} from the crossing", { distance: acgKm(km) })}</div><div class="gk-tip-text">${band.text} ${paran}</div>`;
 }
 function acgZenithTipHtml(line, km) {
   const meaning = ACG_BODY_MEANINGS[line.member] || {};
-  return `<div class="gk-tip-title">${acgTipTitle(line)} zenith zone</div>
-    <div class="gk-tip-text">${escapeHtml(line.member)} stood directly overhead at the zone's centre, ${acgKm(km)} from this spot: the ${escapeHtml(line.member)} MC line at its most concentrated, within ${ACG_ZENITH_RADIUS_KM} km.</div>
+  return `<div class="gk-tip-title">${t("{line} zenith zone", { line: acgTipTitle(line) })}</div>
+    <div class="gk-tip-text">${t("{planet} stood directly overhead at the zone's centre, {distance} from this spot: the {planet} MC line at its most concentrated, within {radius} km.", { planet: escapeHtml(tName(line.member)), distance: acgKm(km), radius: ACG_ZENITH_RADIUS_KM })}</div>
     <div class="gk-tip-text">${meaning.MC || ""}</div>`;
 }
 
@@ -1413,7 +1418,7 @@ function acgLocationsMarkup(locations, lines, travel, intersections, origin, tip
   // The hint stays until something besides birth is saved.
   const hint = locations.some(({ record }) => !isBirthRecord(record))
     ? ""
-    : `<p class="acg-locations-empty">Click anywhere on the map to save that spot here, with its nearest place, lines${travel ? " and intersections" : ""}. Saved spots stay with this chart, in both map views, and appear in its Life Events, where they can be named, dated, tagged and annotated.</p>`;
+    : `<p class="acg-locations-empty">${travel ? t("Click anywhere on the map to save that spot here, with its nearest place, lines and intersections. Saved spots stay with this chart, in both map views, and appear in its Life Events, where they can be named, dated, tagged and annotated.") : t("Click anywhere on the map to save that spot here, with its nearest place and lines. Saved spots stay with this chart, in both map views, and appear in its Life Events, where they can be named, dated, tagged and annotated.")}</p>`;
   if (!locations.length) return hint;
   const chip = (swatch, text, km, label, tip) => {
     tips.push(tip);
@@ -1422,13 +1427,13 @@ function acgLocationsMarkup(locations, lines, travel, intersections, origin, tip
   const glyph = (line) => `<b style="color:${line.color}">${line.glyph}</b>`;
   const isOrigin = (location) => !!origin && Math.abs(origin.lat - location.lat) < 1e-4 && Math.abs(origin.lon - location.lon) < 1e-4;
   const lineText = (line) => `${glyph(line)}${line.short || ""}`;
-  const block = (title, items) => `<div class="acg-location-block"><span class="acg-location-subhead">${title}</span><div class="acg-chips">${items || `<span class="acg-chip-none">None among the shown lines</span>`}</div></div>`;
+  const block = (title, items) => `<div class="acg-location-block"><span class="acg-location-subhead">${title}</span><div class="acg-chips">${items || `<span class="acg-chip-none">${t("None among the shown lines")}</span>`}</div></div>`;
   return `<ol class="acg-location-list">${locations.map((location) => {
     const { record } = location;
     const id = escapeHtml(record.id);
     const open = expanded.has(record.id);
     const nearest = acgNearestPlace(location.lat, location.lon);
-    const city = nearest ? `${escapeHtml(placeLabel(nearest.place))} · ${acgKm(nearest.km)}` : "Finding the nearest place…";
+    const city = nearest ? `${escapeHtml(placeLabel(nearest.place))} · ${acgKm(nearest.km)}` : t("Finding the nearest place…");
     const named = record.title || record.place.name;
     const heading = named ? escapeHtml(lifeEventTitle(record)) : nearest ? escapeHtml(placeLabel(nearest.place)) : `${acgCoordinate(location.lat, "N", "S")}, ${acgCoordinate(location.lon, "E", "W")}`;
     const years = acgLocationYears(record);
@@ -1438,24 +1443,24 @@ function acgLocationsMarkup(locations, lines, travel, intersections, origin, tip
       const zones = travel ? acgZenithZonesAt(lines, location.lat, location.lon) : [];
       const crossings = travel ? acgNearestIntersections(intersections, location.lat, location.lon, ACG_LOCATION_ROWS) : [];
       body = `<div class="acg-location-body" id="acgLocationBody-${id}">
-        <p class="acg-location-where">${acgCoordinate(location.lat, "N", "S")}, ${acgCoordinate(location.lon, "E", "W")}${nearest && !(record.title || "").startsWith(placeLabel(nearest.place)) ? ` · near ${city}` : ""}${record.start ? ` · ${lifeWhenLabel(record)}` : ""}</p>
-        ${zones.length ? block("Zenith", zones.map(({ line, km }) => chip(`<b style="color:${line.color}">◯</b>`, line.glyph, km, `${line.member} zenith zone`, () => acgZenithTipHtml(line, km))).join("")) : ""}
-        ${travel ? block("Crossings", crossings.map(({ crossing, km }) => chip(lineText(crossing.a), `<span class="acg-chip-times">×</span>${lineText(crossing.b)}`, km, `${crossing.a.hoverName} crossing ${crossing.b.hoverName}`, () => acgCrossingTipHtml(crossing, km, location))).join("")) : ""}
-        ${block("Lines", nearestLines.map(({ line, km }) => chip(lineText(line), "", km, travel ? line.hoverName : `${line.member} line`, () => acgLineTipHtml(line, km, location, origin))).join(""))}
+        <p class="acg-location-where">${acgCoordinate(location.lat, "N", "S")}, ${acgCoordinate(location.lon, "E", "W")}${nearest && !(record.title || "").startsWith(placeLabel(nearest.place)) ? ` · ${t("near {place}", { place: city })}` : ""}${record.start ? ` · ${lifeWhenLabel(record)}` : ""}</p>
+        ${zones.length ? block(t("Zenith"), zones.map(({ line, km }) => chip(`<b style="color:${line.color}">◯</b>`, line.glyph, km, t("{planet} zenith zone", { planet: tName(line.member) }), () => acgZenithTipHtml(line, km))).join("")) : ""}
+        ${travel ? block(t("Crossings"), crossings.map(({ crossing, km }) => chip(lineText(crossing.a), `<span class="acg-chip-times">×</span>${lineText(crossing.b)}`, km, t("{first} crossing {second}", { first: crossing.a.hoverName, second: crossing.b.hoverName }), () => acgCrossingTipHtml(crossing, km, location))).join("")) : ""}
+        ${block(t("Lines"), nearestLines.map(({ line, km }) => chip(lineText(line), "", km, travel ? line.hoverName : t("{planet} line", { planet: tName(line.member) }), () => acgLineTipHtml(line, km, location, origin))).join(""))}
       </div>`;
     }
     const relocate = travel ? "" : isOrigin(location)
-      ? `<button type="button" class="acg-origin-button" disabled title="This spot is the Local Space origin">Relocate</button>`
-      : `<button type="button" class="acg-origin-button" data-acg-location-relocate="${id}" title="Make this spot the Local Space origin">Relocate</button>`;
+      ? `<button type="button" class="acg-origin-button" disabled title="${t("This spot is the Local Space origin")}">${t("Relocate")}</button>`
+      : `<button type="button" class="acg-origin-button" data-acg-location-relocate="${id}" title="${t("Make this spot the Local Space origin")}">${t("Relocate")}</button>`;
     const remove = record.start
       ? ""
-      : `<button type="button" class="acg-location-remove" data-acg-location-remove="${id}" aria-label="Remove ${heading}" title="Remove">×</button>`;
+      : `<button type="button" class="acg-location-remove" data-acg-location-remove="${id}" aria-label="${t("Remove {name}", { name: heading })}" title="${t("Remove")}">×</button>`;
     return `<li class="acg-location${open ? " open" : ""}${isBirthRecord(record) ? " birth" : ""}" data-acg-record="${id}">
       <button type="button" class="acg-location-toggle" data-acg-location-toggle="${id}" aria-expanded="${open}"${open ? ` aria-controls="acgLocationBody-${id}"` : ""}>
         <span class="acg-location-caret" aria-hidden="true">▸</span><strong>${heading}</strong>${years ? `<span class="acg-location-years">${years}</span>` : ""}
       </button>
       <div class="acg-location-actions">
-        <button type="button" class="acg-origin-button" data-acg-location-center="${id}">Go to</button>${relocate}${remove}
+        <button type="button" class="acg-origin-button" data-acg-location-center="${id}">${t("Go to")}</button>${relocate}${remove}
       </div>
       ${body}
     </li>`;
@@ -1518,7 +1523,7 @@ function renderAstrocartographyPanel(container, chart, moment = null) {
   const views = SYSTEM_TABS.Astrocartography;
   if (!views.includes(acgActiveView)) acgActiveView = views[0];
   container.innerHTML = `
-    <div class="system-tabs">${views.map((view) => `<button type="button" class="${view === acgActiveView ? "active" : ""}" data-acg-view="${view}">${view}</button>`).join("")}</div>
+    <div class="system-tabs">${views.map((view) => `<button type="button" class="${view === acgActiveView ? "active" : ""}" data-acg-view="${view}">${tName(view)}</button>`).join("")}</div>
     <div class="system-surface">
       <div class="system-layout acg-layout">
         <div class="system-visual acg-visual">
@@ -1528,11 +1533,11 @@ function renderAstrocartographyPanel(container, chart, moment = null) {
           </div>
           ${acgMapMarkup()}
           ${acgSearchMarkup()}
-          ${chart ? timelineSliderMarkup(moment ? moment.context.momentNoun.toUpperCase() : "MAP MOMENT", 0) : ""}
+          ${chart ? timelineSliderMarkup(moment ? moment.context.momentNoun.toUpperCase() : t("MAP MOMENT"), 0) : ""}
         </div>
         <div class="acg-filters" data-acg-filters>${acgFiltersMarkup()}</div>
         <aside class="system-info" data-acg-info></aside>
-        ${chart ? `<section class="acg-locations" aria-label="Saved locations"><div class="system-toolbar"><span class="eyebrow">SAVED LOCATIONS <span class="acg-locations-count" data-acg-locations-count></span></span><button type="button" class="acg-origin-button acg-locations-sort" data-acg-locations-sort hidden></button></div><div data-acg-locations></div></section>` : ""}
+        ${chart ? `<section class="acg-locations" aria-label="${t("Saved locations")}"><div class="system-toolbar"><span class="eyebrow">${t("SAVED LOCATIONS")} <span class="acg-locations-count" data-acg-locations-count></span></span><button type="button" class="acg-origin-button acg-locations-sort" data-acg-locations-sort hidden></button></div><div data-acg-locations></div></section>` : ""}
       </div>
     </div>`;
   let offsetMinutes = moment ? moment.context.anchorOffset : 0;
@@ -1575,12 +1580,12 @@ function renderAstrocartographyPanel(container, chart, moment = null) {
     const lines = linesFor(acgActiveView);
     const origin = localSpaceOrigin();
     const moved = !!movedOrigin();
-    container.querySelector("[data-acg-eyebrow]").textContent = `${acgActiveView}${moment ? ` · ${moment.label}` : ""}`.toUpperCase();
+    container.querySelector("[data-acg-eyebrow]").textContent = `${tName(acgActiveView)}${moment ? ` · ${moment.label}` : ""}`.toUpperCase();
     container.querySelector("[data-acg-badge]").textContent = travel
-      ? moment ? "GEOCENTRIC · FAINT LINES: NATAL" : "MERCATOR · GEOCENTRIC"
+      ? moment ? t("GEOCENTRIC · FAINT LINES: NATAL") : t("MERCATOR · GEOCENTRIC")
       : moved
-        ? `MERCATOR · MOVED ORIGIN · ${acgLocalSpaceDirections.toUpperCase()} DIRECTIONS`
-        : moment?.place ? "MERCATOR · FROM THE MOMENT'S PLACE" : "MERCATOR · FROM BIRTHPLACE";
+        ? (acgLocalSpaceDirections === "natal" ? t("MERCATOR · MOVED ORIGIN · NATAL DIRECTIONS") : t("MERCATOR · MOVED ORIGIN · RELOCATED DIRECTIONS"))
+        : moment?.place ? t("MERCATOR · FROM THE MOMENT'S PLACE") : t("MERCATOR · FROM BIRTHPLACE");
     container.querySelector("[data-acg-line-filters]").hidden = !travel;
     container.querySelector("[data-acg-origin-actions]").hidden = travel || !origin;
     container.querySelector("[data-acg-origin-reset]").disabled = !moved;
@@ -1590,8 +1595,8 @@ function renderAstrocartographyPanel(container, chart, moment = null) {
     container.querySelector("[data-acg-overlay]").innerHTML = natal + acgOverlayMarkup(visible);
     map.setLabelLines(visible);
     map.setOrigin(travel || !origin ? null : { ...origin, onMove: (moved) => setOrigin(moved, { defer: true }) });
-    const originText = travel || !origin ? "" : `${acgCoordinate(origin.lat, "N", "S")}, ${acgCoordinate(origin.lon, "E", "W")}${moved ? ` (moved, ${acgLocalSpaceDirections} directions)` : ""}`;
-    container.querySelector("[data-acg-info]").innerHTML = acgInfoMarkup(chart, acgActiveView, `${visible.length} / ${lines.length} shown`, originText);
+    const originText = travel || !origin ? "" : `${acgCoordinate(origin.lat, "N", "S")}, ${acgCoordinate(origin.lon, "E", "W")}${moved ? ` (${acgLocalSpaceDirections === "natal" ? t("moved, natal directions") : t("moved, relocated directions")})` : ""}`;
+    container.querySelector("[data-acg-info]").innerHTML = acgInfoMarkup(chart, acgActiveView, t("{shown} / {total} shown", { shown: visible.length, total: lines.length }), originText);
     clearTimeout(settleTimer);
     if (deferLocations && locationsList?.querySelector(".acg-location")) {
       locationsList.classList.add("updating");
@@ -1628,8 +1633,8 @@ function renderAstrocartographyPanel(container, chart, moment = null) {
     container.querySelector("[data-acg-locations-count]").textContent = locations.length ? String(locations.length) : "";
     if (sortButton) {
       sortButton.hidden = locations.length < 2;
-      sortButton.textContent = `Date ${acgLocationsSort === "asc" ? "↑" : "↓"}`;
-      sortButton.setAttribute("aria-label", `Sorted by date, ${acgLocationsSort === "asc" ? "oldest" : "newest"} first; switch`);
+      sortButton.textContent = `${t("Date")} ${acgLocationsSort === "asc" ? "↑" : "↓"}`;
+      sortButton.setAttribute("aria-label", acgLocationsSort === "asc" ? t("Sorted by date, oldest first; switch") : t("Sorted by date, newest first; switch"));
     }
     map.setPins(locations.map(({ lat, lon, record }) => ({ lat, lon, id: record.id, title: lifeEventTitle(record), active: expanded.has(record.id), birth: isBirthRecord(record) })));
   };
@@ -1741,7 +1746,7 @@ function renderAstrocartographyPairPanel(container, entries) {
   const views = SYSTEM_TABS.Astrocartography;
   if (!views.includes(acgActiveView)) acgActiveView = views[0];
   container.innerHTML = `
-    <div class="system-tabs">${views.map((view) => `<button type="button" class="${view === acgActiveView ? "active" : ""}" data-acg-view="${view}">${view}</button>`).join("")}</div>
+    <div class="system-tabs">${views.map((view) => `<button type="button" class="${view === acgActiveView ? "active" : ""}" data-acg-view="${view}">${tName(view)}</button>`).join("")}</div>
     <div class="system-surface">
       <div class="acg-pair-layout">
         <div class="acg-pair-maps">
@@ -1786,7 +1791,7 @@ function renderAstrocartographyPairPanel(container, entries) {
       const lines = travel ? acgTravelLines(chart, 0) : acgLocalSpaceLines(chart, 0, origin, directionsFrom);
       const visible = acgVisibleLines(lines);
       cards[index].querySelector("[data-acg-overlay]").innerHTML = acgOverlayMarkup(visible);
-      cards[index].querySelector("[data-acg-badge]").textContent = `${acgActiveView.toUpperCase()} · ${visible.length} / ${lines.length} LINES`;
+      cards[index].querySelector("[data-acg-badge]").textContent = `${tName(acgActiveView).toUpperCase()} · ${t("{shown} / {total} LINES", { shown: visible.length, total: lines.length })}`;
       maps[index].setLabelLines(visible);
       maps[index].setOrigin(
         travel || !origin

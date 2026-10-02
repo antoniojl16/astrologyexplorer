@@ -21,7 +21,7 @@ function renderSelectionBar() {
   }
   const count = selectedCharts().length;
   bar.hidden = count === 0;
-  bar.innerHTML = `<strong>${count} chart${count === 1 ? '' : 's'} selected</strong><span>Choose a destination workspace:</span><button type="button" class="secondary-button" data-selection-action="copy">Copy to workspace</button><button type="button" class="secondary-button" data-selection-action="move">Move to workspace</button><button type="button" class="secondary-button" data-selection-action="export" title="Save these charts (and, if you like, their life events) to a file">Export…</button><button type="button" class="text-button" data-selection-action="clear">Clear</button>`;
+  bar.innerHTML = `<strong>${tn(count, '{n} chart selected', '{n} charts selected')}</strong><span>${t('Choose a destination workspace:')}</span><button type="button" class="secondary-button" data-selection-action="copy">${t('Copy to workspace')}</button><button type="button" class="secondary-button" data-selection-action="move">${t('Move to workspace')}</button><button type="button" class="secondary-button" data-selection-action="export" title="${t('Save these charts (and, if you like, their life events) to a file')}">${t('Export…')}</button><button type="button" class="text-button" data-selection-action="clear">${t('Clear')}</button>`;
   bar.querySelectorAll('[data-selection-action]').forEach(button => button.addEventListener('click', () => {
     if (button.dataset.selectionAction === 'clear') { selectedChartIds.clear(); renderRows(); renderSelectionBar(); return; }
     if (button.dataset.selectionAction === 'export') { openExportSelected(); return; }
@@ -31,10 +31,11 @@ function renderSelectionBar() {
 
 function openWorkspaceTransfer(action) {
   const destinations = state.workspaces.filter(workspace => workspace.name !== state.activeWorkspace);
-  if (!destinations.length) { showToast('Create another workspace before transferring charts'); return; }
+  if (!destinations.length) { showToast(t('Create another workspace before transferring charts')); return; }
   const dialog = document.createElement('dialog');
   dialog.className = 'transfer-dialog';
-  dialog.innerHTML = `<form method="dialog"><div class="dialog-head"><div><p class="eyebrow accent-label">${action.toUpperCase()} RECORDS</p><h2>${action === 'copy' ? 'Copy' : 'Move'} selected charts</h2></div><button class="close-button" value="cancel">×</button></div><p class="dialog-copy">${selectedCharts().length} chart${selectedCharts().length === 1 ? '' : 's'} will be ${action === 'copy' ? 'duplicated into' : 'transferred to'} another workspace.</p><label class="transfer-label">Destination workspace<select name="destination">${destinations.map(workspace => `<option value="${escapeHtml(workspace.name)}">${escapeHtml(workspace.name)}</option>`).join('')}</select></label><div class="dialog-actions"><button class="secondary-button" value="cancel">Cancel</button><button class="primary-button" value="default">${action === 'copy' ? 'Copy charts' : 'Move charts'} <span>→</span></button></div></form>`;
+  const count = selectedCharts().length;
+  dialog.innerHTML = `<form method="dialog"><div class="dialog-head"><div><p class="eyebrow accent-label">${action === 'copy' ? t('COPY RECORDS') : t('MOVE RECORDS')}</p><h2>${action === 'copy' ? t('Copy selected charts') : t('Move selected charts')}</h2></div><button class="close-button" value="cancel">×</button></div><p class="dialog-copy">${action === 'copy' ? tn(count, '{n} chart will be duplicated into another workspace.', '{n} charts will be duplicated into another workspace.') : tn(count, '{n} chart will be transferred to another workspace.', '{n} charts will be transferred to another workspace.')}</p><label class="transfer-label">${t('Destination workspace')}<select name="destination">${destinations.map(workspace => `<option value="${escapeHtml(workspace.name)}">${escapeHtml(workspace.name)}</option>`).join('')}</select></label><div class="dialog-actions"><button class="secondary-button" value="cancel">${t('Cancel')}</button><button class="primary-button" value="default">${action === 'copy' ? t('Copy charts') : t('Move charts')} <span>→</span></button></div></form>`;
   document.body.appendChild(dialog);
   dialog.querySelector('form').addEventListener('submit', event => {
     event.preventDefault();
@@ -60,7 +61,7 @@ function transferSelectedCharts(action, destinationName) {
     if (action === 'copy') {
       const copy = JSON.parse(JSON.stringify(chart));
       copy.id = `chart-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-      copy.name = `${copy.name} (copy)`;
+      copy.name = t('{name} (copy)', { name: copy.name });
       state.charts.push(copy);
       destination.chartIds.push(copy.id);
       idMap.set(chart.id, copy.id);
@@ -73,13 +74,14 @@ function transferSelectedCharts(action, destinationName) {
   const unlinked = transferChartEvents(action, source, destination, idMap);
   selectedChartIds.clear();
   saveState(); renderRows(); renderSelectionBar();
-  showToast(`${charts.length} chart${charts.length === 1 ? '' : 's'} ${action === 'copy' ? 'copied to' : 'moved to'} ${destinationName}${unlinked ? ` · ${unlinked} event${unlinked === 1 ? ' now includes' : 's now include'} people by name only` : ''}`);
+  const done = action === 'copy' ? tn(charts.length, '{n} chart copied to {workspace}', '{n} charts copied to {workspace}', { workspace: destinationName }) : tn(charts.length, '{n} chart moved to {workspace}', '{n} charts moved to {workspace}', { workspace: destinationName });
+  showToast(done + (unlinked ? ' · ' + tn(unlinked, '{n} event now includes people by name only', '{n} events now include people by name only') : ''));
 }
 // Returns how many events (in either workspace) gained a name-only person.
 function transferChartEvents(action, source, destination, idMap) {
   source.events = source.events || [];
   destination.events = destination.events || [];
-  const nameOf = id => chartById(id)?.name || 'Unnamed person';
+  const nameOf = id => chartById(id)?.name || t('Unnamed person');
   const involved = source.events.filter(event => event.people.some(person => idMap.has(person.chartId)));
   const touched = new Set();
   const inDestination = new Set(destination.chartIds);
@@ -118,16 +120,16 @@ function openWorkspaceNameDialog() {
   if (!dialog) {
     dialog = document.createElement('dialog');
     dialog.id = 'workspaceNameDialog';
-    dialog.innerHTML = `<form method="dialog"><div class="dialog-head"><div><p class="eyebrow accent-label">NEW WORKSPACE</p><h2>Name this workspace</h2></div><button class="close-button" value="cancel">×</button></div><label class="transfer-label">Workspace name<input name="name" required placeholder="e.g. Readings"></label><div class="dialog-actions"><button class="secondary-button" value="cancel">Cancel</button><button class="primary-button" value="default">Create workspace <span>→</span></button></div></form>`;
+    dialog.innerHTML = `<form method="dialog"><div class="dialog-head"><div><p class="eyebrow accent-label">${t('NEW WORKSPACE')}</p><h2>${t('Name this workspace')}</h2></div><button class="close-button" value="cancel">×</button></div><label class="transfer-label">${t('Workspace name')}<input name="name" required placeholder="${t('e.g. Readings')}"></label><div class="dialog-actions"><button class="secondary-button" value="cancel">${t('Cancel')}</button><button class="primary-button" value="default">${t('Create workspace')} <span>→</span></button></div></form>`;
     document.body.appendChild(dialog);
     dialog.querySelector('form').addEventListener('submit', event => {
       event.preventDefault();
       const name = new FormData(event.target).get('name').trim();
-      if (!name || state.workspaces.some(workspace => workspace.name === name)) { showToast('Choose a unique workspace name'); return; }
+      if (!name || state.workspaces.some(workspace => workspace.name === name)) { showToast(t('Choose a unique workspace name')); return; }
       state.workspaces.push({name, chartIds: []});
       state.activeWorkspace = name;
       document.getElementById('workspaceName').textContent = name;
-      saveState(); renderWorkspaces(); renderRows(); dialog.close(); showToast(`${name} workspace created`);
+      saveState(); renderWorkspaces(); renderRows(); dialog.close(); showToast(t('{name} workspace created', { name }));
     });
   }
   dialog.querySelector('input').value = '';

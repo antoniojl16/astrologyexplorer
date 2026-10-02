@@ -8,24 +8,24 @@
 
 // Event types, grouped as they appear in the dialog.
 const LIFE_EVENT_KINDS = [
-  { group: "Personal", kinds: [["milestone", "Milestone"], ["achievement", "Achievement"], ["move", "Moved home"], ["travel", "Journey"], ["education-start", "Started studies"], ["graduation", "Graduated"], ["job-start", "Started a job"], ["job-end", "Left a job"], ["health", "Health event"], ["accident", "Accident"], ["spiritual", "Spiritual experience"], ["loss", "Loss"], ["decision", "Decision"], ["turning-point", "Turning point"]] },
-  { group: "Relationships", kinds: [["met", "Met"], ["first-date", "First date"], ["relationship-start", "Began a relationship"], ["engaged", "Engaged"], ["married", "Married"], ["moved-in", "Moved in together"], ["separated", "Separated"], ["divorced", "Divorced"], ["reconciled", "Reconciled"], ["last-contact", "Last contact"]] },
-  { group: "Family", kinds: [["became-parents", "Became parents"], ["birth", "A birth"], ["adoption", "Adoption"], ["death", "A death"], ["bereavement", "Bereavement"], ["family-reunion", "Family reunion"]] },
-  { group: "Work & creativity", kinds: [["work-together", "Started working together"], ["founded", "Founded a business"], ["collaboration", "Collaboration"], ["mentorship-start", "Mentorship began"], ["mentorship-end", "Mentorship ended"], ["hired", "Hired"], ["project", "Project"]] },
-  { group: "Shared experiences", kinds: [["travelled-together", "Travelled together"], ["lived-together", "Lived at the same place"], ["shared-crisis", "Shared crisis"], ["conflict", "Conflict"], ["conversation", "Turning-point conversation"], ["reunion", "Reunion"]] },
-  { group: "Places", kinds: [["place", "Place of interest"], ["lived-here", "Lived here"], ["visited", "Visited"], ["considering", "Considering"]] },
-  { group: "Other", kinds: [["other", "Other"]] },
+  { group: N_("Personal"), kinds: [["milestone", t("Milestone")], ["achievement", t("Achievement")], ["move", t("Moved home")], ["travel", t("Journey")], ["education-start", t("Started studies")], ["graduation", t("Graduated")], ["job-start", t("Started a job")], ["job-end", t("Left a job")], ["health", t("Health event")], ["accident", t("Accident")], ["spiritual", t("Spiritual experience")], ["loss", t("Loss")], ["decision", t("Decision")], ["turning-point", t("Turning point")]] },
+  { group: N_("Relationships"), kinds: [["met", t("Met")], ["first-date", t("First date")], ["relationship-start", t("Began a relationship")], ["engaged", t("Engaged")], ["married", t("Married")], ["moved-in", t("Moved in together")], ["separated", t("Separated")], ["divorced", t("Divorced")], ["reconciled", t("Reconciled")], ["last-contact", t("Last contact")]] },
+  { group: N_("Family"), kinds: [["became-parents", t("Became parents")], ["birth", t("A birth")], ["adoption", t("Adoption")], ["death", t("A death")], ["bereavement", t("Bereavement")], ["family-reunion", t("Family reunion")]] },
+  { group: N_("Work & creativity"), kinds: [["work-together", t("Started working together")], ["founded", t("Founded a business")], ["collaboration", t("Collaboration")], ["mentorship-start", t("Mentorship began")], ["mentorship-end", t("Mentorship ended")], ["hired", t("Hired")], ["project", t("Project")]] },
+  { group: N_("Shared experiences"), kinds: [["travelled-together", t("Travelled together")], ["lived-together", t("Lived at the same place")], ["shared-crisis", t("Shared crisis")], ["conflict", t("Conflict")], ["conversation", t("Turning-point conversation")], ["reunion", t("Reunion")]] },
+  { group: N_("Places"), kinds: [["place", t("Place of interest")], ["lived-here", t("Lived here")], ["visited", t("Visited")], ["considering", t("Considering")]] },
+  { group: N_("Other"), kinds: [["other", t("Other")]] },
 ];
 const LIFE_EVENT_KIND_LABELS = new Map(LIFE_EVENT_KINDS.flatMap((group) => group.kinds));
 // The starter tags (any other can be typed in).
 const LIFE_EVENT_TAGS = [
-  "career", "work", "money", "education", "creativity", "spirituality", "health", "body", "mind",
-  "love", "relationship", "sexuality", "family", "children", "parents", "friendship", "community",
-  "home", "move", "travel", "nature", "loss", "grief", "crisis", "conflict", "healing", "success",
-  "milestone", "beginning", "ending", "transformation", "decision", "legal", "public", "private",
+  t("career@@tag"), t("work@@tag"), t("money@@tag"), t("education@@tag"), t("creativity@@tag"), t("spirituality@@tag"), t("health@@tag"), t("body@@tag"), t("mind@@tag"),
+  t("love@@tag"), t("relationship@@tag"), t("sexuality@@tag"), t("family@@tag"), t("children@@tag"), t("parents@@tag"), t("friendship@@tag"), t("community@@tag"),
+  t("home@@tag"), t("move@@tag"), t("travel@@tag"), t("nature@@tag"), t("loss@@tag"), t("grief@@tag"), t("crisis@@tag"), t("conflict@@tag"), t("healing@@tag"), t("success@@tag"),
+  t("milestone@@tag"), t("beginning@@tag"), t("ending@@tag"), t("transformation@@tag"), t("decision@@tag"), t("legal@@tag"), t("public@@tag"), t("private@@tag"),
 ];
-const LIFE_EVENT_ROLES = ["partner", "spouse", "parent", "child", "sibling", "grandparent", "grandchild", "relative", "friend", "mentor", "student", "colleague", "employer", "employee", "founder", "client", "witness"];
-const LIFE_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const LIFE_EVENT_ROLES = [t("partner@@role"), t("spouse@@role"), t("parent@@role"), t("child@@role"), t("sibling@@role"), t("grandparent@@role"), t("grandchild@@role"), t("relative@@role"), t("friend@@role"), t("mentor@@role"), t("student@@role"), t("colleague@@role"), t("employer@@role"), t("employee@@role"), t("founder@@role"), t("client@@role"), t("witness@@role")];
+const LIFE_MONTHS = TIMELINE_MONTHS;
 
 // ── Records ─────────────────────────────────────────────────────────────
 function workspaceOfChart(chartId) {
@@ -67,7 +67,7 @@ function lifeBirthRecord(chart) {
   };
   const lat = coordinate(chart.latitude, 90), lon = coordinate(chart.longitude, 180);
   const record = {
-    id: `birth:${chart.id}`, birth: true, title: "Birth", kind: "",
+    id: `birth:${chart.id}`, birth: true, title: t("Birth"), kind: "",
     start: { date: chart.birthDate, time: chart.birthTime || "" },
     zone: chart.timezone || "", tags: [], notes: "",
     people: [{ chartId: chart.id, name: "", role: "" }],
@@ -130,7 +130,7 @@ function lifeResolveRecord(record) {
   if (!owner) return null;
   if (record.anchor.cycle) return lifeCycleRecord(owner, record.anchor.cycle, record.anchor.n, record);
   const birth = lifeBirthRecord(owner);
-  return birth && { ...birth, birth: false, id: record.id, title: `${owner.name}'s birth` };
+  return birth && { ...birth, birth: false, id: record.id, title: t("Birth of {name}", { name: owner.name }) };
 }
 function isBirthRecord(event) {
   return !!event?.birth;
@@ -190,18 +190,18 @@ function confirmDeleteRecord(chart, record) {
   // An annotation: only the notes go, the computed moment stays.
   if (record.anchor || record.birth) {
     const stored = lifeStoredRecord(record);
-    if (!stored || !window.confirm(`Remove the notes on “${lifeEventTitle(record)}”? The moment itself stays.`)) return false;
+    if (!stored || !window.confirm(t("Remove the notes on “{title}”? The moment itself stays.", { title: lifeEventTitle(record) }))) return false;
     deleteRecord(chart, stored);
-    showToast("Annotation removed");
+    showToast(t("Annotation removed"));
     return true;
   }
   const others = record.people.filter((person) => person.chartId && person.chartId !== chart.id).map((person) => chartById(person.chartId)?.name).filter(Boolean);
   const question = others.length
-    ? `Delete “${lifeEventTitle(record)}” for everyone in it? It's shared with ${others.join(", ")}.\n\n(To take only ${chart.name} out of it, edit it instead.)`
-    : `Delete “${lifeEventTitle(record)}”?`;
+    ? `${t("Delete “{title}” for everyone in it? It's shared with {names}.", { title: lifeEventTitle(record), names: others.join(", ") })}\n\n${t("(To take only {name} out of it, edit it instead.)", { name: chart.name })}`
+    : t("Delete “{title}”?", { title: lifeEventTitle(record) });
   if (!window.confirm(question)) return false;
   deleteRecord(chart, record);
-  showToast("Record deleted");
+  showToast(t("Record deleted"));
   return true;
 }
 function deleteRecord(chart, event) {
@@ -214,7 +214,8 @@ function deleteRecord(chart, event) {
 // "12 May 1990", "May 1990" or "1990", from a record date.
 function lifeDateLabel(date) {
   const [year, month, day] = date.split("-").map(Number);
-  return [day, month ? LIFE_MONTHS[month - 1] : "", year].filter(Boolean).join(" ");
+  if (day) return t("{day} {month} {year}", { day, month: LIFE_MONTHS[month - 1], year });
+  return month ? t("{month} {year}", { month: LIFE_MONTHS[month - 1], year }) : String(year);
 }
 function lifeWhenLabel(event) {
   if (!event.start) return "";
@@ -222,19 +223,19 @@ function lifeWhenLabel(event) {
   return event.end ? `${start} – ${lifeDateLabel(event.end.date)}` : start;
 }
 // Its title; else, for an event, its type; for a place, the place's name (or coordinates).
-const LIFE_PLACE_KINDS = new Set(LIFE_EVENT_KINDS.find((group) => group.group === "Places").kinds.map(([key]) => key));
+const LIFE_PLACE_KINDS = new Set(LIFE_EVENT_KINDS.find((group) => group.group === N_("Places")).kinds.map(([key]) => key));
 function lifeEventTitle(event) {
   if (event.title) return event.title;
   const kind = LIFE_EVENT_KIND_LABELS.get(event.kind);
   if (kind && !LIFE_PLACE_KINDS.has(event.kind)) return kind;
   if (event.place) return event.place.name || lifeUnnamedPlace(event.place);
-  return kind || "Untitled";
+  return kind || t("Untitled");
 }
 // An unnamed place (saved from a map click): the place it's in or near, else coordinates.
 function lifeUnnamedPlace(place) {
   const nearest = typeof acgNearestPlace === "function" ? acgNearestPlace(place.lat, place.lon) : null;
   const coordinates = `${acgCoordinate(place.lat, "N", "S")}, ${acgCoordinate(place.lon, "E", "W")}`;
-  return nearest ? `${nearest.km <= ACG_CITY_RADIUS_KM ? "" : "Near "}${placeLabel(nearest.place)}` : coordinates;
+  return nearest ? (nearest.km <= ACG_CITY_RADIUS_KM ? placeLabel(nearest.place) : t("Near {place}", { place: placeLabel(nearest.place) })) : coordinates;
 }
 // Dated records first, in time order (an undated place sorts after them, by when it was added).
 function lifeEventOrder(a, b) {
@@ -251,18 +252,18 @@ function lifeEventOrder(a, b) {
 const lifeEventsFilter = { show: "all", query: "", tag: "" };
 function renderLifeEventsPanel(container, chart) {
   if (!chart || explorerMode !== "chart") {
-    container.innerHTML = `<div class="life-events"><p class="life-empty">Life events belong to a chart. Open one from the library to see and add its events.</p></div>`;
+    container.innerHTML = `<div class="life-events"><p class="life-empty">${t("Life events belong to a chart. Open one from the library to see and add its events.")}</p></div>`;
     return;
   }
   const workspace = workspaceOfChart(chart.id);
   container.innerHTML = `
     <div class="life-events">
       <div class="life-toolbar">
-        <div class="segmented" data-life-show>${[["all", "All"], ["events", "Events"], ["places", "Places"], ["tags", "By tag"]].map(([key, label]) => `<button type="button" data-value="${key}" class="${lifeEventsFilter.show === key ? "active" : ""}">${label}</button>`).join("")}</div>
-        <input type="search" class="life-search" data-life-query placeholder="Search titles, places, people, tags, notes…" aria-label="Search life events" value="${escapeHtml(lifeEventsFilter.query)}">
-        <select class="life-tag-filter" data-life-tag aria-label="Filter by tag"></select>
+        <div class="segmented" data-life-show>${[["all", t("All")], ["events", t("Events")], ["places", t("Places")], ["tags", t("By tag")]].map(([key, label]) => `<button type="button" data-value="${key}" class="${lifeEventsFilter.show === key ? "active" : ""}">${label}</button>`).join("")}</div>
+        <input type="search" class="life-search" data-life-query placeholder="${t("Search titles, places, people, tags, notes…")}" aria-label="${t("Search life events")}" value="${escapeHtml(lifeEventsFilter.query)}">
+        <select class="life-tag-filter" data-life-tag aria-label="${t("Filter by tag")}"></select>
         <span class="life-toolbar-actions">
-          <button type="button" class="primary-button" data-life-add>＋ Add</button>
+          <button type="button" class="primary-button" data-life-add>＋ ${t("Add")}</button>
         </span>
       </div>
       <p class="life-count" data-life-count></p>
@@ -281,7 +282,7 @@ function renderLifeEventsPanel(container, chart) {
       return;
     }
     if (lifeEventsFilter.tag && !tags.includes(lifeEventsFilter.tag)) lifeEventsFilter.tag = "";
-    container.querySelector("[data-life-tag]").innerHTML = `<option value="">All tags</option>${tags.map((tag) => `<option value="${escapeHtml(tag)}" ${tag === lifeEventsFilter.tag ? "selected" : ""}>${escapeHtml(tag)}</option>`).join("")}`;
+    container.querySelector("[data-life-tag]").innerHTML = `<option value="">${t("All tags")}</option>${tags.map((tag) => `<option value="${escapeHtml(tag)}" ${tag === lifeEventsFilter.tag ? "selected" : ""}>${escapeHtml(tag)}</option>`).join("")}`;
     const query = lifeEventsFilter.query.trim();
     const shown = events.filter((event) => {
       if (lifeEventsFilter.show === "events" && !event.start) return false;
@@ -292,10 +293,10 @@ function renderLifeEventsPanel(container, chart) {
       return searchMatches([lifeEventTitle(event), event.place?.name, event.notes, ...event.tags, ...people, LIFE_EVENT_KIND_LABELS.get(event.kind)], query);
     });
     container.querySelector("[data-life-count]").textContent = events.length
-      ? `${shown.length === events.length ? events.length : `${shown.length} of ${events.length}`} record${events.length === 1 ? "" : "s"}`
+      ? (shown.length === events.length ? tn(events.length, "{n} record", "{n} records") : tn(events.length, "{shown} of {n} record", "{shown} of {n} records", { shown: shown.length }))
       : "";
-    list.innerHTML = (shown.length ? shown.map((event) => lifeEventItemMarkup(event, chart)).join("") : `<li class="life-empty">No records match.</li>`)
-      + (stored.length ? "" : `<li class="life-empty">No other life events yet. Add moments, periods and places that matter — alone or shared with other charts in this workspace — to study them against the charts. Places saved on the Astrocartography map appear here too.</li>`);
+    list.innerHTML = (shown.length ? shown.map((event) => lifeEventItemMarkup(event, chart)).join("") : `<li class="life-empty">${t("No records match.")}</li>`)
+      + (stored.length ? "" : `<li class="life-empty">${t("No other life events yet. Add moments, periods and places that matter — alone or shared with other charts in this workspace — to study them against the charts. Places saved on the Astrocartography map appear here too.")}</li>`);
   };
   // By tag: the tags as chips; for the chosen one, what recurs across its dated moments,
   // then each moment with its tight transits (life-patterns.js).
@@ -304,24 +305,24 @@ function renderLifeEventsPanel(container, chart) {
     if (lifeEventsFilter.tag && !counts.some(([tag]) => tag === lifeEventsFilter.tag)) lifeEventsFilter.tag = "";
     const tag = lifeEventsFilter.tag;
     const tagged = events.filter((event) => event.tags.includes(tag));
-    container.querySelector("[data-life-count]").textContent = counts.length ? `${counts.length} tag${counts.length === 1 ? "" : "s"}` : "";
+    container.querySelector("[data-life-count]").textContent = counts.length ? tn(counts.length, "{n} tag", "{n} tags") : "";
     const chips = counts.length
       ? `<li class="life-tag-chips">${counts.map(([name, n]) => `<button type="button" class="life-tag-chip${name === tag ? " active" : ""}" data-life-tag-pick="${escapeHtml(name)}" aria-pressed="${name === tag}">${escapeHtml(name)} <small>${n}</small></button>`).join("")}</li>`
-      : `<li class="life-empty">No record has a tag yet. Tag life events (and annotated cycles or Birth) — career, love, move… — to see what the moments with the same tag have in common.</li>`;
+      : `<li class="life-empty">${t("No record has a tag yet. Tag life events (and annotated cycles or Birth) — career, love, move… — to see what the moments with the same tag have in common.")}</li>`;
     if (!tag) {
-      list.innerHTML = chips + (counts.length ? `<li class="life-empty">Choose a tag to see its moments side by side, and the transits that recur among them.</li>` : "");
+      list.innerHTML = chips + (counts.length ? `<li class="life-empty">${t("Choose a tag to see its moments side by side, and the transits that recur among them.")}</li>` : "");
       return;
     }
     list.innerHTML = `${chips}
       <li class="life-pattern-panel">
-        <div class="system-toolbar"><span class="eyebrow">RECURRING TRANSITS · ${escapeHtml(tag.toUpperCase())}</span>${lifePatternControlsMarkup()}</div>
+        <div class="system-toolbar"><span class="eyebrow">${t("RECURRING TRANSITS")} · ${escapeHtml(tag.toUpperCase())}</span>${lifePatternControlsMarkup()}</div>
         ${lifeTagPatternsMarkup(chart, tagged, tag)}
         <p class="cycle-summary-foot">${LIFE_PATTERN_FOOT}</p>
       </li>
       ${tagged.map((event) => `<li class="life-tag-moment" data-life-id="${escapeHtml(event.id)}">
-        <div class="life-when">${event.start ? `<strong>${lifeWhenLabel(event)}</strong>` : "<strong>Place</strong><small>No date</small>"}</div>
+        <div class="life-when">${event.start ? `<strong>${lifeWhenLabel(event)}</strong>` : `<strong>${t("Place")}</strong><small>${t("No date")}</small>`}</div>
         <div class="life-main"><div class="life-title"><strong>${escapeHtml(lifeEventTitle(event))}</strong></div><div class="life-transits">${lifeMomentTransitsMarkup(chart, event)}</div></div>
-        <div class="life-actions">${event.start ? `<button type="button" class="acg-origin-button" data-life-open title="Study this moment in the Cycle Explorer">↻ Cycle Explorer</button>` : ""}<button type="button" class="acg-origin-button" data-life-edit>Edit</button></div>
+        <div class="life-actions">${event.start ? `<button type="button" class="acg-origin-button" data-life-open title="${t("Study this moment in the Cycle Explorer")}">↻ ${t("Cycle Explorer")}</button>` : ""}<button type="button" class="acg-origin-button" data-life-edit>${t("Edit")}</button></div>
       </li>`).join("")}`;
   };
   container.querySelector("[data-life-show]").addEventListener("click", (event) => {
@@ -365,10 +366,10 @@ function lifeEventItemMarkup(event, chart) {
   const kind = LIFE_EVENT_KIND_LABELS.get(event.kind);
   const self = event.people.find((person) => person.chartId === chart.id);
   const others = event.people.filter((person) => person !== self).map((person) => {
-    const name = person.chartId ? escapeHtml(chartById(person.chartId)?.name || "") : `<i title="No chart for this person in this workspace">${escapeHtml(person.name)}</i>`;
+    const name = person.chartId ? escapeHtml(chartById(person.chartId)?.name || "") : `<i title="${t("No chart for this person in this workspace")}">${escapeHtml(person.name)}</i>`;
     return `${name}${person.role ? ` <small>(${escapeHtml(person.role)})</small>` : ""}`;
   });
-  const time = event.start?.time ? `${event.start.time}${event.zone ? ` · ${escapeHtml(event.zone)}` : ""}` : event.start ? `${event.start.date.length === 10 ? "Date only" : event.start.date.length === 7 ? "Month only" : "Year only"}` : "";
+  const time = event.start?.time ? `${event.start.time}${event.zone ? ` · ${escapeHtml(event.zone)}` : ""}` : event.start ? (event.start.date.length === 10 ? t("Date only") : event.start.date.length === 7 ? t("Month only") : t("Year only")) : "";
   // The place line: its name, else its coordinates (an unnamed place's title already names what's near it).
   const coordinates = event.place ? `${acgCoordinate(event.place.lat, "N", "S")}, ${acgCoordinate(event.place.lon, "E", "W")}` : "";
   // (Left out when the title is already the place's name.)
@@ -378,15 +379,15 @@ function lifeEventItemMarkup(event, chart) {
   // Birth and cycles are computed: their date (and birth's place) come from the chart;
   // Edit annotates them, and × only removes the annotation.
   const computed = !!event.anchor;
-  const fixed = computed ? `<span class="life-fixed" title="${birth || event.anchor.birth ? "Birth follows the chart's birth data: edit the chart to change it" : "Computed from the chart: its date can't change"}">${event.cycle ? "Cycle" : "From the chart"}</span>` : "";
+  const fixed = computed ? `<span class="life-fixed" title="${birth || event.anchor.birth ? t("Birth follows the chart's birth data: edit the chart to change it") : t("Computed from the chart: its date can't change")}">${event.cycle ? t("Cycle") : t("From the chart")}</span>` : "";
   const removable = !computed || event.stored;
-  const actions = `${fixed}<button type="button" class="acg-origin-button" data-life-edit>${computed && !event.stored ? "Annotate" : "Edit"}</button>
-      ${removable ? `<button type="button" class="acg-location-remove" data-life-delete aria-label="${computed ? "Remove the notes on" : "Delete"} ${escapeHtml(lifeEventTitle(event))}" title="${computed ? "Remove annotation" : "Delete"}">×</button>` : ""}`;
+  const actions = `${fixed}<button type="button" class="acg-origin-button" data-life-edit>${computed && !event.stored ? t("Annotate") : t("Edit")}</button>
+      ${removable ? `<button type="button" class="acg-location-remove" data-life-delete aria-label="${computed ? t("Remove the notes on {title}", { title: escapeHtml(lifeEventTitle(event)) }) : t("Delete {title}", { title: escapeHtml(lifeEventTitle(event)) })}" title="${computed ? t("Remove annotation") : t("Delete")}">×</button>` : ""}`;
   return `<li class="life-item${event.start ? "" : " place-only"}${birth ? " birth" : ""}" data-life-id="${escapeHtml(event.id)}">
-    <div class="life-when">${event.start ? `<strong>${lifeWhenLabel(event)}</strong><small>${time}</small>` : `<strong>Place</strong><small>No date</small>`}</div>
+    <div class="life-when">${event.start ? `<strong>${lifeWhenLabel(event)}</strong><small>${time}</small>` : `<strong>${t("Place")}</strong><small>${t("No date")}</small>`}</div>
     <div class="life-main">
-      <div class="life-title"><strong>${escapeHtml(lifeEventTitle(event))}</strong>${kind && event.title && kind !== event.title ? `<span class="life-kind">${escapeHtml(kind)}</span>` : ""}${event.end ? `<span class="life-kind">Period</span>` : ""}</div>
-      <div class="life-meta">${place}${self?.role ? `<span>as ${escapeHtml(self.role)}</span>` : ""}${others.length ? `<span>with ${others.join(", ")}</span>` : ""}</div>
+      <div class="life-title"><strong>${escapeHtml(lifeEventTitle(event))}</strong>${kind && event.title && kind !== event.title ? `<span class="life-kind">${escapeHtml(kind)}</span>` : ""}${event.end ? `<span class="life-kind">${t("Period")}</span>` : ""}</div>
+      <div class="life-meta">${place}${self?.role ? `<span>${t("as {role}", { role: escapeHtml(self.role) })}</span>` : ""}${others.length ? `<span>${t("with {names}", { names: others.join(", ") })}</span>` : ""}</div>
       ${event.tags.length ? `<div class="life-tags">${event.tags.map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("")}</div>` : ""}
       ${event.notes ? `<p class="life-notes">${escapeHtml(event.notes)}</p>` : ""}
     </div>
@@ -400,10 +401,10 @@ function lifeEventItemMarkup(event, chart) {
 function lifeMomentFieldsMarkup(prefix, legend) {
   return `<fieldset class="life-moment" data-life-moment="${prefix}">
     <legend>${legend}</legend>
-    <label>Year<input name="${prefix}Year" type="number" min="1000" max="2999" inputmode="numeric" placeholder="e.g. 1998"></label>
-    <label>Month<select name="${prefix}Month"><option value="">—</option>${LIFE_MONTHS.map((month, index) => `<option value="${index + 1}">${month}</option>`).join("")}</select></label>
-    <label>Day<input name="${prefix}Day" type="number" min="1" max="31" inputmode="numeric" placeholder="—"></label>
-    <label>Time<input name="${prefix}Time" type="time" aria-label="Time (optional)"></label>
+    <label>${t("Year")}<input name="${prefix}Year" type="number" min="1000" max="2999" inputmode="numeric" placeholder="${t("e.g. 1998")}"></label>
+    <label>${t("Month")}<select name="${prefix}Month"><option value="">—</option>${LIFE_MONTHS.map((month, index) => `<option value="${index + 1}">${month}</option>`).join("")}</select></label>
+    <label>${t("Day")}<input name="${prefix}Day" type="number" min="1" max="31" inputmode="numeric" placeholder="—"></label>
+    <label>${t("Time")}<input name="${prefix}Time" type="time" aria-label="${t("Time (optional)")}"></label>
   </fieldset>`;
 }
 function lifeDialog() {
@@ -413,30 +414,30 @@ function lifeDialog() {
   dialog.id = "lifeEventDialog";
   dialog.className = "life-dialog";
   dialog.innerHTML = `<form id="lifeEventForm" method="dialog" novalidate>
-    <div class="dialog-head"><div><p class="eyebrow accent-label" data-life-eyebrow>LIFE EVENT</p><h2 data-life-heading>Add an event</h2></div><button type="button" class="close-button" data-life-cancel aria-label="Close">×</button></div>
+    <div class="dialog-head"><div><p class="eyebrow accent-label" data-life-eyebrow>${t("LIFE EVENT")}</p><h2 data-life-heading>${t("Add an event")}</h2></div><button type="button" class="close-button" data-life-cancel aria-label="${t("Close")}">×</button></div>
     <div class="form-grid">
       <p class="wide-field life-annotation-note" data-life-annotation hidden></p>
-      <label class="wide-field">Title<input name="title" maxlength="120" placeholder="What happened, or what this place is"></label>
-      <label>Type<select name="kind"><option value="">—</option>${LIFE_EVENT_KINDS.map((group) => `<optgroup label="${group.group}">${group.kinds.map(([key, label]) => `<option value="${key}">${label}</option>`).join("")}</optgroup>`).join("")}</select></label>
-      <label>When<select name="when"><option value="moment">A moment</option><option value="period">A period</option><option value="none">No date (a place)</option></select></label>
+      <label class="wide-field">${t("Title")}<input name="title" maxlength="120" placeholder="${t("What happened, or what this place is")}"></label>
+      <label>${t("Type")}<select name="kind"><option value="">—</option>${LIFE_EVENT_KINDS.map((group) => `<optgroup label="${tName(group.group)}">${group.kinds.map(([key, label]) => `<option value="${key}">${label}</option>`).join("")}</optgroup>`).join("")}</select></label>
+      <label>${t("When")}<select name="when"><option value="moment">${t("A moment")}</option><option value="period">${t("A period")}</option><option value="none">${t("No date (a place)")}</option></select></label>
       <div class="wide-field" data-life-dates>
-        ${lifeMomentFieldsMarkup("start", "Date")}
-        ${lifeMomentFieldsMarkup("end", "Until")}
-        <small class="life-hint">Leave the day, the month or the time empty when you don't know them. Without an exact time, the planets' positions are approximate and houses and angles aren't shown.</small>
+        ${lifeMomentFieldsMarkup("start", t("Date"))}
+        ${lifeMomentFieldsMarkup("end", t("Until"))}
+        <small class="life-hint">${t("Leave the day, the month or the time empty when you don't know them. Without an exact time, the planets' positions are approximate and houses and angles aren't shown.")}</small>
       </div>
-      <label class="wide-field">Place<input name="location" placeholder="Search a city or town, or leave empty" autocomplete="off"></label>
-      <label>Latitude<input name="latitude" inputmode="decimal" placeholder="e.g. 38.7223"></label>
-      <label>Longitude<input name="longitude" inputmode="decimal" placeholder="e.g. -9.1393"></label>
-      <label class="wide-field" data-life-zone>Time zone <small>for the time of day</small><select name="timezone"></select></label>
-      <div class="wide-field life-people"><span class="life-field-label">People</span><div data-life-people></div>
-        <label class="life-inline">Someone without a chart here<input name="personName" maxlength="120" placeholder="Name, then press Add"><button type="button" class="secondary-button" data-life-add-person>Add</button></label>
+      <label class="wide-field">${t("Place")}<input name="location" placeholder="${t("Search a city or town, or leave empty")}" autocomplete="off"></label>
+      <label>${t("Latitude")}<input name="latitude" inputmode="decimal" placeholder="${t("e.g. 38.7223")}"></label>
+      <label>${t("Longitude")}<input name="longitude" inputmode="decimal" placeholder="${t("e.g. -9.1393")}"></label>
+      <label class="wide-field" data-life-zone>${t("Time zone")} <small>${t("for the time of day")}</small><select name="timezone"></select></label>
+      <div class="wide-field life-people"><span class="life-field-label">${t("People")}</span><div data-life-people></div>
+        <label class="life-inline">${t("Someone without a chart here")}<input name="personName" maxlength="120" placeholder="${t("Name, then press Add")}"><button type="button" class="secondary-button" data-life-add-person>${t("Add")}</button></label>
       </div>
-      <div class="wide-field life-tag-picker"><span class="life-field-label">Tags</span><div data-life-tags></div>
-        <label class="life-inline">Other tags<input name="customTags" placeholder="comma-separated"></label>
+      <div class="wide-field life-tag-picker"><span class="life-field-label">${t("Tags")}</span><div data-life-tags></div>
+        <label class="life-inline">${t("Other tags")}<input name="customTags" placeholder="${t("comma-separated")}"></label>
       </div>
-      <label class="wide-field">Notes<textarea name="notes" rows="4" maxlength="5000"></textarea></label>
+      <label class="wide-field">${t("Notes")}<textarea name="notes" rows="4" maxlength="5000"></textarea></label>
     </div>
-    <div class="dialog-actions"><button type="button" class="text-button life-dialog-delete" data-life-dialog-delete hidden>Delete record…</button><button type="button" class="secondary-button" data-life-cancel>Cancel</button><button class="primary-button" type="submit">Save <span>→</span></button></div>
+    <div class="dialog-actions"><button type="button" class="text-button life-dialog-delete" data-life-dialog-delete hidden>${t("Delete record…")}</button><button type="button" class="secondary-button" data-life-cancel>${t("Cancel")}</button><button class="primary-button" type="submit">${t("Save")} <span>→</span></button></div>
   </form>`;
   document.body.appendChild(dialog);
   dialog.querySelectorAll("[data-life-cancel]").forEach((button) => button.addEventListener("click", () => dialog.close()));
@@ -538,7 +539,7 @@ function openLifeEventDialog(chart, event, { onSave, withChartIds = [], draft = 
   show(note, !!anchor);
   if (anchor) {
     const owner = chartById(anchor.chartId);
-    note.innerHTML = `<strong>${escapeHtml(lifeEventTitle(event))}</strong> · ${event.start ? `${lifeWhenLabel(event)}${event.start.time ? ` · ${event.start.time} ${escapeHtml(event.zone || "")}` : ""}` : "not computed"}${anchor.birth && event.place?.name ? ` · ⌖ ${escapeHtml(event.place.name)}` : ""}<br><small>${anchor.birth ? `Computed from ${escapeHtml(owner?.name || "the chart")}'s birth data, which only editing the chart changes.` : "Computed from the chart: its date is fixed. Add where you were, tags and notes."}</small>`;
+    note.innerHTML = `<strong>${escapeHtml(lifeEventTitle(event))}</strong> · ${event.start ? `${lifeWhenLabel(event)}${event.start.time ? ` · ${event.start.time} ${escapeHtml(event.zone || "")}` : ""}` : t("not computed")}${anchor.birth && event.place?.name ? ` · ⌖ ${escapeHtml(event.place.name)}` : ""}<br><small>${anchor.birth ? t("Computed from the birth data of {name}, which only editing the chart changes.", { name: escapeHtml(owner?.name || t("the chart")) }) : t("Computed from the chart: its date is fixed. Add where you were, tags and notes.")}</small>`;
   }
   const heading = dialog.querySelector("[data-life-heading]");
   const set = (name, value) => { form.elements[name].value = value ?? ""; };
@@ -567,7 +568,7 @@ function openLifeEventDialog(chart, event, { onSave, withChartIds = [], draft = 
     const moment = lifeLocalMoment(draft.instant, form.elements.timezone.value);
     setMoment("start", moment);
     converted = startFields();
-    showToast(`Time shown on the ${form.elements.timezone.value} clock: ${moment.time}, the same moment`);
+    showToast(t("Time shown on the {zone} clock: {time}, the same moment", { zone: form.elements.timezone.value, time: moment.time }));
   };
   if (anchor) set("title", lifeEventTitle(event));
 
@@ -582,9 +583,9 @@ function openLifeEventDialog(chart, event, { onSave, withChartIds = [], draft = 
     const charts = workspace.chartIds.map(chartById).filter(Boolean);
     peopleBox.innerHTML = `${charts.map((other) => {
       const person = people.get(other.id);
-      return `<div class="life-person"><label><input type="checkbox" data-life-person="${escapeHtml(other.id)}" ${person ? "checked" : ""} ${other.id === self ? "disabled" : ""}> ${escapeHtml(other.name)}</label><input placeholder="role" autocomplete="off" aria-label="Role of ${escapeHtml(other.name)}" data-life-role="${escapeHtml(other.id)}" value="${escapeHtml(person?.role || "")}" ${person ? "" : "disabled"}></div>`;
+      return `<div class="life-person"><label><input type="checkbox" data-life-person="${escapeHtml(other.id)}" ${person ? "checked" : ""} ${other.id === self ? "disabled" : ""}> ${escapeHtml(other.name)}</label><input placeholder="${t("role")}" autocomplete="off" aria-label="${t("Role of {name}", { name: escapeHtml(other.name) })}" data-life-role="${escapeHtml(other.id)}" value="${escapeHtml(person?.role || "")}" ${person ? "" : "disabled"}></div>`;
     }).join("")}${[...people.values()].filter((person) => !person.chartId).map((person) =>
-      `<div class="life-person unlinked"><span><i>${escapeHtml(person.name)}</i> <small>no chart here</small></span><input placeholder="role" autocomplete="off" aria-label="Role of ${escapeHtml(person.name)}" data-life-role="name:${escapeHtml(person.name)}" value="${escapeHtml(person.role || "")}"><button type="button" class="acg-location-remove" data-life-remove-person="name:${escapeHtml(person.name)}" aria-label="Remove ${escapeHtml(person.name)}">×</button></div>`).join("")}`;
+      `<div class="life-person unlinked"><span><i>${escapeHtml(person.name)}</i> <small>${t("no chart here")}</small></span><input placeholder="${t("role")}" autocomplete="off" aria-label="${t("Role of {name}", { name: escapeHtml(person.name) })}" data-life-role="name:${escapeHtml(person.name)}" value="${escapeHtml(person.role || "")}"><button type="button" class="acg-location-remove" data-life-remove-person="name:${escapeHtml(person.name)}" aria-label="${t("Remove {name}", { name: escapeHtml(person.name) })}">×</button></div>`).join("")}`;
   };
   drawPeople();
   peopleBox.onchange = (change) => {
@@ -621,9 +622,11 @@ function openLifeEventDialog(chart, event, { onSave, withChartIds = [], draft = 
   // becomes a place of interest when it has no date.
   const syncWhen = () => {
     const when = form.elements.when.value;
-    heading.textContent = `${event ? "Edit" : "Add"} ${when === "none" ? "a place" : when === "period" ? "a period" : "an event"}`;
+    heading.textContent = event
+      ? (when === "none" ? t("Edit a place") : when === "period" ? t("Edit a period") : t("Edit an event"))
+      : (when === "none" ? t("Add a place") : when === "period" ? t("Add a period") : t("Add an event"));
     if (anchor) {
-      heading.textContent = stored ? "Edit annotation" : "Annotate";
+      heading.textContent = stored ? t("Edit annotation") : t("Annotate");
       dialog.querySelector("[data-life-dates]").hidden = !event.start;
       dialog.querySelector('[data-life-moment="end"]').hidden = true;
       return;
@@ -632,7 +635,7 @@ function openLifeEventDialog(chart, event, { onSave, withChartIds = [], draft = 
     if (when !== "none" && form.elements.kind.value === "place" && !event) set("kind", "");
     dialog.querySelector("[data-life-dates]").hidden = when === "none";
     dialog.querySelector('[data-life-moment="end"]').hidden = when !== "period";
-    dialog.querySelector('[data-life-moment="start"] legend').textContent = when === "period" ? "From" : "Date";
+    dialog.querySelector('[data-life-moment="start"] legend').textContent = when === "period" ? t("From") : t("Date");
   };
   form.elements.when.onchange = syncWhen;
   syncWhen();
@@ -640,7 +643,7 @@ function openLifeEventDialog(chart, event, { onSave, withChartIds = [], draft = 
   // Deleting lives here, behind Edit and a confirmation, not one click away in a list.
   const remove = dialog.querySelector("[data-life-dialog-delete]");
   remove.hidden = !stored;
-  remove.textContent = anchor ? "Remove annotation…" : "Delete record…";
+  remove.textContent = anchor ? t("Remove annotation…") : t("Delete record…");
   remove.onclick = () => {
     if (!stored || !confirmDeleteRecord(chart, event)) return;
     dialog.close();
@@ -652,7 +655,7 @@ function openLifeEventDialog(chart, event, { onSave, withChartIds = [], draft = 
     const lat = form.elements.latitude.value.trim(), lon = form.elements.longitude.value.trim();
     let place = null;
     if (anchor.cycle && (lat !== "" || lon !== "")) {
-      if (!(Math.abs(Number(lat)) <= 90 && Math.abs(Number(lon)) <= 180 && lat !== "" && lon !== "")) return showToast("Latitude must be between −90 and 90, and longitude between −180 and 180");
+      if (!(Math.abs(Number(lat)) <= 90 && Math.abs(Number(lon)) <= 180 && lat !== "" && lon !== "")) return showToast(t("Latitude must be between −90 and 90, and longitude between −180 and 180"));
       place = { name: form.elements.location.value.trim(), lat, lon };
     }
     const tags = readTags(), notes = form.elements.notes.value;
@@ -665,17 +668,17 @@ function openLifeEventDialog(chart, event, { onSave, withChartIds = [], draft = 
       saveState();
       dialog.close();
       onSave?.(null);
-      if (index >= 0) showToast("Annotation cleared");
+      if (index >= 0) showToast(t("Annotation cleared"));
       return;
     }
     const cleaned = sanitizeEvent({ id: stored?.id, anchor, place, tags, notes, people: list, createdAt: stored?.createdAt, updatedAt: Date.now() }, new Set(workspace.chartIds));
-    if (!cleaned) return showToast("This moment's chart isn't in this workspace");
+    if (!cleaned) return showToast(t("This moment's chart isn't in this workspace"));
     if (index >= 0) workspace.events[index] = cleaned;
     else workspace.events.push(cleaned);
     saveState();
     dialog.close();
     onSave?.(cleaned);
-    showToast(stored ? "Annotation updated" : "Annotation added");
+    showToast(stored ? t("Annotation updated") : t("Annotation added"));
   };
   form.onsubmit = (submit) => {
     submit.preventDefault();
@@ -691,12 +694,12 @@ function openLifeEventDialog(chart, event, { onSave, withChartIds = [], draft = 
     };
     const start = when === "none" ? null : readMoment("start");
     const end = when === "period" ? readMoment("end") : null;
-    if (when !== "none" && !start) return showToast("Enter at least the year");
-    if (when === "period" && !end) return showToast("Enter when the period ended (at least the year)");
+    if (when !== "none" && !start) return showToast(t("Enter at least the year"));
+    if (when === "period" && !end) return showToast(t("Enter when the period ended (at least the year)"));
     const lat = form.elements.latitude.value.trim(), lon = form.elements.longitude.value.trim();
-    if ((lat !== "" || lon !== "") && !(Math.abs(Number(lat)) <= 90 && Math.abs(Number(lon)) <= 180 && lat !== "" && lon !== "")) return showToast("Latitude must be between −90 and 90, and longitude between −180 and 180");
+    if ((lat !== "" || lon !== "") && !(Math.abs(Number(lat)) <= 90 && Math.abs(Number(lon)) <= 180 && lat !== "" && lon !== "")) return showToast(t("Latitude must be between −90 and 90, and longitude between −180 and 180"));
     const place = lat !== "" && lon !== "" ? { name: form.elements.location.value.trim(), lat, lon } : null;
-    if (when === "none" && !place) return showToast("Choose a place, or enter its latitude and longitude");
+    if (when === "none" && !place) return showToast(t("Choose a place, or enter its latitude and longitude"));
     const tags = readTags();
     const raw = {
       id: event?.id,
@@ -711,9 +714,9 @@ function openLifeEventDialog(chart, event, { onSave, withChartIds = [], draft = 
       updatedAt: Date.now(),
     };
     const cleaned = sanitizeEvent(raw, new Set(workspace.chartIds));
-    if (!cleaned) return showToast("Check the date: that day doesn't exist, or the year is outside 1000–2999");
-    if (start && !cleaned.start) return showToast("Check the date");
-    if (end && !cleaned.end) return showToast("The period has to end after it starts");
+    if (!cleaned) return showToast(t("Check the date: that day doesn't exist, or the year is outside 1000–2999"));
+    if (start && !cleaned.start) return showToast(t("Check the date"));
+    if (end && !cleaned.end) return showToast(t("The period has to end after it starts"));
     workspace.events = workspace.events || [];
     const index = event ? workspace.events.indexOf(event) : -1;
     if (index >= 0) workspace.events[index] = cleaned;
@@ -721,7 +724,7 @@ function openLifeEventDialog(chart, event, { onSave, withChartIds = [], draft = 
     saveState();
     dialog.close();
     onSave?.(cleaned);
-    showToast(event ? "Record updated" : "Record added");
+    showToast(event ? t("Record updated") : t("Record added"));
   };
   dialog.showModal();
   (anchor ? form.elements.notes : form.elements.title).focus();
@@ -765,9 +768,9 @@ function lifeMomentRange(event, part, chart) {
   return { from, to, mid: new Date((from.getTime() + to.getTime()) / 2), precision: month ? "month" : "year" };
 }
 const LIFE_PRECISION_NOTES = {
-  day: "Date only, so the moment is set at noon: the Moon may be up to about 7° off, and the moment's angles (Ascendant, Midheaven…) are hidden.",
-  month: "Month only, so the moment is set mid-month: fast planets (the Moon, and the Sun by up to about 15°) are approximate, and angles are hidden.",
-  year: "Year only, so the moment is set mid-year: only the slow planets are meaningful, and angles are hidden.",
+  day: t("Date only, so the moment is set at noon: the Moon may be up to about 7° off, and the moment's angles (Ascendant, Midheaven…) are hidden."),
+  month: t("Month only, so the moment is set mid-month: fast planets (the Moon, and the Sun by up to about 15°) are approximate, and angles are hidden."),
+  year: t("Year only, so the moment is set mid-year: only the slow planets are meaningful, and angles are hidden."),
 };
 // Bodies whose position depends on the exact time of day: left out of an imprecise moment.
 const LIFE_TIME_OF_DAY_BODIES = new Set(["Ascendant", "Midheaven", "Vertex", "Fortuna"]);

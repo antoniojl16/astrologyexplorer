@@ -1,32 +1,32 @@
 // Orbital Study — Copyright (c) 2026 Antonio Juarez (@antoniojl16). All rights reserved. See LICENSE.
 const STORAGE_KEY = 'astrology-explorer-v1';
 const PLANETS = [
-  ['Sun', '☉', 'Leo'],
-  ['Moon', '☽', 'Pisces'],
-  ['Mercury', '☿', 'Virgo'],
-  ['Venus', '♀', 'Cancer'],
-  ['Mars', '♂', 'Gemini'],
-  ['Jupiter', '♃', 'Libra'],
-  ['Saturn', '♄', 'Aries'],
-  ['Uranus', '♅', 'Aquarius'],
-  ['Neptune', '♆', 'Capricorn'],
-  ['Pluto', '♇', 'Scorpio'],
-  ['North Node', '☊', 'Taurus'],
-  ['Chiron', '⚷', 'Aries'],
+  [N_('Sun'), '☉', N_('Leo')],
+  [N_('Moon'), '☽', N_('Pisces')],
+  [N_('Mercury'), '☿', N_('Virgo')],
+  [N_('Venus'), '♀', N_('Cancer')],
+  [N_('Mars'), '♂', N_('Gemini')],
+  [N_('Jupiter'), '♃', N_('Libra')],
+  [N_('Saturn'), '♄', N_('Aries')],
+  [N_('Uranus'), '♅', N_('Aquarius')],
+  [N_('Neptune'), '♆', N_('Capricorn')],
+  [N_('Pluto'), '♇', N_('Scorpio')],
+  [N_('North Node'), '☊', N_('Taurus')],
+  [N_('Chiron'), '⚷', N_('Aries')],
 ];
 const SIGNS = [
-  'Aries',
-  'Taurus',
-  'Gemini',
-  'Cancer',
-  'Leo',
-  'Virgo',
-  'Libra',
-  'Scorpio',
-  'Sagittarius',
-  'Capricorn',
-  'Aquarius',
-  'Pisces',
+  N_('Aries'),
+  N_('Taurus'),
+  N_('Gemini'),
+  N_('Cancer'),
+  N_('Leo'),
+  N_('Virgo'),
+  N_('Libra'),
+  N_('Scorpio'),
+  N_('Sagittarius'),
+  N_('Capricorn'),
+  N_('Aquarius'),
+  N_('Pisces'),
 ];
 const SIGN_GLYPHS = ['♈', '♉', '♊', '♋', '♌', '♍', '♎', '♏', '♐', '♑', '♒', '♓'];
 const SIGN_ELEMENTS = [
@@ -236,8 +236,8 @@ function createTimelineReferenceChart() {
   const now = new Date();
   const chart = {
     id: 'timeline-now',
-    name: 'Current moment',
-    location: 'Wherever you are',
+    name: t('Current moment'),
+    location: t('Wherever you are'),
     birthDate: now.toISOString().slice(0, 10),
     birthTime: String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0'),
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
@@ -266,7 +266,7 @@ function currentExplorerChart() {
   return chartById(selectedChartId) || activeCharts()[0];
 }
 function timelineOriginLabel() {
-  return explorerMode === 'timeline' ? 'Current moment' : 'Birth moment';
+  return explorerMode === 'timeline' ? t('Current moment') : t('Birth moment');
 }
 // Shared "offset from origin" label text for every timeline slider in the app
 // (Astrology, Human Design bodygraph/mandala, Gene Keys) — at 0 it's the origin
@@ -278,7 +278,7 @@ function timelineOffsetLabel(offsetMinutes) {
   if (offsetMinutes === 0) return timelineOriginLabel();
   const sign = offsetMinutes > 0 ? '+' : '-';
   const magnitude = typeof formatTimelineSpan === 'function' ? formatTimelineSpan(offsetMinutes) : `${Math.abs(offsetMinutes)} min`;
-  return `${sign}${magnitude} from ${explorerMode === 'timeline' ? 'now' : 'birth'}`;
+  return explorerMode === 'timeline' ? t('{offset} from now', { offset: sign + magnitude }) : t('{offset} from birth', { offset: sign + magnitude });
 }
 function oppositePosition(position, name, glyph) {
   const angle = (SIGNS.indexOf(position.sign) * 30 + position.degree + 180) % 360;
@@ -321,10 +321,10 @@ function makePositions(chart) {
   const sun = base.find((position) => position.name === 'Sun');
   const northNode = base.find((position) => position.name === 'North Node');
   return base.concat([
-    oppositePosition(sun, 'Earth', '⊕'),
-    oppositePosition(northNode, 'South Node', '☋'),
+    oppositePosition(sun, N_('Earth'), '⊕'),
+    oppositePosition(northNode, N_('South Node'), '☋'),
     {
-      name: 'Ascendant',
+      name: N_('Ascendant'),
       glyph: 'Asc',
       sign: SIGNS[Math.floor(random() * 12)],
       degree: Number((random() * 30).toFixed(1)),
@@ -334,7 +334,7 @@ function makePositions(chart) {
       design: false,
     },
     {
-      name: 'Midheaven',
+      name: N_('Midheaven'),
       glyph: 'MC',
       sign: SIGNS[Math.floor(random() * 12)],
       degree: Number((random() * 30).toFixed(1)),
@@ -344,7 +344,7 @@ function makePositions(chart) {
       design: false,
     },
     {
-      name: 'Lilith',
+      name: N_('Lilith'),
       glyph: '⚸',
       sign: 'Scorpio',
       degree: 17.4,
@@ -354,7 +354,7 @@ function makePositions(chart) {
       design: true,
     },
     {
-      name: 'Fortuna',
+      name: N_('Fortuna'),
       glyph: '⊗',
       sign: 'Libra',
       degree: 4.8,
@@ -364,7 +364,7 @@ function makePositions(chart) {
       design: false,
     },
     {
-      name: 'Vertex',
+      name: N_('Vertex'),
       glyph: 'Vx',
       sign: 'Gemini',
       degree: 21.2,
@@ -415,8 +415,8 @@ function makeChart(index, overrides = {}) {
 function initialState() {
   return {
     theme: 'light',
-    activeWorkspace: 'Personal',
-    workspaces: [{ name: 'Personal', chartIds: [] }],
+    activeWorkspace: t('Personal'),
+    workspaces: [{ name: t('Personal'), chartIds: [] }],
     charts: [],
     samplesRemoved: true,
   };
@@ -448,7 +448,7 @@ function addSampleCharts() {
   selectedChartId = samples[0].id;
   saveState();
   renderRows();
-  showToast('3 sample charts added');
+  showToast(t('3 sample charts added'));
 }
 // ── Untrusted text ─────────────────────────────────────────────────────────
 // Chart and workspace text is typed by the user or imported from a file, so it's
@@ -477,7 +477,7 @@ function sanitizeChart(raw, { fromFile = false } = {}) {
   const chart = {
     ...raw,
     id: SAFE_CHART_ID.test(String(raw.id)) ? String(raw.id) : `chart-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-    name: text(raw.name) || 'Untitled chart',
+    name: text(raw.name) || t('Untitled chart'),
     birthDate,
     birthTime: /^([01]\d|2[0-3]):[0-5]\d$/.test(birthTime) ? birthTime : '',
     location: text(raw.location),
@@ -636,10 +636,10 @@ function sanitizeState(saved) {
   const workspaces = (Array.isArray(saved.workspaces) ? saved.workspaces : [])
     .map((workspace) => ({
       ...workspace,
-      name: String(workspace?.name ?? '').replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, 60) || 'Workspace',
+      name: String(workspace?.name ?? '').replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, 60) || t('Workspace'),
       chartIds: (Array.isArray(workspace?.chartIds) ? workspace.chartIds : []).map((id) => renamed.get(id) || id).filter((id) => ids.has(id)),
     }));
-  if (!workspaces.length) workspaces.push({ name: 'Personal', chartIds: [...ids] });
+  if (!workspaces.length) workspaces.push({ name: t('Personal'), chartIds: [...ids] });
   // Each workspace's records link only to its own charts; old saved map locations
   // become place records in the (first) workspace holding their chart.
   const chartNames = new Map(charts.map((chart) => [chart.id, chart.name]));
@@ -674,8 +674,8 @@ function loadState() {
 }
 function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  document.getElementById('saveState').textContent = 'Saved just now';
-  setTimeout(() => (document.getElementById('saveState').textContent = 'All changes saved'), 1400);
+  document.getElementById('saveState').textContent = t('Saved just now');
+  setTimeout(() => (document.getElementById('saveState').textContent = t('All changes saved')), 1400);
 }
 function activeCharts() {
   const workspace = state.workspaces.find((item) => item.name === state.activeWorkspace);
@@ -686,7 +686,7 @@ function chartById(id) {
   return state.charts.find((chart) => chart.id === id);
 }
 function formatDate(date) {
-  return new Intl.DateTimeFormat('en-US', {
+  return new Intl.DateTimeFormat(LOCALE, {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
@@ -714,13 +714,13 @@ function renderRows() {
   document.getElementById('chartCount').textContent = activeCharts().length;
   document.getElementById('activeChartStat').textContent = activeCharts().length;
   document.getElementById('tableSummary').textContent =
-    `Showing ${charts.length} of ${activeCharts().length} charts`;
+    tn(activeCharts().length, 'Showing {shown} of {n} chart', 'Showing {shown} of {n} charts', { shown: charts.length });
   const empty = document.getElementById('emptyState');
   empty.hidden = charts.length > 0;
   // An empty library offers a way to start; an empty search just says so.
   empty.innerHTML = activeCharts().length
-    ? 'No charts match this search.'
-    : '<p class="empty-title">Your library is empty</p><p>Add a chart of your own, or start with three sample charts to explore.</p><div class="empty-actions"><button type="button" class="secondary-button" data-empty-add>Add chart</button><button type="button" class="primary-button" data-empty-samples>Add 3 sample charts</button></div>';
+    ? t('No charts match this search.')
+    : `<p class="empty-title">${t('Your library is empty')}</p><p>${t('Add a chart of your own, or start with three sample charts to explore.')}</p><div class="empty-actions"><button type="button" class="secondary-button" data-empty-add>${t('Add chart')}</button><button type="button" class="primary-button" data-empty-samples>${t('Add 3 sample charts')}</button></div>`;
   empty.querySelector('[data-empty-add]')?.addEventListener('click', openChartDialog);
   empty.querySelector('[data-empty-samples]')?.addEventListener('click', addSampleCharts);
   // Columns and rows for the selected system come from library.js once it has loaded.
@@ -887,7 +887,7 @@ function renderExplorerHeader() {
   if (typeof syncExplorerChartPicker === 'function') syncExplorerChartPicker();
   else document.getElementById('explorerName').textContent = chart.name;
   document.getElementById('explorerMeta').textContent =
-    `${formatDate(chart.birthDate)} · ${chart.birthTime || 'Time unknown'}${chart.uncertainty ? ' ± ' + chart.uncertainty + ' min' : ''} · ${chart.location}`;
+    `${formatDate(chart.birthDate)} · ${chart.birthTime || t('Time unknown')}${chart.uncertainty ? ' ± ' + t('{minutes} min', { minutes: chart.uncertainty }) : ''} · ${chart.location}`;
 }
 function renderExplorer() {
   const chart = currentExplorerChart();
@@ -902,7 +902,7 @@ function renderExplorer() {
   document.getElementById('aspectList').innerHTML = aspects
     .map(
       (item) =>
-        `<div class="aspect-row"><span>${item[0]} ${item[1].toLowerCase()} ${item[2]}</span><span>${item[3]}</span></div>`,
+        `<div class="aspect-row"><span>${tName(item[0])} ${tName(item[1]).toLowerCase()} ${tName(item[2])}</span><span>${item[3]}</span></div>`,
     )
     .join('');
   if (typeof refreshExplorerTimeline === 'function') refreshExplorerTimeline(chart);
@@ -929,14 +929,14 @@ function setView(view) {
     .forEach((node) => node.classList.toggle('active', node.dataset.view === view));
   document.getElementById('breadcrumbView').textContent =
     view === 'library'
-      ? 'CHART LIBRARY'
+      ? t('CHART LIBRARY')
       : view === 'explorer'
-        ? 'CHART EXPLORER'
+        ? t('CHART EXPLORER')
         : view === 'cycle'
-          ? 'CYCLE EXPLORER'
+          ? t('CYCLE EXPLORER')
           : view === 'pair'
-            ? 'PAIR EXPLORER'
-            : 'TIMELINE EXPLORER';
+            ? t('PAIR EXPLORER')
+            : t('TIMELINE EXPLORER');
   if (view === 'library') renderRows();
   if (view === 'cycle' && typeof renderCycleExplorer === 'function') renderCycleExplorer();
   if (view === 'pair' && typeof renderPairExplorer === 'function') renderPairExplorer();
@@ -997,14 +997,14 @@ function addChart(event) {
   saveState();
   event.target.closest('dialog').close();
   renderRows();
-  showToast(`${chart.name} added to ${state.activeWorkspace}`);
+  showToast(t('{chart} added to {workspace}', { chart: chart.name, workspace: state.activeWorkspace }));
 }
 function renderWorkspaces() {
   const list = document.getElementById('workspaceList');
   list.innerHTML = state.workspaces
     .map(
       (workspace) =>
-        `<button type="button" class="workspace-choice ${workspace.name === state.activeWorkspace ? 'active' : ''}" data-workspace="${escapeHtml(workspace.name)}"><span class="workspace-dot"></span>${escapeHtml(workspace.name)}<small>${workspace.chartIds.length} charts</small></button>`,
+        `<button type="button" class="workspace-choice ${workspace.name === state.activeWorkspace ? 'active' : ''}" data-workspace="${escapeHtml(workspace.name)}"><span class="workspace-dot"></span>${escapeHtml(workspace.name)}<small>${tn(workspace.chartIds.length, '{n} chart', '{n} charts')}</small></button>`,
     )
     .join('');
   list.querySelectorAll('button').forEach((button) =>
@@ -1014,7 +1014,7 @@ function renderWorkspaces() {
       document.getElementById('workspaceName').textContent = state.activeWorkspace;
       renderWorkspaces();
       renderRows();
-      showToast(`Workspace switched to ${state.activeWorkspace}`);
+      showToast(t('Workspace switched to {workspace}', { workspace: state.activeWorkspace }));
     }),
   );
 }
@@ -1037,7 +1037,7 @@ function exportWorkspace() {
   URL.revokeObjectURL(link.href);
   // People without a chart in this workspace travel as names only (unlinked).
   const unlinked = events.filter((event) => event.people.some((person) => !person.chartId)).length;
-  showToast(`Workspace exported as JSON${unlinked ? ` · ${unlinked} event${unlinked === 1 ? ' includes' : 's include'} people without a chart here (kept as names only)` : ''}`);
+  showToast(t('Workspace exported as JSON') + (unlinked ? ' · ' + tn(unlinked, '{n} event includes people without a chart here (kept as names only)', '{n} events include people without a chart here (kept as names only)') : ''));
 }
 function importWorkspace(event) {
   const file = event.target.files[0];
@@ -1055,7 +1055,7 @@ function importWorkspace(event) {
       // Duplicates of charts already here are reviewed first (workspace-files.js).
       importWorkspaceFile(JSON.parse(reader.result));
     } catch (error) {
-      showToast('Could not read that workspace file');
+      showToast(t('Could not read that workspace file'));
     }
   };
   reader.readAsText(file);
@@ -1078,7 +1078,7 @@ function init() {
     document.getElementById('workspaceDialog').showModal();
   });
   document.getElementById('newWorkspaceButton').addEventListener('click', () => {
-    const name = prompt('Name this workspace');
+    const name = prompt(t('Name this workspace'));
     if (name && !state.workspaces.some((item) => item.name === name)) {
       state.workspaces.push({ name, chartIds: [] });
       state.activeWorkspace = name;
@@ -1118,7 +1118,7 @@ function init() {
     resetTimelineToNow();
     if (typeof refreshActiveSystemPanel === 'function') refreshActiveSystemPanel();
     else renderExplorer();
-    showToast('Timeline reset to the current moment');
+    showToast(t('Timeline reset to the current moment'));
   });
   document.addEventListener('keydown', (event) => {
     if (event.key === '?' && !event.metaKey && !event.ctrlKey) {

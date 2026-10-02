@@ -10,9 +10,10 @@
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <!-- The asset version (tools/bump-version.py): every local script and stylesheet below
        carries it, so a new release is never mixed with cached old files. -->
-  <script>const ORBITAL_VERSION = "20261001-1637";</script>
-  <link rel="stylesheet" href="fonts.css?v=20261001-1637">
-  <link rel="stylesheet" href="styles.css?v=20261001-1637">
+  <script>const ORBITAL_VERSION = "20261002-2233";</script>
+  <script src="i18n.js?v=20261002-2233"></script>
+  <link rel="stylesheet" href="fonts.css?v=20261002-2233">
+  <link rel="stylesheet" href="styles.css?v=20261002-2233">
 </head>
 <body>
   <div id="ephemerisDebugBar" class="ephemeris-debug-bar"></div>
@@ -20,11 +21,11 @@
     <aside class="sidebar" aria-label="Main navigation">
       <div class="brand-lockup">
         <div class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></div>
-        <div><h1>Orbital<br>Study</h1></div>
+        <div><h1 translate="no">Orbital<br>Study</h1></div>
       </div>
       <div class="workspace-switcher">
         <span class="nav-label">WORKSPACE</span>
-        <button class="workspace-button" id="workspaceButton"><span class="workspace-dot"></span><span id="workspaceName">Personal</span><span class="chevron">⌄</span></button>
+        <button class="workspace-button" id="workspaceButton"><span class="workspace-dot"></span><span id="workspaceName" translate="no">Personal</span><span class="chevron">⌄</span></button>
       </div>
       <nav class="primary-nav">
         <button class="nav-item active" data-view="library"><span class="nav-icon">◈</span>Chart library<span class="nav-count" id="chartCount">10</span></button>
@@ -48,7 +49,7 @@
     <main class="main-content">
       <header class="topbar">
         <div class="breadcrumb"><span class="muted-text">WORKSPACE</span><span>/</span><strong id="breadcrumbView">CHART LIBRARY</strong></div>
-        <div class="topbar-actions"><span class="save-state" id="saveState">All changes saved</span><button class="icon-button" id="themeButton" aria-label="Toggle light and dark mode" title="Toggle theme">◐</button></div>
+        <div class="topbar-actions"><span class="save-state" id="saveState">All changes saved</span><button class="icon-button" id="themeButton" aria-label="Toggle light and dark mode" title="Toggle theme">◐</button><label class="language-picker" title="Language"><span id="languageCode" translate="no">EN</span><span class="chevron" aria-hidden="true">⌄</span><select id="languageSelect" aria-label="Language"></select></label></div>
       </header>
 
       <section class="view library-view" id="libraryView">
@@ -56,7 +57,7 @@
           <div><p class="eyebrow accent-label">PERSONAL / ASTROLOGY</p><h2>Chart library</h2><p class="intro-copy">A living index of the people and moments you are studying.</p></div>
           <button class="primary-button" id="addChartButton"><span>＋</span> Add chart <kbd>N</kbd></button>
         </div>
-        <div class="stats-row"><div class="stat-block"><span>ACTIVE CHARTS</span><strong id="activeChartStat">10</strong></div><div class="stat-block"><span>LAST UPDATED</span><strong id="updatedStat">Today</strong></div><div class="stat-block"><span>ZOdiac</span><strong>Tropical <i>·</i> Placidus</strong></div><div class="library-tools"><label class="search-field"><span>⌕</span><input id="searchInput" placeholder="Search names, tags, places…" aria-label="Search charts"></label></div></div>
+        <div class="stats-row"><div class="stat-block"><span>ACTIVE CHARTS</span><strong id="activeChartStat">10</strong></div><div class="stat-block"><span>LAST UPDATED</span><strong id="updatedStat">Today</strong></div><div class="stat-block"><span>ZODIAC</span><strong>Tropical <i>·</i> Placidus</strong></div><div class="library-tools"><label class="search-field"><span>⌕</span><input id="searchInput" placeholder="Search names, tags, places…" aria-label="Search charts"></label></div></div>
         <div class="explorer-system-tabs library-system-tabs" role="tablist" aria-label="Library system"><button class="active" data-library-system="Astrology" role="tab">Astrology</button><button data-library-system="Human Design" role="tab">Human Design</button></div><div class="table-wrap"><table><thead><tr id="libraryHead"></tr></thead><tbody id="chartRows"></tbody></table><div class="empty-state" id="emptyState" hidden>No charts match this search.</div></div>
         <div class="table-footer"><span id="tableSummary">Showing 10 charts</span><span class="table-hint"><kbd>↵</kbd> open chart</span></div>
       </section>
@@ -78,45 +79,46 @@
 
   <dialog id="chartDialog"><form method="dialog" id="chartForm"><div class="dialog-head"><div><p class="eyebrow accent-label">NEW RECORD</p><h2>Add individual chart</h2></div><button class="close-button" value="cancel" aria-label="Close">×</button></div><p class="dialog-copy">Birth time may be uncertain. The chart will keep the margin alongside the record.</p><div class="form-grid"><label>Chart name<input name="name" required placeholder="e.g. Mira's chart"></label><label>Birth location<input name="location" required placeholder="e.g. Lisbon, Portugal"></label><label>Birth date<input name="date" required type="date"></label><label>Birth time<input name="time" type="time"></label><label>Timezone<select name="timezone" required></select></label><label>Latitude<input name="latitude" required type="number" step="0.0001" placeholder="38.7223"></label><label>Longitude<input name="longitude" required type="number" step="0.0001" placeholder="-9.1393"></label><label class="wide-field">Time uncertainty (minutes)<input name="uncertainty" type="number" min="0" value="0"><small>Leave at 0 for a known birth time.</small></label><label class="wide-field">Tags<input name="tags" placeholder="personal, creative, study"></label></div><div class="dialog-actions"><button class="secondary-button" value="cancel">Cancel</button><button class="primary-button" value="default">Create chart <span>→</span></button></div></form></dialog>
   <dialog id="workspaceDialog"><form method="dialog" id="workspaceForm"><div class="dialog-head"><div><p class="eyebrow accent-label">WORKSPACES</p><h2>Choose a workspace</h2></div><button class="close-button" value="cancel">×</button></div><div id="workspaceList" class="workspace-list"></div><div class="dialog-actions"><button class="secondary-button" id="newWorkspaceButton" type="button">＋ New workspace</button><button class="primary-button" value="cancel">Done</button></div></form></dialog>
-  <dialog id="aboutDialog" class="about-dialog"><div class="dialog-head"><div><p class="eyebrow accent-label">ABOUT</p><h2>Orbital Study</h2></div><button class="close-button" id="closeAbout" aria-label="Close">×</button></div><div class="about-body">
+  <dialog id="aboutDialog" class="about-dialog"><div class="dialog-head"><div><p class="eyebrow accent-label">ABOUT</p><h2 translate="no">Orbital Study</h2></div><button class="close-button" id="closeAbout" aria-label="Close">×</button></div><div class="about-body">
 <p class="about-lead">A workspace for studying birth charts through four lenses — Astrology, Human Design, Gene Keys and Astrocartography — on their own, over time, between two people, across life cycles and against the events of a life.</p>
-<div class="about-section"><span class="eyebrow">CREATED BY</span><p><strong>Antonio Juarez</strong> <span class="muted-text">(@antoniojl16)</span></p><p class="about-links"><a href="https://github.com/antoniojl16" target="_blank" rel="noopener">GitHub · antoniojl16</a><a href="https://www.facebook.com/antoniojl16/" target="_blank" rel="noopener">Facebook · antoniojl16</a></p><p>If Orbital Study is useful to you, you can support its development at <a href="https://buymeacoffee.com/antoniojl" target="_blank" rel="noopener">Buy me a coffee · antoniojl</a>.</p><p class="about-fine">© 2026 Antonio Juarez. All rights reserved.</p></div>
-<div class="about-section"><span class="eyebrow">LIFE EVENTS</span><p>Record the moments, periods and places of a life — alone or shared with other charts in the workspace — and annotate Birth and cycle moments with places, tags and notes. Study any of them in the Cycle Explorer (with a summary of what was active in each system), or the sky right now as transits to a chart, see two lives side by side in the Pair Explorer, and browse them by tag to find the transits that recur across moments with the same theme.</p></div><div class="about-section"><span class="eyebrow">YOUR DATA</span><p>Charts and life events are stored only in this browser, on this device; nothing is sent to a server, and shared links never include life events. Use <em>Export workspace</em> to keep a backup or move your charts and events elsewhere, or select charts in the library to export only those. Importing a file asks what to do with charts already here: skip, replace or copy them. <em>Import workspace</em> also reads charts from a CSV (Name, Date, Time, Timezone, City, Country), as other Human Design apps export them.</p></div>
+<div class="about-section"><span class="eyebrow">CREATED BY</span><p translate="no"><strong>Antonio Juarez</strong> <span class="muted-text">(@antoniojl16)</span></p><p class="about-links" translate="no"><a href="https://github.com/antoniojl16" target="_blank" rel="noopener">GitHub · antoniojl16</a><a href="https://www.facebook.com/antoniojl16/" target="_blank" rel="noopener">Facebook · antoniojl16</a></p><p data-i18n-html>If Orbital Study is useful to you, you can support its development at <a href="https://buymeacoffee.com/antoniojl" target="_blank" rel="noopener">Buy me a coffee · antoniojl</a>.</p><p class="about-fine" data-i18n-html>© 2026 Antonio Juarez. All rights reserved.</p></div>
+<div class="about-section"><span class="eyebrow">LIFE EVENTS</span><p>Record the moments, periods and places of a life — alone or shared with other charts in the workspace — and annotate Birth and cycle moments with places, tags and notes. Study any of them in the Cycle Explorer (with a summary of what was active in each system), or the sky right now as transits to a chart, see two lives side by side in the Pair Explorer, and browse them by tag to find the transits that recur across moments with the same theme.</p></div><div class="about-section"><span class="eyebrow">YOUR DATA</span><p data-i18n-html>Charts and life events are stored only in this browser, on this device; nothing is sent to a server, and shared links never include life events. Use <em>Export workspace</em> to keep a backup or move your charts and events elsewhere, or select charts in the library to export only those. Importing a file asks what to do with charts already here: skip, replace or copy them. <em>Import workspace</em> also reads charts from a CSV (Name, Date, Time, Timezone, City, Country), as other Human Design apps export them.</p></div>
 <div class="about-section"><span class="eyebrow">ACCURACY</span><p>Positions come from Astronomy Engine. Checked against the Swiss Ephemeris, the Sun, Moon and planets agree to within about 20 seconds of arc (0.005°), the lunar nodes and mean Lilith to within half a minute, and cycle dates to within hours. Chiron is simulated from NASA JPL orbit data and agrees with JPL to within a few seconds of arc from 1800 to 2200.</p><p>Birth times are converted with the IANA time zone database, daylight saving included; for births before 1970 it adds the historical time zones browsers leave out, and before standard time was adopted it uses the birthplace’s own local mean time.</p></div>
-<div class="about-section"><span class="eyebrow">BUILT WITH</span><ul class="about-credits"><li><a href="https://github.com/cosinekitty/astronomy" target="_blank" rel="noopener">Astronomy Engine</a> — © Don Cross, MIT License</li><li>Map data and relief imagery — <a href="https://www.naturalearthdata.com" target="_blank" rel="noopener">Natural Earth</a> (public domain)</li><li>Place names, coordinates and time zones — <a href="https://www.geonames.org" target="_blank" rel="noopener">GeoNames</a>, <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a></li><li>Historical time zones — <a href="https://www.iana.org/time-zones" target="_blank" rel="noopener">IANA Time Zone Database</a> (public domain)</li><li>Chiron orbit data — <a href="https://ssd.jpl.nasa.gov/horizons/" target="_blank" rel="noopener">NASA JPL Horizons</a>, Solar System Dynamics Group</li><li>DM Mono, Manrope and Playfair Display fonts — SIL Open Font License, included with the app</li></ul></div>
-<div class="about-section"><span class="eyebrow">DEVELOPER</span><label class="about-toggle"><input type="checkbox" id="developerModeToggle"><span>Developer mode<small>Shows the ephemeris engine banner, and each chart element’s SVG id and x,y position when hovering the diagrams.</small></span></label></div>
+<div class="about-section"><span class="eyebrow">BUILT WITH</span><ul class="about-credits"><li data-i18n-html><a href="https://github.com/cosinekitty/astronomy" target="_blank" rel="noopener">Astronomy Engine</a> — © Don Cross, MIT License</li><li data-i18n-html>Map data and relief imagery — <a href="https://www.naturalearthdata.com" target="_blank" rel="noopener">Natural Earth</a> (public domain)</li><li data-i18n-html>Place names, coordinates and time zones — <a href="https://www.geonames.org" target="_blank" rel="noopener">GeoNames</a>, <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a></li><li data-i18n-html>Historical time zones — <a href="https://www.iana.org/time-zones" target="_blank" rel="noopener">IANA Time Zone Database</a> (public domain)</li><li data-i18n-html>Chiron orbit data — <a href="https://ssd.jpl.nasa.gov/horizons/" target="_blank" rel="noopener">NASA JPL Horizons</a>, Solar System Dynamics Group</li><li data-i18n-html>DM Mono, Manrope and Playfair Display fonts — SIL Open Font License, included with the app</li></ul></div>
+<div class="about-section"><span class="eyebrow">DEVELOPER</span><label class="about-toggle"><input type="checkbox" id="developerModeToggle"><span data-i18n-html>Developer mode<small>Shows the ephemeris engine banner, and each chart element’s SVG id and x,y position when hovering the diagrams.</small></span></label></div>
 <div class="about-section"><span class="eyebrow">NOTICES</span><p>“Human Design” and the Rave Mandala, and “Gene Keys”, are trademarks of their respective owners (Jovian Archive and Gene Keys Publishing). Orbital Study is an independent project, not affiliated with or endorsed by them. Descriptions in the app are original summaries.</p><p>Orbital Study is for study and self-reflection; it isn’t a substitute for professional advice.</p></div>
 </div></dialog>
   <dialog id="shortcutsDialog"><div class="dialog-head"><div><p class="eyebrow accent-label">QUICK REFERENCE</p><h2>Keyboard guide</h2></div><button class="close-button" id="closeShortcuts" aria-label="Close">×</button></div><div class="shortcut-list shortcut-columns"><div class="shortcut-group"><p class="shortcut-section">General</p><div><span class="shortcut-keys"><kbd>?</kbd></span><span>Open this guide</span></div><div><span class="shortcut-keys"><kbd>Esc</kbd></span><span>Close any dialog</span></div></div><div class="shortcut-group"><p class="shortcut-section">Library</p><div><span class="shortcut-keys"><kbd>N</kbd></span><span>Add a new chart</span></div><div><span class="shortcut-keys"><kbd>J</kbd> <kbd>K</kbd></span><span>Next / previous chart</span></div><div><span class="shortcut-keys"><kbd>X</kbd></span><span>Select or deselect that chart</span></div><div><span class="shortcut-keys"><kbd>E</kbd></span><span>Edit that chart</span></div><div><span class="shortcut-keys"><kbd>↵</kbd></span><span>Open selected chart</span></div></div><div class="shortcut-group"><p class="shortcut-section">Explorers <small>Ctrl, or Alt / Option</small></p><div><span class="shortcut-keys"><kbd>Ctrl</kbd> <kbd>L</kbd></span><span>Library</span></div><div><span class="shortcut-keys"><kbd>Ctrl</kbd> <kbd>I</kbd></span><span>Chart explorer</span></div><div><span class="shortcut-keys"><kbd>Ctrl</kbd> <kbd>P</kbd></span><span>Pair explorer</span></div><div><span class="shortcut-keys"><kbd>Ctrl</kbd> <kbd>T</kbd></span><span>Timeline explorer</span></div><div><span class="shortcut-keys"><kbd>Ctrl</kbd> <kbd>C</kbd></span><span>Cycle explorer</span></div></div><div class="shortcut-group"><p class="shortcut-section">Systems <small>Ctrl, or Alt / Option</small></p><div><span class="shortcut-keys"><kbd>Ctrl</kbd> <kbd>A</kbd></span><span>Astrology</span></div><div><span class="shortcut-keys"><kbd>Ctrl</kbd> <kbd>H</kbd></span><span>Human Design</span></div><div><span class="shortcut-keys"><kbd>Ctrl</kbd> <kbd>G</kbd></span><span>Gene Keys</span></div><div><span class="shortcut-keys"><kbd>Ctrl</kbd> <kbd>Y</kbd></span><span>Astrocartography</span></div><div><span class="shortcut-keys"><kbd>Ctrl</kbd> <kbd>E</kbd></span><span>Life Events (Cycle explorer: Life Timeline)</span></div></div><div class="shortcut-group"><p class="shortcut-section">Chart views</p><div><span class="shortcut-keys"><kbd>E</kbd></span><span>Chart explorer: edit the chart</span></div><div><span class="shortcut-keys"><kbd>Z</kbd></span><span>Fix the zodiac on the astrology wheel</span></div><div><span class="shortcut-keys"><kbd>0</kbd></span><span>Center the timeline slider</span></div><div><span class="shortcut-keys"><kbd>Shift</kbd> <kbd>←</kbd> <kbd>→</kbd></span><span>Timeline slider: one step of the tick labels’ unit</span></div><div><span class="shortcut-keys"><kbd>←</kbd> <kbd>→</kbd></span><span>Timeline slider: one step of the next smaller unit</span></div><div><span class="shortcut-keys"><kbd>P</kbd></span><span>Human Design: Personality only (again: all)</span></div><div><span class="shortcut-keys"><kbd>D</kbd></span><span>Human Design: Design only (again: all)</span></div><div><span class="shortcut-keys"><kbd>X</kbd></span><span>Human Design: Incarnation Cross only (again: all)</span></div><div><span class="shortcut-keys"><kbd>M</kbd></span><span>Human Design: Mandala ↔ Bodygraph</span></div><div><span class="shortcut-keys"><kbd>T</kbd></span><span>Astrocartography: Travel ↔ Local Space</span></div><div><span class="shortcut-keys"><kbd>M</kbd></span><span>Astrocartography: Relief ↔ Plain map</span></div><div><span class="shortcut-keys"><kbd>D</kbd></span><span>ACG Local Space: Relocated ↔ Natal directions</span></div></div><div class="shortcut-group"><p class="shortcut-section">Pair &amp; cycle explorers</p><div><span class="shortcut-keys"><kbd>1</kbd></span><span>First chart (Chart A / Natal)</span></div><div><span class="shortcut-keys"><kbd>2</kbd></span><span>Second chart (Chart B / Cycle)</span></div><div><span class="shortcut-keys"><kbd>3</kbd></span><span>Both together (Synastry / Composite; Astrology: again to switch)</span></div><div><span class="shortcut-keys"><kbd>R</kbd></span><span>Pair: swap the two charts</span></div></div></div></dialog>
   <div class="toast" id="toast" role="status"></div>
-  <script src="astronomy-engine.js?v=20261001-1637"></script>
-  <script src="ephemeris.js?v=20261001-1637"></script>
-  <script src="tz-history.js?v=20261001-1637"></script>
-  <script src="app.js?v=20261001-1637"></script>
-  <script src="zodiac-data.js?v=20261001-1637"></script>
-  <script src="timeline.js?v=20261001-1637"></script>
-  <script src="human-design.js?v=20261001-1637"></script>
-  <script src="editing.js?v=20261001-1637"></script>
-  <script src="aspects.js?v=20261001-1637"></script>
-  <script src="workspace-actions.js?v=20261001-1637"></script>
-  <script src="workspace-files.js?v=20261001-1637"></script>
-  <script src="gene-keys-data.js?v=20261001-1637"></script>
-  <script src="hd-meanings.js?v=20261001-1637"></script>
-  <script src="systems.js?v=20261001-1637"></script>
-  <script src="library.js?v=20261001-1637"></script>
-  <script src="place-search.js?v=20261001-1637"></script>
-  <script src="csv-import.js?v=20261001-1637"></script>
-  <script src="acg-meanings.js?v=20261001-1637"></script>
-  <script src="astrocartography.js?v=20261001-1637"></script>
-  <script src="cycles.js?v=20261001-1637"></script>
-  <script src="cycle-moment.js?v=20261001-1637"></script>
-  <script src="cycle-summary.js?v=20261001-1637"></script>
-  <script src="life-patterns.js?v=20261001-1637"></script>
-  <script src="pair.js?v=20261001-1637"></script>
-  <script src="pair-composite.js?v=20261001-1637"></script>
-  <script src="life-events.js?v=20261001-1637"></script>
-  <script src="pair-life.js?v=20261001-1637"></script>
-  <script src="router.js?v=20261001-1637"></script>
-  <script src="shortcuts.js?v=20261001-1637"></script>
+  <script>i18nTranslatePage(); i18nBindPicker();</script>
+  <script src="astronomy-engine.js?v=20261002-2233"></script>
+  <script src="ephemeris.js?v=20261002-2233"></script>
+  <script src="tz-history.js?v=20261002-2233"></script>
+  <script src="app.js?v=20261002-2233"></script>
+  <script src="zodiac-data.js?v=20261002-2233"></script>
+  <script src="timeline.js?v=20261002-2233"></script>
+  <script src="human-design.js?v=20261002-2233"></script>
+  <script src="editing.js?v=20261002-2233"></script>
+  <script src="aspects.js?v=20261002-2233"></script>
+  <script src="workspace-actions.js?v=20261002-2233"></script>
+  <script src="workspace-files.js?v=20261002-2233"></script>
+  <script src="gene-keys-data.js?v=20261002-2233"></script>
+  <script src="hd-meanings.js?v=20261002-2233"></script>
+  <script src="systems.js?v=20261002-2233"></script>
+  <script src="library.js?v=20261002-2233"></script>
+  <script src="place-search.js?v=20261002-2233"></script>
+  <script src="csv-import.js?v=20261002-2233"></script>
+  <script src="acg-meanings.js?v=20261002-2233"></script>
+  <script src="astrocartography.js?v=20261002-2233"></script>
+  <script src="cycles.js?v=20261002-2233"></script>
+  <script src="cycle-moment.js?v=20261002-2233"></script>
+  <script src="cycle-summary.js?v=20261002-2233"></script>
+  <script src="life-patterns.js?v=20261002-2233"></script>
+  <script src="pair.js?v=20261002-2233"></script>
+  <script src="pair-composite.js?v=20261002-2233"></script>
+  <script src="life-events.js?v=20261002-2233"></script>
+  <script src="pair-life.js?v=20261002-2233"></script>
+  <script src="router.js?v=20261002-2233"></script>
+  <script src="shortcuts.js?v=20261002-2233"></script>
 </body>
 </html>

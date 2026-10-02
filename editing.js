@@ -186,7 +186,7 @@ function ensureEditDialog() {
   if (document.getElementById('editDialog')) return document.getElementById('editDialog');
   const dialog = document.createElement('dialog');
   dialog.id = 'editDialog';
-  dialog.innerHTML = `<form method="dialog" id="editForm"><div class="dialog-head"><div><p class="eyebrow accent-label">CHART RECORD</p><h2>Edit individual chart</h2></div><button class="close-button" value="cancel" aria-label="Close">×</button></div><p class="dialog-copy">Update the record without changing its chart identity or workspace membership.</p><div class="form-grid"><label>Chart name<input name="name" required></label><label>Birth location<input name="location" required></label><label>Birth date<input name="date" required type="date"></label><label>Birth time<input name="time" type="time"></label><label>Timezone<select name="timezone" required></select></label><label>Time uncertainty (minutes)<input name="uncertainty" type="number" min="0"></label><label>Latitude<input name="latitude" required type="number" step="0.0001"></label><label>Longitude<input name="longitude" required type="number" step="0.0001"></label><label class="wide-field">Tags<input name="tags" placeholder="personal, study"></label><label class="wide-field">Notes<textarea name="noteText" rows="4"></textarea></label></div><div class="dialog-actions"><button type="button" class="text-button chart-dialog-delete" data-chart-delete>Delete chart…</button><button class="secondary-button" value="cancel">Cancel</button><button class="primary-button" value="default">Save changes <span>→</span></button></div></form>`;
+  dialog.innerHTML = `<form method="dialog" id="editForm"><div class="dialog-head"><div><p class="eyebrow accent-label">${t('CHART RECORD')}</p><h2>${t('Edit individual chart')}</h2></div><button class="close-button" value="cancel" aria-label="${t('Close')}">×</button></div><p class="dialog-copy">${t('Update the record without changing its chart identity or workspace membership.')}</p><div class="form-grid"><label>${t('Chart name')}<input name="name" required></label><label>${t('Birth location')}<input name="location" required></label><label>${t('Birth date')}<input name="date" required type="date"></label><label>${t('Birth time')}<input name="time" type="time"></label><label>${t('Timezone')}<select name="timezone" required></select></label><label>${t('Time uncertainty (minutes)')}<input name="uncertainty" type="number" min="0"></label><label>${t('Latitude')}<input name="latitude" required type="number" step="0.0001"></label><label>${t('Longitude')}<input name="longitude" required type="number" step="0.0001"></label><label class="wide-field">${t('Tags')}<input name="tags" placeholder="${t('personal, study')}"></label><label class="wide-field">${t('Notes')}<textarea name="noteText" rows="4"></textarea></label></div><div class="dialog-actions"><button type="button" class="text-button chart-dialog-delete" data-chart-delete>${t('Delete chart…')}</button><button class="secondary-button" value="cancel">${t('Cancel')}</button><button class="primary-button" value="default">${t('Save changes')} <span>→</span></button></div></form>`;
   document.body.appendChild(dialog);
   dialog.querySelector('form').addEventListener('submit', saveEditedChart);
   // Deleting lives here, behind Edit and a confirmation.
@@ -229,7 +229,7 @@ function saveEditedChart(event) {
   chart.tags = String(form.get('tags') || '').split(',').map(tag => tag.trim()).filter(Boolean); chart.noteText = form.get('noteText') || ''; chart.notes = chart.noteText ? 1 : 0;
   const nextKey = `${chart.birthDate}|${chart.birthTime}|${chart.timezone}|${chart.location}|${chart.latitude}|${chart.longitude}`;
   if (previousKey !== nextKey) { chart.positions = makePositions(chart); chart.designTime = designTimeFor(chart); }
-  normalizePositionModel(); saveState(); event.target.closest('dialog').close(); renderRows(); renderExplorer(); showToast(`${chart.name} updated`);
+  normalizePositionModel(); saveState(); event.target.closest('dialog').close(); renderRows(); renderExplorer(); showToast(t('{name} updated', { name: chart.name }));
 }
 
 // Deleting a chart: asks first, saying what goes with it — its life events, except
@@ -241,13 +241,13 @@ function confirmDeleteChart(chart) {
   const shared = linked.filter(event => event.people.some(person => person.chartId && person.chartId !== chart.id));
   const own = linked.length - shared.length;
   const effects = [
-    own ? `its ${own} life event${own === 1 ? '' : 's'} will be deleted` : '',
-    shared.length ? `${shared.length} event${shared.length === 1 ? '' : 's'} shared with other charts will keep ${chart.name} by name only` : '',
+    own ? tn(own, 'its {n} life event will be deleted', 'its {n} life events will be deleted') : '',
+    shared.length ? tn(shared.length, '{n} event shared with other charts will keep {name} by name only', '{n} events shared with other charts will keep {name} by name only', { name: chart.name }) : '',
   ].filter(Boolean);
-  const question = `Delete the chart “${chart.name}”?${effects.length ? `\n\nWith it, ${effects.join(', and ')}.` : ''}\n\nThis can't be undone. To keep a copy, export the workspace first.`;
+  const question = `${t('Delete the chart “{name}”?', { name: chart.name })}${effects.length ? `\n\n${t('With it, {effects}.', { effects: effects.join(t(', and ')) })}` : ''}\n\n${t("This can't be undone. To keep a copy, export the workspace first.")}`;
   if (!window.confirm(question)) return false;
   deleteChart(chart);
-  showToast(`${chart.name} deleted`);
+  showToast(t('{name} deleted', { name: chart.name }));
   return true;
 }
 function deleteChart(chart) {

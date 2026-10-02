@@ -105,9 +105,9 @@ function computeHumanDesignChart(chart, personalityOffsetMinutes = 0) {
 // Pixel coordinates for drawing stay in systems.js; this is just "what
 // connects to what," shared by the bodygraph and (eventually) the mandala.
 const HD_CENTERS = [
-  {id:'head', name:'Head'}, {id:'ajna', name:'Ajna'}, {id:'throat', name:'Throat'},
-  {id:'g', name:'G'}, {id:'heart', name:'Heart'}, {id:'spleen', name:'Spleen'},
-  {id:'solar-plexus', name:'Solar Plexus'}, {id:'sacral', name:'Sacral'}, {id:'root', name:'Root'}
+  {id:'head', name:N_('Head')}, {id:'ajna', name:N_('Ajna')}, {id:'throat', name:N_('Throat')},
+  {id:'g', name:N_('G')}, {id:'heart', name:N_('Heart')}, {id:'spleen', name:N_('Spleen')},
+  {id:'solar-plexus', name:N_('Solar Plexus')}, {id:'sacral', name:N_('Sacral')}, {id:'root', name:N_('Root')}
 ];
 
 const HD_GATE_CENTER = {
@@ -133,14 +133,14 @@ const HD_CHANNELS = [
 
 // Standard names of the 36 channels, keyed "lowerGate-higherGate".
 const HD_CHANNEL_NAMES = {
-  '1-8': 'Inspiration', '2-14': 'The Beat', '3-60': 'Mutation', '4-63': 'Logic', '5-15': 'Rhythm',
-  '6-59': 'Mating', '7-31': 'The Alpha', '9-52': 'Concentration', '10-20': 'Awakening', '10-34': 'Exploration',
-  '10-57': 'Perfected Form', '11-56': 'Curiosity', '12-22': 'Openness', '13-33': 'The Prodigal', '16-48': 'The Wavelength',
-  '17-62': 'Acceptance', '18-58': 'Judgment', '19-49': 'Synthesis', '20-34': 'Charisma', '20-57': 'The Brainwave',
-  '21-45': 'Money', '23-43': 'Structuring', '24-61': 'Awareness', '25-51': 'Initiation', '26-44': 'Surrender',
-  '27-50': 'Preservation', '28-38': 'Struggle', '29-46': 'Discovery', '30-41': 'Recognition', '32-54': 'Transformation',
-  '34-57': 'Power', '35-36': 'Transitoriness', '37-40': 'Community', '39-55': 'Emoting', '42-53': 'Maturation',
-  '47-64': 'Abstraction',
+  '1-8': N_('Inspiration'), '2-14': N_('The Beat'), '3-60': N_('Mutation'), '4-63': N_('Logic'), '5-15': N_('Rhythm'),
+  '6-59': N_('Mating'), '7-31': N_('The Alpha'), '9-52': N_('Concentration'), '10-20': N_('Awakening'), '10-34': N_('Exploration'),
+  '10-57': N_('Perfected Form'), '11-56': N_('Curiosity'), '12-22': N_('Openness'), '13-33': N_('The Prodigal'), '16-48': N_('The Wavelength'),
+  '17-62': N_('Acceptance'), '18-58': N_('Judgment'), '19-49': N_('Synthesis'), '20-34': N_('Charisma'), '20-57': N_('The Brainwave'),
+  '21-45': N_('Money'), '23-43': N_('Structuring'), '24-61': N_('Awareness'), '25-51': N_('Initiation'), '26-44': N_('Surrender'),
+  '27-50': N_('Preservation'), '28-38': N_('Struggle'), '29-46': N_('Discovery'), '30-41': N_('Recognition'), '32-54': N_('Transformation'),
+  '34-57': N_('Power'), '35-36': N_('Transitoriness'), '37-40': N_('Community'), '39-55': N_('Emoting'), '42-53': N_('Maturation'),
+  '47-64': N_('Abstraction'),
 };
 function hdChannelKey([first, second]) {
   return `${Math.min(first, second)}-${Math.max(first, second)}`;
@@ -154,6 +154,14 @@ function hdChannelInfo(gates) {
   const [first, second] = [...gates].sort((a, b) => a - b);
   const centerName = gate => HD_CENTERS.find(center => center.id === HD_GATE_CENTER[gate])?.name;
   return { gates: `${first}–${second}`, name: HD_CHANNEL_NAMES[hdChannelKey(gates)] || '', centers: `${centerName(first)} – ${centerName(second)}` };
+}
+// hdChannelInfo's centers ("Throat – Sacral") and a typology's profileNames
+// ("Investigator / Martyr") in the interface language.
+function hdCentersText(centers) {
+  return centers.split(' – ').map(tName).join(' – ');
+}
+function hdProfileNamesText(profileNames) {
+  return profileNames.split(' / ').map(tName).join(' / ');
 }
 
 // ── Bodygraph activation state ───────────────────────────────────────────
@@ -205,49 +213,49 @@ function computeBodygraphState(chart, offsetMinutes = 0, filter = 'Complete') {
 // whose two gates are both activated (either side), as in computeBodygraphState.
 const HD_MOTOR_CENTERS = new Set(['sacral', 'solar-plexus', 'heart', 'root']);
 const HD_TYPE_INFO = {
-  Manifestor: { aura: 'Closed & repelling', strategy: 'To inform', notSelf: 'Anger', signature: 'Peace' },
-  Generator: { aura: 'Open & enveloping', strategy: 'Wait to respond', notSelf: 'Frustration', signature: 'Satisfaction' },
-  'Manifesting Generator': { aura: 'Open & enveloping', strategy: 'Wait to respond, then inform', notSelf: 'Frustration & anger', signature: 'Satisfaction & peace' },
-  Projector: { aura: 'Focused & absorbing', strategy: 'Wait for the invitation', notSelf: 'Bitterness', signature: 'Success' },
-  Reflector: { aura: 'Resistant & sampling', strategy: 'Wait a lunar cycle', notSelf: 'Disappointment', signature: 'Surprise' },
+  Manifestor: { aura: N_('Closed & repelling'), strategy: N_('To inform'), notSelf: N_('Anger'), signature: N_('Peace') },
+  Generator: { aura: N_('Open & enveloping'), strategy: N_('Wait to respond'), notSelf: N_('Frustration'), signature: N_('Satisfaction') },
+  'Manifesting Generator': { aura: N_('Open & enveloping'), strategy: N_('Wait to respond, then inform'), notSelf: N_('Frustration & anger'), signature: N_('Satisfaction & peace') },
+  Projector: { aura: N_('Focused & absorbing'), strategy: N_('Wait for the invitation'), notSelf: N_('Bitterness'), signature: N_('Success') },
+  Reflector: { aura: N_('Resistant & sampling'), strategy: N_('Wait a lunar cycle'), notSelf: N_('Disappointment'), signature: N_('Surprise') },
 };
-const HD_LINE_NAMES = ['Investigator', 'Hermit', 'Martyr', 'Opportunist', 'Heretic', 'Role Model'];
-const HD_DEFINITION_NAMES = ['None', 'Single Definition', 'Split Definition', 'Triple Split Definition', 'Quadruple Split Definition'];
+const HD_LINE_NAMES = [N_('Investigator'), N_('Hermit'), N_('Martyr'), N_('Opportunist'), N_('Heretic'), N_('Role Model')];
+const HD_DEFINITION_NAMES = [N_('None'), N_('Single Definition'), N_('Split Definition'), N_('Triple Split Definition'), N_('Quadruple Split Definition')];
 // Quarters of 16 gates each, starting at gate 13 (Initiation), 2, 7 and 1.
 const HD_QUADRANTS = [
-  { name: 'Initiation', theme: 'Purpose fulfilled through Mind' },
-  { name: 'Civilization', theme: 'Purpose fulfilled through Form' },
-  { name: 'Duality', theme: 'Purpose fulfilled through Bonding' },
-  { name: 'Mutation', theme: 'Purpose fulfilled through Transformation' },
+  { name: N_('Initiation'), theme: N_('Purpose fulfilled through Mind') },
+  { name: N_('Civilization'), theme: N_('Purpose fulfilled through Form') },
+  { name: N_('Duality'), theme: N_('Purpose fulfilled through Bonding') },
+  { name: N_('Mutation'), theme: N_('Purpose fulfilled through Transformation') },
 ];
 // PHS tables, indexed by color (1–6); [left, right] pairs are chosen by tone
 // (tones 1–3 left, 4–6 right).
 const HD_DIGESTION = [
-  { name: 'Appetite', sides: ['Consecutive', 'Alternating'] },
-  { name: 'Taste', sides: ['Open', 'Closed'] },
-  { name: 'Thirst', sides: ['Hot', 'Cold'] },
-  { name: 'Touch', sides: ['Calm', 'Nervous'] },
-  { name: 'Sound', sides: ['High', 'Low'] },
-  { name: 'Light', sides: ['Direct', 'Indirect'] },
+  { name: N_('Appetite'), sides: [N_('Consecutive'), N_('Alternating')] },
+  { name: N_('Taste'), sides: [N_('Open'), N_('Closed')] },
+  { name: N_('Thirst'), sides: [N_('Hot'), N_('Cold')] },
+  { name: N_('Touch'), sides: [N_('Calm'), N_('Nervous')] },
+  { name: N_('Sound'), sides: [N_('High'), N_('Low')] },
+  { name: N_('Light'), sides: [N_('Direct'), N_('Indirect')] },
 ];
 const HD_ENVIRONMENTS = [
-  { name: 'Caves', sides: ['Selective', 'Blending'] },
-  { name: 'Markets', sides: ['Internal', 'External'] },
-  { name: 'Kitchens', sides: ['Wet', 'Dry'] },
-  { name: 'Mountains', sides: ['Active', 'Passive'] },
-  { name: 'Valleys', sides: ['Narrow', 'Wide'] },
-  { name: 'Shores', sides: ['Natural', 'Artificial'] },
+  { name: N_('Caves'), sides: [N_('Selective'), N_('Blending')] },
+  { name: N_('Markets'), sides: [N_('Internal'), N_('External')] },
+  { name: N_('Kitchens'), sides: [N_('Wet'), N_('Dry')] },
+  { name: N_('Mountains'), sides: [N_('Active'), N_('Passive')] },
+  { name: N_('Valleys'), sides: [N_('Narrow'), N_('Wide')] },
+  { name: N_('Shores'), sides: [N_('Natural'), N_('Artificial')] },
 ];
-const HD_MOTIVATIONS = ['Fear', 'Hope', 'Desire', 'Need', 'Guilt', 'Innocence'];
-const HD_PERSPECTIVES = ['Survival', 'Possibility', 'Power', 'Wanting', 'Probability', 'Personal'];
+const HD_MOTIVATIONS = [N_('Fear'), N_('Hope'), N_('Desire'), N_('Need'), N_('Guilt'), N_('Innocence')];
+const HD_PERSPECTIVES = [N_('Survival'), N_('Possibility'), N_('Power'), N_('Wanting'), N_('Probability'), N_('Personal')];
 // Motivation and Perspective sub-factor, from their arrow (Personality Sun / Node tone):
 // left (tone 1–3) → Focused, right (tone 4–6) → Peripheral.
-const HD_PERSONALITY_SIDES = ['Focused', 'Peripheral'];
+const HD_PERSONALITY_SIDES = [N_('Focused'), N_('Peripheral')];
 // Tone (1–6) → cognition (Design side: Sun and Node tones) or sense (Personality
 // side: Sun and Node tones). The two sides have their own six names.
-const HD_COGNITIONS = ['Smell', 'Taste', 'Outer Vision', 'Inner Vision', 'Feeling', 'Touch'];
-const HD_SENSES = ['Security', 'Uncertainty', 'Action', 'Meditation', 'Judgment', 'Acceptance'];
-const HD_BASES = ['Movement', 'Evolution', 'Being', 'Design', 'Space'];
+const HD_COGNITIONS = [N_('Smell'), N_('Taste'), N_('Outer Vision'), N_('Inner Vision'), N_('Feeling'), N_('Touch')];
+const HD_SENSES = [N_('Security'), N_('Uncertainty'), N_('Action'), N_('Meditation'), N_('Judgment'), N_('Acceptance')];
+const HD_BASES = [N_('Movement'), N_('Evolution'), N_('Being'), N_('Design'), N_('Space')];
 
 // Channels, centers, definition islands, type and authority follow from the set of
 // activated gates alone (either side, any person) — shared by a single chart's
@@ -282,15 +290,15 @@ function hdStructureFromGates(active) {
   const throatIsland = definedCenters.has('throat') ? reachableFrom('throat') : new Set();
   const motorToThroat = [...throatIsland].some(center => HD_MOTOR_CENTERS.has(center));
   const sacral = definedCenters.has('sacral');
-  const type = !definedCenters.size ? 'Reflector' : sacral ? (motorToThroat ? 'Manifesting Generator' : 'Generator') : motorToThroat ? 'Manifestor' : 'Projector';
+  const type = !definedCenters.size ? N_('Reflector') : sacral ? (motorToThroat ? N_('Manifesting Generator') : N_('Generator')) : motorToThroat ? N_('Manifestor') : N_('Projector');
 
-  const authority = definedCenters.has('solar-plexus') ? 'Emotional (Solar Plexus)'
-    : sacral ? 'Sacral'
-    : definedCenters.has('spleen') ? 'Splenic'
-    : definedCenters.has('heart') ? (type === 'Manifestor' ? 'Ego Manifested' : 'Ego Projected')
-    : definedCenters.has('g') ? 'Self-Projected'
-    : type === 'Reflector' ? 'Lunar'
-    : 'Mental (Environmental)';
+  const authority = definedCenters.has('solar-plexus') ? N_('Emotional (Solar Plexus)')
+    : sacral ? N_('Sacral')
+    : definedCenters.has('spleen') ? N_('Splenic')
+    : definedCenters.has('heart') ? (type === N_('Manifestor') ? N_('Ego Manifested') : N_('Ego Projected'))
+    : definedCenters.has('g') ? N_('Self-Projected')
+    : type === N_('Reflector') ? N_('Lunar')
+    : N_('Mental (Environmental)');
   return { definedChannels, definedCenters, islands, type, authority, definition: HD_DEFINITION_NAMES[Math.min(islands.length, 4)] };
 }
 
@@ -305,11 +313,11 @@ function computeHumanDesignTypology(hd) {
   const { definedChannels, definedCenters, islands, type, authority } = hdStructureFromGates(active);
 
   const profile = `${ps.line}/${ds.line}`;
-  const angle = ps.line === 4 && ds.line === 1 ? 'Juxtaposition' : ps.line >= 5 ? 'Left Angle' : 'Right Angle';
+  const angle = ps.line === 4 && ds.line === 1 ? N_('Juxtaposition') : ps.line >= 5 ? N_('Left Angle') : N_('Right Angle');
   const wheelFrom13 = index => (index - HD_GATE_WHEEL.indexOf(13) + HD_GATE_WHEEL.length) % HD_GATE_WHEEL.length;
   const quadrant = HD_QUADRANTS[Math.floor(wheelFrom13(HD_GATE_WHEEL.indexOf(ps.gate)) / 16)];
 
-  const arrow = influence => (influence.tone <= 3 ? 'Left' : 'Right');
+  const arrow = influence => (influence.tone <= 3 ? N_('Left') : N_('Right'));
   const letter = influence => arrow(influence)[0];
   const side = (table, influence) => table[influence.color - 1].sides[influence.tone <= 3 ? 0 : 1];
 
@@ -335,12 +343,12 @@ function computeHumanDesignTypology(hd) {
       perspective: { color: pn.color, name: HD_PERSPECTIVES[pn.color - 1], side: HD_PERSONALITY_SIDES[pn.tone <= 3 ? 0 : 1] },
     },
     cognitions: [
-      { source: 'Design Sun', tone: ds.tone, name: HD_COGNITIONS[ds.tone - 1] },
-      { source: 'Design Node', tone: dn.tone, name: HD_COGNITIONS[dn.tone - 1] },
+      { source: N_('Design Sun'), tone: ds.tone, name: HD_COGNITIONS[ds.tone - 1] },
+      { source: N_('Design Node'), tone: dn.tone, name: HD_COGNITIONS[dn.tone - 1] },
     ],
     senses: [
-      { source: 'Personality Sun', tone: ps.tone, name: HD_SENSES[ps.tone - 1] },
-      { source: 'Personality Node', tone: pn.tone, name: HD_SENSES[pn.tone - 1] },
+      { source: N_('Personality Sun'), tone: ps.tone, name: HD_SENSES[ps.tone - 1] },
+      { source: N_('Personality Node'), tone: pn.tone, name: HD_SENSES[pn.tone - 1] },
     ],
   };
 }
@@ -362,7 +370,7 @@ function computeCompositeHumanDesign(chartA, chartB) {
 // The composite of any two sets of activated gates — two people's charts (above), or a
 // natal chart and the transits at a cycle moment (Cycle Explorer). `names` label the two
 // sides in gate hover titles.
-function computeCompositeFromGates(gatesA, gatesB, names = { A: 'Chart A', B: 'Chart B' }) {
+function computeCompositeFromGates(gatesA, gatesB, names = { A: t('Chart A'), B: t('Chart B') }) {
   const union = new Set([...gatesA, ...gatesB]);
   const structure = hdStructureFromGates(union);
   const own = [hdStructureFromGates(gatesA), hdStructureFromGates(gatesB)];
@@ -391,7 +399,7 @@ function computeCompositeFromGates(gatesA, gatesB, names = { A: 'Chart A', B: 'C
       gateHalo: gate => electromagneticGates.has(gate),
       gateTitle: gate => {
         const who = [gatesA.has(gate) && names.A, gatesB.has(gate) && names.B].filter(Boolean);
-        return `Gate ${gate}${who.length ? ` · ${who.join(' + ')}` : ''}${electromagneticGates.has(gate) ? ' · electromagnetic' : ''}`;
+        return `${t('Gate {gate}', { gate })}${who.length ? ` · ${who.join(' + ')}` : ''}${electromagneticGates.has(gate) ? ` · ${t('electromagnetic')}` : ''}`;
       },
     },
   };
@@ -405,7 +413,7 @@ function computeCycleHumanDesign(chart, offsetMinutes, full = false) {
   const moment = computeHumanDesignChart(chart, offsetMinutes);
   const transitGates = new Set([...moment.personality, ...(full ? moment.design : [])].filter(influence => influence.gate != null).map(influence => influence.gate));
   const natalGates = hdActiveGates(chart);
-  const composite = computeCompositeFromGates(natalGates, transitGates, { A: 'Natal', B: 'Cycle moment' });
+  const composite = computeCompositeFromGates(natalGates, transitGates, { A: t('Natal'), B: t('Cycle moment') });
   const natalChannels = new Set(hdStructureFromGates(natalGates).definedChannels.map(hdChannelKey));
   // Channels defined only because of the transits.
   composite.cycleChannels = composite.structure.definedChannels.filter(channel => !natalChannels.has(hdChannelKey(channel)));

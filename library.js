@@ -27,7 +27,7 @@ function libraryAstrology(chart) {
     if (longitude == null) return null;
     const index = Math.floor(longitude / 30);
     const house = withHouse ? wheelHouseOf(longitude, cusps) : null;
-    return { index, sign: SIGNS[index], detail: `${(longitude - index * 30).toFixed(2)}°${house ? ` · ${ordinalHouse(house)} house` : ""}` };
+    return { index, sign: SIGNS[index], detail: `${(longitude - index * 30).toFixed(2)}°${house ? ` · ${ordinalHouse(house)}` : ""}` };
   };
   return { sun: place("Sun", true), rising: place("Ascendant", false), mini: libraryMiniWheel(longitudes) };
 }
@@ -87,21 +87,22 @@ function libraryMiniBodygraph(state) {
 
 // ── Table ─────────────────────────────────────────────────────────────────
 function libraryHeaderMarkup() {
-  const columns = librarySystem === "Astrology" ? ["SUN", "RISING"] : ["TYPE", "AUTHORITY", "PROFILE", "DEFINITION"];
-  return `<th class="check-col"><input type="checkbox" id="selectAll" aria-label="Select all charts"></th><th>CHART</th><th>BIRTH DATA</th><th>LOCATION</th>${columns.map((column) => `<th>${column}</th>`).join("")}<th class="edit-col"><span class="visually-hidden">EDIT</span></th>`;
+  const columns = librarySystem === "Astrology" ? [t("SUN"), t("RISING")] : [t("TYPE"), t("AUTHORITY"), t("PROFILE"), t("DEFINITION")];
+  return `<th class="check-col"><input type="checkbox" id="selectAll" aria-label="${t("Select all charts")}"></th><th>${t("CHART")}</th><th>${t("BIRTH DATA")}</th><th>${t("LOCATION")}</th>${columns.map((column) => `<th>${column}</th>`).join("")}<th class="edit-col"><span class="visually-hidden">${t("EDIT")}</span></th>`;
 }
 function librarySignCell(place) {
   if (!place) return `<td class="muted-text">—</td>`;
-  return `<td><div class="signature-cell"><span class="signature-glyph">${SIGN_GLYPHS[place.index]}</span><div class="signature-text"><strong>${place.sign}</strong><small>${place.detail}</small></div></div></td>`;
+  return `<td><div class="signature-cell"><span class="signature-glyph">${SIGN_GLYPHS[place.index]}</span><div class="signature-text"><strong>${tName(place.sign)}</strong><small>${place.detail}</small></div></div></td>`;
 }
 // Compact wording for the table: "Emotional (Solar Plexus)" → "Emotional", "Self-Projected"
 // → "Self"; definitions → None / Single / Split / Triple / Quadruple.
-const LIBRARY_SHORT_AUTHORITIES = { "Emotional (Solar Plexus)": "Emotional", "Self-Projected": "Self" };
+const LIBRARY_SHORT_AUTHORITIES = { "Emotional (Solar Plexus)": N_("Emotional"), "Self-Projected": N_("Self") };
 function libraryShortAuthority(authority) {
-  return LIBRARY_SHORT_AUTHORITIES[authority] || authority;
+  return tName(LIBRARY_SHORT_AUTHORITIES[authority] || authority);
 }
+const LIBRARY_SHORT_DEFINITIONS = { None: N_("None"), "Single Definition": N_("Single"), "Split Definition": N_("Split"), "Triple Split Definition": N_("Triple"), "Quadruple Split Definition": N_("Quadruple") };
 function libraryShortDefinition(definition) {
-  return definition.replace(" Split Definition", "").replace(" Definition", "");
+  return tName(LIBRARY_SHORT_DEFINITIONS[definition] || definition);
 }
 // Under the chart's name: how many life events and places it has (not its birth or
 // annotated cycles), linking to its Life Events tab.
@@ -110,17 +111,17 @@ function libraryEventsMarkup(chart) {
   const records = chartLifeEvents(chart).filter((record) => !record.anchor);
   const events = records.filter((record) => record.start).length, places = records.length - events;
   if (!records.length) return "";
-  const text = [events ? `${events} event${events === 1 ? "" : "s"}` : "", places ? `${places} place${places === 1 ? "" : "s"}` : ""].filter(Boolean).join(" · ");
-  return `<a class="library-events" href="#/chart/${encodeURIComponent(chartSlug(chart.id))}/life-events" title="Open ${escapeHtml(chart.name)}'s life events">${text}</a>`;
+  const text = [events ? tn(events, "{n} event", "{n} events") : "", places ? tn(places, "{n} place", "{n} places") : ""].filter(Boolean).join(" · ");
+  return `<a class="library-events" href="#/chart/${encodeURIComponent(chartSlug(chart.id))}/life-events" title="${t("Open the life events of {name}", { name: escapeHtml(chart.name) })}">${text}</a>`;
 }
 function libraryRowMarkup(chart) {
   const data = libraryData(chart, librarySystem);
   const cells = librarySystem === "Astrology"
     ? librarySignCell(data.sun) + librarySignCell(data.rising)
     : data.typology
-      ? `<td><strong class="library-fact">${data.typology.type}</strong></td><td class="library-detail">${libraryShortAuthority(data.typology.authority)}</td><td><strong class="library-fact">${data.typology.profile}</strong></td><td class="library-detail">${libraryShortDefinition(data.typology.definition)}</td>`
+      ? `<td><strong class="library-fact">${tName(data.typology.type)}</strong></td><td class="library-detail">${libraryShortAuthority(data.typology.authority)}</td><td><strong class="library-fact">${data.typology.profile}</strong></td><td class="library-detail">${libraryShortDefinition(data.typology.definition)}</td>`
       : `<td class="muted-text" colspan="4">—</td>`;
-  return `<tr data-id="${chart.id}" class="${selectedChartId === chart.id ? "selected" : ""}"><td class="check-col"><input type="checkbox" aria-label="Select ${escapeHtml(chart.name)}" ${selectedChartIds.has(chart.id) ? "checked" : ""}></td><td><div class="chart-cell">${data.mini}<div><div class="chart-name"><a class="chart-name-link" href="#/chart/${encodeURIComponent(typeof chartSlug === "function" ? chartSlug(chart.id) : chart.id)}">${escapeHtml(chart.name)}</a>${chart.uncertainty ? '<span class="date-note">◌ uncertain time ±' + chart.uncertainty + "m</span>" : ""}</div><div class="chart-type">INDIVIDUAL</div><div class="chart-type">${escapeHtml(chart.tags[0]?.toUpperCase() || "STUDY")}</div>${libraryEventsMarkup(chart)}</div></div></td><td class="birth-cell">${formatDate(chart.birthDate)}<br><span class="muted-text">${chart.birthTime || "Time unknown"}</span></td><td class="location-cell">${escapeHtml(chart.location)}</td>${cells}<td class="edit-col"><button type="button" class="acg-origin-button" data-library-open aria-label="Open ${escapeHtml(chart.name)}">Open</button><button type="button" class="acg-origin-button" data-library-edit aria-label="Edit ${escapeHtml(chart.name)}">Edit</button></td></tr>`;
+  return `<tr data-id="${chart.id}" class="${selectedChartId === chart.id ? "selected" : ""}"><td class="check-col"><input type="checkbox" aria-label="${t("Select {name}", { name: escapeHtml(chart.name) })}" ${selectedChartIds.has(chart.id) ? "checked" : ""}></td><td><div class="chart-cell">${data.mini}<div><div class="chart-name"><a class="chart-name-link" href="#/chart/${encodeURIComponent(typeof chartSlug === "function" ? chartSlug(chart.id) : chart.id)}">${escapeHtml(chart.name)}</a>${chart.uncertainty ? `<span class="date-note">◌ ${t("uncertain time ±{minutes}m", { minutes: chart.uncertainty })}</span>` : ""}</div><div class="chart-type">${t("INDIVIDUAL")}</div><div class="chart-type">${escapeHtml(chart.tags[0]?.toUpperCase() || t("STUDY"))}</div>${libraryEventsMarkup(chart)}</div></div></td><td class="birth-cell">${formatDate(chart.birthDate)}<br><span class="muted-text">${chart.birthTime || t("Time unknown")}</span></td><td class="location-cell">${escapeHtml(chart.location)}</td>${cells}<td class="edit-col"><button type="button" class="acg-origin-button" data-library-open aria-label="${t("Open {name}", { name: escapeHtml(chart.name) })}">${t("Open@@verb")}</button><button type="button" class="acg-origin-button" data-library-edit aria-label="${t("Edit {name}", { name: escapeHtml(chart.name) })}">${t("Edit")}</button></td></tr>`;
 }
 
 // Tabs above the table.

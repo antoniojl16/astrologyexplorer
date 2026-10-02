@@ -81,23 +81,23 @@ function lifeTagPatterns(chart, records) {
 
 // One transit, compact: "♄ □ ☉ 1.2°" with its full name in the tooltip.
 function lifeTransitChipMarkup(aspect) {
-  return `<span class="life-transit" title="${escapeHtml(`${aspect.first} ${aspect.name.toLowerCase()} natal ${aspect.second}, ${aspect.orb.toFixed(1)}° from exact`)}"><b>${aspect.glyphFirst}</b><b style="color:${aspect.color}">${aspect.glyph}</b><b>${aspect.glyphSecond}</b>${aspect.orb.toFixed(1)}°</span>`;
+  return `<span class="life-transit" title="${escapeHtml(t('{first} {aspect} natal {second}, {orb}° from exact', { first: tName(aspect.first), aspect: tName(aspect.name).toLowerCase(), second: tName(aspect.second), orb: aspect.orb.toFixed(1) }))}"><b>${aspect.glyphFirst}</b><b style="color:${aspect.color}">${aspect.glyph}</b><b>${aspect.glyphSecond}</b>${aspect.orb.toFixed(1)}°</span>`;
 }
 // Why a moment has no transits listed.
 const LIFE_TRANSIT_SKIP_NOTES = {
-  birth: "The natal chart itself",
-  loose: "Dated to the year only: too loose for tight aspects",
-  undated: "No date",
+  birth: t("The natal chart itself"),
+  loose: t("Dated to the year only: too loose for tight aspects"),
+  undated: t("No date"),
 };
 // A moment's tight transits as chips (the counted ones only), or why there are none.
 function lifeMomentTransitsMarkup(chart, record) {
   const reading = lifeMomentTransits(chart, record);
   if (!reading.transits) return `<span class="life-transit-note">${LIFE_TRANSIT_SKIP_NOTES[reading.skip]}</span>`;
   const transits = lifePatternTransits(reading);
-  const limit = { day: "date only: without the Moon", month: "month only: Saturn and slower" }[reading.precision];
+  const limit = { day: t("date only: without the Moon"), month: t("month only: Saturn and slower") }[reading.precision];
   return transits.length
     ? `${transits.map(lifeTransitChipMarkup).join("")}${limit ? `<span class="life-transit-note">${limit}</span>` : ""}`
-    : `<span class="life-transit-note">No ${lifePatternOptions.includeFast ? "" : "slow-planet "}transit within a fifth of its orb${limit ? ` (${limit})` : ""}</span>`;
+    : `<span class="life-transit-note">${lifePatternOptions.includeFast ? t("No transit within a fifth of its orb") : t("No slow-planet transit within a fifth of its orb")}${limit ? ` (${limit})` : ""}</span>`;
 }
 
 // The recurring patterns among `records` for `chart`, in reflective sentences.
@@ -105,30 +105,30 @@ function lifeTagPatternsMarkup(chart, records, tag) {
   const { readable, patterns } = lifeTagPatterns(chart, records);
   const who = escapeHtml(chart.name);
   const label = `“${escapeHtml(tag)}”`;
-  const theme = (body) => escapeHtml(ASPECT_BODY_THEMES[body] || body.toLowerCase());
+  const theme = (body) => escapeHtml(ASPECT_BODY_THEMES[body] || tName(body).toLowerCase());
   // The moments left out, and why (birth, a year-only date, no date).
   const left = records.map((record) => [record, lifeMomentTransits(chart, record).skip]).filter(([, skip]) => skip);
-  const leftNote = left.length ? `<p class="life-pattern-left">Not counted: ${left.map(([record, skip]) => `${escapeHtml(lifeEventTitle(record))} (${{ birth: "the natal chart itself", loose: "year only", undated: "no date" }[skip]})`).join(", ")}.</p>` : "";
+  const leftNote = left.length ? `<p class="life-pattern-left">${t("Not counted: {moments}.", { moments: left.map(([record, skip]) => `${escapeHtml(lifeEventTitle(record))} (${{ birth: t("the natal chart itself"), loose: t("year only"), undated: t("no date") }[skip]})`).join(", ") })}</p>` : "";
   if (readable < 2) {
-    return `<p class="life-pattern-empty">${readable ? "Only one" : "No"} ${label} moment of ${who}'s is dated closely enough to read transits from. Patterns need at least two.</p>${leftNote}`;
+    return `<p class="life-pattern-empty">${readable ? t("Only one {tag} moment of {who} is dated closely enough to read transits from. Patterns need at least two.", { tag: label, who }) : t("No {tag} moment of {who} is dated closely enough to read transits from. Patterns need at least two.", { tag: label, who })}</p>${leftNote}`;
   }
   if (!patterns.length) {
-    return `<p class="life-pattern-empty">Nothing recurs across ${who}'s ${readable} ${label} moments: no ${lifePatternOptions.includeFast ? "" : "slow "}planet met the same natal point in two of them. Each may have its own story.</p>${leftNote}`;
+    return `<p class="life-pattern-empty">${t(lifePatternOptions.includeFast ? "Nothing recurs across the {count} {tag} moments of {who}: no planet met the same natal point in two of them. Each may have its own story." : "Nothing recurs across the {count} {tag} moments of {who}: no slow planet met the same natal point in two of them. Each may have its own story.", { count: readable, tag: label, who })}</p>${leftNote}`;
   }
   return `${leftNote}<ol class="life-pattern-list">${patterns.map((pattern) => {
-    const aspects = [...pattern.aspects].map(([name, n]) => `${name.toLowerCase()}${n > 1 ? ` ×${n}` : ""}`).join(", ");
+    const aspects = [...pattern.aspects].map(([name, n]) => `${tName(name).toLowerCase()}${n > 1 ? ` ×${n}` : ""}`).join(", ");
     return `<li>
-      <div class="life-pattern-row"><span><b>${pattern.glyphFirst}</b> ${escapeHtml(pattern.first)} → natal <b>${pattern.glyphSecond}</b> ${escapeHtml(pattern.second)}</span><strong>${pattern.count} of ${readable}</strong></div>
-      <p>In ${pattern.count} of ${who}'s ${readable} ${label} moments, ${escapeHtml(pattern.first)} (${theme(pattern.first)}) was touching the natal ${escapeHtml(pattern.second)} (${theme(pattern.second)}) — ${escapeHtml(aspects)}. Does that theme run through them?</p>
+      <div class="life-pattern-row"><span><b>${pattern.glyphFirst}</b> ${escapeHtml(tName(pattern.first))} → ${t("natal")} <b>${pattern.glyphSecond}</b> ${escapeHtml(tName(pattern.second))}</span><strong>${t("{count} of {total}", { count: pattern.count, total: readable })}</strong></div>
+      <p>${t("In {count} of the {total} {tag} moments of {who}, {first} ({firstTheme}) was touching the natal {second} ({secondTheme}) — {aspects}. Does that theme run through them?", { count: pattern.count, total: readable, tag: label, who, first: escapeHtml(tName(pattern.first)), firstTheme: theme(pattern.first), second: escapeHtml(tName(pattern.second)), secondTheme: theme(pattern.second), aspects: escapeHtml(aspects) })}</p>
       <small>${pattern.titles.map(escapeHtml).join(" · ")}</small>
     </li>`;
   }).join("")}</ol>`;
 }
 // The checkbox for fast planets, and the explanation under the patterns.
 function lifePatternControlsMarkup() {
-  return `<label class="acg-filter" title="The Sun, Moon, Mercury, Venus and Mars return to every point often, so they recur by chance more easily"><input type="checkbox" data-life-pattern-fast ${lifePatternOptions.includeFast ? "checked" : ""}><span>Include fast planets</span></label>`;
+  return `<label class="acg-filter" title="${t("The Sun, Moon, Mercury, Venus and Mars return to every point often, so they recur by chance more easily")}"><input type="checkbox" data-life-pattern-fast ${lifePatternOptions.includeFast ? "checked" : ""}><span>${t("Include fast planets")}</span></label>`;
 }
-const LIFE_PATTERN_FOOT = "A pattern is a transiting planet within a fifth of its orb of the same natal point in at least two moments (by any aspect shown in the Astrology tab). With few moments, coincidence is likely: read them as questions, not conclusions.";
+const LIFE_PATTERN_FOOT = t("A pattern is a transiting planet within a fifth of its orb of the same natal point in at least two moments (by any aspect shown in the Astrology tab). With few moments, coincidence is likely: read them as questions, not conclusions.");
 
 // Studies `record`'s moment for `chart` in the Cycle Explorer (a period: its start).
 function openInCycleExplorer(chart, record) {
