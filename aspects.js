@@ -234,7 +234,10 @@ function renderAspectGrid(chart) {
   if (!stage) return;
   let grid = document.getElementById('aspectGrid');
   if (!grid) { grid = document.createElement('div'); grid.id = 'aspectGrid'; stage.appendChild(grid); }
-  const positions = chart.positions.slice(0, 17);
+  // Only bodies that take aspects (South Node, Lilith, Fortuna and Vertex never do), one
+  // column each: the count follows the planet filters.
+  const positions = aspectBodies(chart.positions);
+  grid.style.gridTemplateColumns = `72px repeat(${positions.length},minmax(28px,1fr))`;
   const aspects = calculateAspects(chart).filter(aspectIntensityShown);
   const lookup = new Map(aspects.map(aspect => [`${aspect.first}|${aspect.second}`, aspect]));
   const shortName = name => name === 'North Node' ? 'N.Node' : name === 'South Node' ? 'S.Node' : name;
