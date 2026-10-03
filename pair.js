@@ -455,10 +455,7 @@ function pairAspectGridMarkup(people, aspects) {
   const label = (person, position, row) => `<div class="grid-label${row ? ' row-label' : ''}" style="color:${person.color}">${/^[A-Za-z]+$/.test(position.glyph) ? '' : `${position.glyph} `}${tName(position.name)}</div>`;
   const cell = (row, column) => {
     const aspect = !synastry && row.name === column.name ? null : lookup.get(`${row.name}|${column.name}`);
-    const title = aspect
-      ? `${tName(row.name)}${synastry ? ` (${rowsPerson.tag})` : ''} ${tName(aspect.name)} ${tName(column.name)}${synastry ? ` (${columnsPerson.tag})` : ''} · ${t('orb {orb}°', { orb: aspect.orb.toFixed(1) })}`
-      : t('No aspect');
-    return `<div class="aspect-cell${aspect ? ' has-aspect' : ''}" title="${title}"${aspect ? ` style="color:${aspect.color}"` : ''}>${aspect ? aspect.glyph : '·'}</div>`;
+    return synastry ? aspectCellMarkup(aspect, rowsPerson.chart.name, columnsPerson.chart.name) : aspectCellMarkup(aspect);
   };
   const heading = synastry
     ? `${t('CROSS-ASPECTS')} · ${aspects.length} · <span style="color:${rowsPerson.color}">${t('rows {name}', { name: rowsPerson.name })}</span> · <span style="color:${columnsPerson.color}">${t('columns {name}', { name: columnsPerson.name })}</span>`

@@ -137,8 +137,13 @@ const ASPECT_BODY_THEMES = {
   Lilith: t('raw, untamed instinct'),
 };
 function aspectRowAttributes(aspect, ownerFirst = '', ownerSecond = '') {
+  return `tabindex="0" ${aspectTipAttributes(aspect, ownerFirst, ownerSecond)}`;
+}
+// The same tooltip on an aspect grid cell, which stays out of the tab order (a grid
+// would add hundreds of stops; the aspect list beside it has the same aspects).
+function aspectTipAttributes(aspect, ownerFirst = '', ownerSecond = '') {
   const attribute = value => escapeHtml(String(value));
-  return `tabindex="0" data-aspect-tip data-aspect-name="${attribute(aspect.name)}" data-aspect-first="${attribute(aspect.first)}" data-aspect-second="${attribute(aspect.second)}" data-aspect-orb="${aspect.orb}" data-aspect-max-orb="${aspect.maxOrb}"${ownerFirst ? ` data-aspect-owner-first="${attribute(ownerFirst)}" data-aspect-owner-second="${attribute(ownerSecond)}"` : ''}`;
+  return `data-aspect-tip data-aspect-name="${attribute(aspect.name)}" data-aspect-first="${attribute(aspect.first)}" data-aspect-second="${attribute(aspect.second)}" data-aspect-orb="${aspect.orb}" data-aspect-max-orb="${aspect.maxOrb}"${ownerFirst ? ` data-aspect-owner-first="${attribute(ownerFirst)}" data-aspect-owner-second="${attribute(ownerSecond)}"` : ''}`;
 }
 function aspectTooltipHtml(row) {
   const { aspectName: name, aspectFirst: first, aspectSecond: second, aspectOwnerFirst: ownerFirst, aspectOwnerSecond: ownerSecond } = row.dataset;
@@ -236,7 +241,14 @@ function renderAspectGrid(chart) {
   const aspects = calculateAspects(chart).filter(aspectIntensityShown);
   const lookup = new Map(aspects.map(aspect => [`${aspect.first}|${aspect.second}`, aspect]));
   const shortName = name => name === 'North Node' ? t('N.Node') : name === 'South Node' ? t('S.Node') : tName(name);
-  grid.innerHTML = `<div class="grid-corner"></div>${positions.map(position => `<div class="grid-label">${shortName(position.name)}</div>`).join('')}${positions.map((row, rowIndex) => `<div class="grid-label row-label">${shortName(row.name)}</div>${positions.map((column, columnIndex) => { const aspect = rowIndex === columnIndex ? null : (lookup.get(`${row.name}|${column.name}`) || lookup.get(`${column.name}|${row.name}`)); return `<div class="aspect-cell ${aspect ? 'has-aspect' : ''}" title="${aspect ? `${tName(aspect.name)}, ${t('{orb}° orb', { orb: aspect.orb.toFixed(1) })}` : t('No aspect')}"${aspect ? ` style="color:${aspect.color}"` : ''}>${aspect ? aspect.glyph : '·'}</div>`; }).join('')}`).join('')}`;
+  grid.innerHTML = `<div class="grid-corner"></div>${positions.map(position => `<div class="grid-label">${shortName(position.name)}</div>`).join('')}${positions.map((row, rowIndex) => `<div class="grid-label row-label">${shortName(row.name)}</div>${positions.map((column, columnIndex) => { const aspect = rowIndex === columnIndex ? null : (lookup.get(`${row.name}|${column.name}`) || lookup.get(`${column.name}|${row.name}`)); return aspectCellMarkup(aspect); }).join('')}`).join('')}`;
+}
+
+// One aspect grid cell: empty, or the aspect's glyph with its tooltip, shaded by
+// intensity (weak cells paler, strong and exact ones framed). Shared with the pair grids.
+function aspectCellMarkup(aspect, ownerFirst = '', ownerSecond = '') {
+  if (!aspect) return '<div class="aspect-cell">·</div>';
+  return `<div class="aspect-cell has-aspect ${aspect.intensity}" ${aspectTipAttributes(aspect, ownerFirst, ownerSecond)} style="color:${aspect.color}">${aspect.glyph}</div>`;
 }
 
 function setChartView(mode) {
