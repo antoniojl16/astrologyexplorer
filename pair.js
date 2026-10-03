@@ -455,10 +455,7 @@ function pairAspectGridMarkup(people, aspects) {
   const label = (person, position, row) => `<div class="grid-label${row ? ' row-label' : ''}" style="color:${person.color}">${/^[A-Za-z]+$/.test(position.glyph) ? '' : `${position.glyph} `}${position.name}</div>`;
   const cell = (row, column) => {
     const aspect = !synastry && row.name === column.name ? null : lookup.get(`${row.name}|${column.name}`);
-    const title = aspect
-      ? `${row.name}${synastry ? ` (${rowsPerson.tag})` : ''} ${aspect.name} ${column.name}${synastry ? ` (${columnsPerson.tag})` : ''} · orb ${aspect.orb.toFixed(1)}°`
-      : 'No aspect';
-    return `<div class="aspect-cell${aspect ? ' has-aspect' : ''}" title="${title}"${aspect ? ` style="color:${aspect.color}"` : ''}>${aspect ? aspect.glyph : '·'}</div>`;
+    return synastry ? aspectCellMarkup(aspect, rowsPerson.chart.name, columnsPerson.chart.name) : aspectCellMarkup(aspect);
   };
   const heading = synastry
     ? `CROSS-ASPECTS · ${aspects.length} · <span style="color:${rowsPerson.color}">rows ${rowsPerson.name}</span> · <span style="color:${columnsPerson.color}">columns ${columnsPerson.name}</span>`
