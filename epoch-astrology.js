@@ -41,6 +41,8 @@ const epochAstro = {
   active: 'inner',
   aspects: new Set(EPOCH_OPTIONAL_ASPECTS),
   lines: 'between',
+  // Bodies on the wheel: the slow planets, until others are ticked (not remembered).
+  bodies: new Set(EPOCH_BODIES),
 };
 let epochAstroTimeline = null;
 
@@ -150,27 +152,41 @@ function epochPhaseText(angle) {
 
 // ── Wheel ────────────────────────────────────────────────────────────────
 // Fixed zodiac (0° Aries at the left), no houses: an inner ring for the inner moment,
-// an outer ring for the outer one, and aspect lines within either moment or between them.
+// an outer ring for the outer one, each body with its degree, sign and minutes as in
+// the Chart Explorer's wheel, the sign cusps running in across both rings, and aspect
+// lines within either moment or between them. The slow planets are always available;
+// the Sun, Moon, Mercury, Venus and Mars can be added (EPOCH_EXTRA_BODIES).
+const EPOCH_EXTRA_BODIES = ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars'];
+const EPOCH_WHEEL_BODIES = [...EPOCH_EXTRA_BODIES, ...EPOCH_BODIES];
+const EPOCH_WHEEL_GLYPHS = { Sun: '☉', Moon: '☽', Mercury: '☿', Venus: '♀', Mars: '♂', ...EPOCH_GLYPHS };
 function epochMotion(body, ut) {
+  if (body === 'Sun' || body === 'Moon') return null;
   const daily = epochWrap180(epochLongitude(body, ut + 0.5) - epochLongitude(body, ut - 0.5));
   if (Math.abs(daily) < (WHEEL_MEAN_DAILY_MOTION[body] || 0.01) * WHEEL_STATION_FRACTION) return 'stationary';
   return daily < 0 ? 'retrograde' : null;
 }
 function renderEpochWheel(svg) {
-  const cx = 300, cy = 300, outer = 250, zodiacInner = 206, ringWidth = 44;
+  const cx = 300, cy = 300, outer = 278, zodiacInner = 236, ringWidth = 76;
   const insideOuter = zodiacInner - ringWidth, aspectR = insideOuter - ringWidth;
   const rotation = 270;
   const circle = (r) => `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--line)" stroke-width="1"/>`;
   let markup = circle(outer) + circle(zodiacInner) + circle(insideOuter) + circle(aspectR);
   markup += wheelZodiacMarkup(cx, cy, outer, zodiacInner, rotation);
-  const ring = (marker) => EPOCH_BODIES.map((body) => {
+  // The sign cusps, carried in across both planet rings.
+  for (let sign = 0; sign < 12; sign += 1) {
+    const rad = ((rotation - sign * 30 - 90) * Math.PI) / 180;
+    markup += `<line x1="${cx + zodiacInner * Math.cos(rad)}" y1="${cy + zodiacInner * Math.sin(rad)}" x2="${cx + aspectR * Math.cos(rad)}" y2="${cy + aspectR * Math.sin(rad)}" class="epoch-sign-cusp"/>`;
+  }
+  const bodies = EPOCH_WHEEL_BODIES.filter((body) => epochAstro.bodies.has(body));
+  const ring = (marker) => bodies.map((body) => {
     const ut = epochAstro.times[marker.key];
     const longitude = epochLongitude(body, ut);
-    return { name: body, glyph: EPOCH_GLYPHS[body], key: `${marker.key}:${body}`, marker, color: marker.color, longitude, angle: (rotation - longitude + 360) % 360, motion: epochMotion(body, ut) };
+    return { name: body, glyph: EPOCH_WHEEL_GLYPHS[body], key: `${marker.key}:${body}`, marker, color: marker.color, longitude, angle: (rotation - longitude + 360) % 360, motion: epochMotion(body, ut) };
   });
   const inner = ring(EPOCH_MARKERS[0]), outerRing = ring(EPOCH_MARKERS[1]);
-  spreadClusteredAngles(inner, 8);
-  spreadClusteredAngles(outerRing, 8);
+  // The inner ring is smaller, so its labels need a wider angle to stay apart.
+  spreadClusteredAngles(inner, 10);
+  spreadClusteredAngles(outerRing, 7.5);
   const visible = (name) => name === 'Conjunction' || epochAstro.aspects.has(name);
   const asBodies = (positions) => positions.map((position) => ({ name: position.name, angle: position.longitude }));
   const aspects = epochAstro.lines === 'between'
@@ -181,8 +197,13 @@ function renderEpochWheel(svg) {
   const byName = (positions) => new Map(positions.map((position) => [position.name, position]));
   const firstByName = byName(firstRing), secondByName = byName(secondRing);
   markup += wheelAspectLinesMarkup(cx, cy, aspectR, aspects, (aspect) => [firstByName.get(aspect.first).angle, secondByName.get(aspect.second).angle]);
-  inner.forEach((position) => { markup += planetMarkerMarkup(cx, cy, insideOuter, position, ringWidth); });
-  outerRing.forEach((position) => { markup += planetMarkerMarkup(cx, cy, zodiacInner, position, ringWidth); });
+  // Degree, sign and minutes under each glyph (planetDegreeLabelMarkup, as in the Chart Explorer).
+  const marker = (ringOuter) => (position) => {
+    const rad = ((position.displayAngle - 90) * Math.PI) / 180;
+    markup += planetMarkerMarkup(cx, cy, ringOuter, position, ringWidth) + planetDegreeLabelMarkup(cx, cy, ringOuter - 3, rad, position.longitude, position.color);
+  };
+  inner.forEach(marker(insideOuter));
+  outerRing.forEach(marker(zodiacInner));
   svg.innerHTML = markup;
   const all = new Map([...inner, ...outerRing].map((position) => [position.key, position]));
   svg._wheelHover = {
@@ -279,6 +300,7 @@ function epochAstrologyNotesMarkup() {
   return `<details class="cycle-life epoch-notes"><summary><strong>About these calculations</strong><small>sources and accuracy</small></summary><div class="epoch-notes-body">
     <p>Positions are geocentric and tropical (measured from the equinox of date, as in the rest of the app), with light-time and aberration, as an observer on Earth sees them. A conjunction is the moment both planets have the same ecliptic longitude; retrograde loops can bring two or three exact passes within a year or so, listed together as one conjunction. A cycle runs from one conjunction (its first pass) to the next; the other phases are the moments the faster planet is 60°, 90°, 120°, 180°, 240°, 270° and 300° ahead.</p>
     <p>The planets come from <a href="https://github.com/cosinekitty/astronomy" target="_blank" rel="noopener">Astronomy Engine</a>, corrected towards NASA JPL's <a href="https://ssd.jpl.nasa.gov/planets/eph_export.html" target="_blank" rel="noopener">DE441</a> ephemeris (Park et al. 2021, <a href="https://doi.org/10.3847/1538-3881/abd414" target="_blank" rel="noopener">AJ 161, 105</a>), fetched from <a href="https://ssd.jpl.nasa.gov/horizons/" target="_blank" rel="noopener">JPL Horizons</a>. Uncorrected, Astronomy Engine drifts by up to 4° for Saturn and over 1° for Jupiter by 5000 BC (and computes Pluto far too slowly there), so Jupiter to Neptune are corrected towards DE441 and Pluto is taken from DE441 directly. Checked against JPL's own apparent positions, they agree within a few arcseconds from 3000 BC on and within an arcminute at 5000 BC. The slower the pair, the more an arcsecond moves its conjunction: minutes for Jupiter–Saturn, hours for the outermost pairs, which close in on each other very slowly.</p>
+    <p>The Sun, Moon, Mercury, Venus and Mars (optional on the wheel) come from Astronomy Engine uncorrected: reliable in historical times, but not checked against DE441 in deep antiquity. The Moon there is uncertain anyway — it moves half a degree an hour, and the clock time itself is uncertain (see below).</p>
     <p>Times are in UTC (Universal Time). Before about 1600 the difference between Earth's irregular rotation and uniform time (ΔT) is only estimated, so clock times grow uncertain going back: by minutes in antiquity, by hours to a day or more around 5000 BC. Dates before 15 October 1582 are in the Julian calendar, as historians give them; years BC have no year 0 (1 BC is followed by 1 AD).</p>
   </div></details>`;
 }
@@ -290,6 +312,8 @@ function renderEpochAstrology(surface) {
     const index = epochCycleIndex('Jupiter-Saturn', now);
     epochAstro.times = { inner: epochConjunctions('Jupiter-Saturn')[index]?.start ?? now, outer: now };
   }
+  // Wheel with its controls beside it; the two moments and the timeline under both;
+  // then where every cycle stands, next to the chosen cycle phase by phase.
   surface.innerHTML = `
     <div class="epoch-astro-layout">
       <div class="chart-panel epoch-wheel-panel">
@@ -297,41 +321,45 @@ function renderEpochAstrology(surface) {
           <div class="pair-legend epoch-legend">${EPOCH_MARKERS.map((marker) => `<span><i class="legend-dot" style="background:${marker.color}"></i>${marker.key === 'inner' ? 'Inner' : 'Outer'}</span>`).join('')}</div>
           <div class="chart-toolbar-right"><span class="eyebrow">LINES</span>${pairSegmentedMarkup('data-epoch-lines', EPOCH_ASTRO_LINES, epochAstro.lines)}</div>
         </div>
-        <div class="wheel-stage"><svg class="synastry-wheel epoch-wheel" viewBox="45 45 510 510" role="img" aria-label="Epoch bi-wheel: the slow planets at two moments" data-epoch-wheel></svg></div>
-        <div class="epoch-moments">
-          ${epochMomentRowMarkup(EPOCH_MARKERS[0])}
-          <button type="button" class="pair-swap epoch-reverse" data-epoch-reverse title="Reverse the two moments (R)" aria-label="Reverse the two moments">⇅</button>
-          ${epochMomentRowMarkup(EPOCH_MARKERS[1])}
-        </div>
-        <div class="timeline-control epoch-timeline-box" data-epoch-timeline></div>
+        <div class="wheel-stage"><svg class="synastry-wheel epoch-wheel" viewBox="20 20 560 560" role="img" aria-label="Epoch bi-wheel: the planets at two moments" data-epoch-wheel></svg></div>
       </div>
-      <div class="epoch-side">
-        <div class="acg-filters epoch-panel">
-          <span class="eyebrow">CYCLE</span>
-          <label class="epoch-field">Pair<select data-epoch-pair>${EPOCH_PAIRS.map((pair) => `<option value="${pair}">${epochPairGlyphs(pair)}  ${epochPairName(pair)}</option>`).join('')}</select></label>
-          <label class="epoch-field">Go to conjunction<select data-epoch-jump></select></label>
-          <div class="epoch-step-buttons">
-            <button type="button" class="secondary-button" data-epoch-step="event:-1" title="Previous conjunction (,)">◀ Conjunction</button>
-            <button type="button" class="secondary-button" data-epoch-step="event:1" title="Next conjunction (.)">Conjunction ▶</button>
-            <button type="button" class="secondary-button" data-epoch-step="phase:-1" title="Previous phase ([)">◀ Phase</button>
-            <button type="button" class="secondary-button" data-epoch-step="phase:1" title="Next phase (])">Phase ▶</button>
-          </div>
-          <span class="eyebrow epoch-panel-section">ASPECTS</span>
-          <div class="epoch-aspect-filters">
-            <label><input type="checkbox" checked disabled>☌ Conjunction</label>
-            ${EPOCH_OPTIONAL_ASPECTS.map((name) => `<label><input type="checkbox" data-epoch-aspect="${name}" ${epochAstro.aspects.has(name) ? 'checked' : ''}><span style="color:${ASPECT_COLORS[name]}">${ASPECT_DEFINITIONS.find((definition) => definition.name === name).glyph}</span> ${name}</label>`).join('')}
-          </div>
+      <div class="epoch-panel epoch-controls">
+        <span class="eyebrow">CYCLE</span>
+        <label class="epoch-field">Pair<select data-epoch-pair>${EPOCH_PAIRS.map((pair) => `<option value="${pair}">${epochPairGlyphs(pair)}  ${epochPairName(pair)}</option>`).join('')}</select></label>
+        <label class="epoch-field">Go to conjunction<select data-epoch-jump></select></label>
+        <div class="epoch-steppers">
+          <div class="epoch-stepper"><span>Conjunction</span><button type="button" data-epoch-step="event:-1" title="Previous conjunction of this pair (,)" aria-label="Previous conjunction">◀</button><button type="button" data-epoch-step="event:1" title="Next conjunction of this pair (.)" aria-label="Next conjunction">▶</button></div>
+          <div class="epoch-stepper"><span>Phase</span><button type="button" data-epoch-step="phase:-1" title="Previous exact phase of this pair's cycle: conjunction or a shown aspect ([)" aria-label="Previous phase">◀</button><button type="button" data-epoch-step="phase:1" title="Next exact phase of this pair's cycle: conjunction or a shown aspect (])" aria-label="Next phase">▶</button></div>
         </div>
-        <div class="acg-filters epoch-panel">
-          <span class="eyebrow">WHERE EACH CYCLE STANDS</span>
-          <div data-epoch-cycles></div>
+        <span class="eyebrow epoch-panel-section">ASPECTS</span>
+        <div class="epoch-check-grid">
+          <label><input type="checkbox" checked disabled>☌ Conjunction</label>
+          ${EPOCH_OPTIONAL_ASPECTS.map((name) => `<label><input type="checkbox" data-epoch-aspect="${name}" ${epochAstro.aspects.has(name) ? 'checked' : ''}><span style="color:${ASPECT_COLORS[name]}">${ASPECT_DEFINITIONS.find((definition) => definition.name === name).glyph}</span> ${name}</label>`).join('')}
+        </div>
+        <span class="eyebrow epoch-panel-section">PLANETS</span>
+        <div class="epoch-check-grid">
+          ${EPOCH_WHEEL_BODIES.map((body) => `<label><input type="checkbox" data-epoch-body="${body}" ${epochAstro.bodies.has(body) ? 'checked' : ''}>${EPOCH_WHEEL_GLYPHS[body]} ${body}</label>`).join('')}
         </div>
       </div>
     </div>
-    <section class="cycle-life epoch-section">
-      <div class="epoch-section-head"><strong data-epoch-cycle-title></strong><small>the cycle containing the active moment</small></div>
-      <div class="epoch-section-body" data-epoch-current-cycle></div>
-    </section>
+    <div class="chart-panel epoch-time-panel">
+      <div class="epoch-moments">
+        ${epochMomentRowMarkup(EPOCH_MARKERS[0])}
+        <button type="button" class="pair-swap epoch-reverse" data-epoch-reverse title="Reverse the two moments (R)" aria-label="Reverse the two moments">⇅</button>
+        ${epochMomentRowMarkup(EPOCH_MARKERS[1])}
+      </div>
+      <div class="timeline-control epoch-timeline-box" data-epoch-timeline></div>
+    </div>
+    <div class="epoch-astro-lower">
+      <div class="epoch-panel">
+        <span class="eyebrow">WHERE EACH CYCLE STANDS</span>
+        <div data-epoch-cycles></div>
+      </div>
+      <section class="cycle-life epoch-section">
+        <div class="epoch-section-head"><strong data-epoch-cycle-title></strong><small>the cycle containing the active moment</small></div>
+        <div class="epoch-section-body" data-epoch-current-cycle></div>
+      </section>
+    </div>
     <h3 class="epoch-heading">All conjunctions, 5000 BC – 3000 AD</h3>
     <div data-epoch-lists>${epochConjunctionListMarkup()}</div>
     ${epochAstrologyNotesMarkup()}`;
@@ -483,6 +511,10 @@ function renderEpochAstrology(surface) {
     surface.querySelectorAll('[data-epoch-lines] button').forEach((item) => item.classList.toggle('active', item === button));
     draw();
   });
+  surface.querySelectorAll('[data-epoch-body]').forEach((box) => box.addEventListener('change', () => {
+    if (box.checked) epochAstro.bodies.add(box.dataset.epochBody); else epochAstro.bodies.delete(box.dataset.epochBody);
+    draw();
+  }));
   surface.querySelectorAll('[data-epoch-aspect]').forEach((box) => box.addEventListener('change', () => {
     if (box.checked) epochAstro.aspects.add(box.dataset.epochAspect); else epochAstro.aspects.delete(box.dataset.epochAspect);
     shownCycle = null;

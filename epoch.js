@@ -333,8 +333,13 @@ function switchEpochSystem(system, force = false) {
   surface.innerHTML = '<p class="intro-copy epoch-loading">Loading…</p>';
   epochLoadSystem(system).then(() => {
     if (epochActiveSystem !== system) return;
-    if (system === 'Astrology') renderEpochAstrology(surface);
-    else renderEpochHumanDesign(surface);
+    // A fresh container each time: the views bind their listeners to it, and they go
+    // with it (binding them to the long-lived surface would stack them up, one more
+    // set per visit, so one click would act two, three, four times).
+    const host = document.createElement('div');
+    surface.replaceChildren(host);
+    if (system === 'Astrology') renderEpochAstrology(host);
+    else renderEpochHumanDesign(host);
   }).catch((error) => {
     surface.innerHTML = `<p class="intro-copy">${escapeHtml(error.message)}. Check the connection and try again.</p>`;
   });

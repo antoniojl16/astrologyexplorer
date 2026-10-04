@@ -517,4 +517,20 @@ body.dark .life-tag-chip.active{color:var(--ink)}
 .epoch-hd-moment{border-top:1px solid var(--line)}
 .epoch-loading{margin-top:24px}
 .hd-mandala .mandala-gate[data-epoch-gate]{cursor:help}
-@media(max-width:1100px){.epoch-astro-layout,.epoch-hd-layout{grid-template-columns:1fr}.epoch-hd-steps{grid-template-columns:repeat(3,auto)}.epoch-moment-note{padding-left:0}.epoch-reverse{position:static;transform:none;align-self:flex-end}}
+.epoch-astro-layout{grid-template-columns:minmax(380px,1fr) 280px}
+.epoch-hd-layout{grid-template-columns:minmax(420px,1fr) 300px}
+.epoch-time-panel{margin-top:20px}
+.epoch-astro-lower{display:grid;grid-template-columns:minmax(330px,1fr) minmax(420px,1.45fr);gap:20px;align-items:start;margin-top:20px}
+.epoch-astro-lower .epoch-section{margin-top:0}
+.epoch-check-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;font-size:11px}
+.epoch-check-grid label{display:flex;align-items:center;gap:6px;white-space:nowrap}
+.epoch-check-grid input{margin:0}
+.epoch-steppers{display:flex;flex-wrap:wrap;gap:8px 16px}
+.epoch-hd-steps{flex-wrap:nowrap}
+.epoch-stepper{display:inline-flex;align-items:center;gap:3px;white-space:nowrap}
+.epoch-stepper span{font:9px 'DM Mono',monospace;color:var(--muted);margin-right:4px;text-transform:uppercase;letter-spacing:.05em}
+.epoch-stepper button{padding:5px 10px;font-size:10px;border-radius:2px;border:1px solid var(--line);background:var(--panel);color:var(--ink)}
+.epoch-stepper button:hover{border-color:var(--ink)}
+.epoch-sign-cusp{stroke:var(--line);stroke-width:1}
+.epoch-wheel .planet-degree,.epoch-wheel .planet-minutes{font-size:10px}
+@media(max-width:1350px){.epoch-astro-lower{grid-template-columns:1fr}}

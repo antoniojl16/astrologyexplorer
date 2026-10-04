@@ -82,6 +82,9 @@ function epochLongitude(body, ut) {
   const A = epochAstronomy;
   const time = typeof ut === 'number' ? epochTime(ut) : ut;
   if (epochCorrections?.positions?.[body]) return A.Ecliptic(epochTabulatedGeoVector(body, time)).elon;
+  // The Sun, Moon and inner planets (optional on the wheel) come from Astronomy Engine as is.
+  if (body === 'Sun') return A.SunPosition(time).elon;
+  if (!EPOCH_BODIES.includes(body)) return A.Ecliptic(A.GeoVector(A.Body[body], time, true)).elon;
   const vector = A.GeoVector(A.Body[body], time, true);
   const offset = epochCorrectionAt(body, time.tt);
   const corrected = offset ? new A.Vector(vector.x + offset[0], vector.y + offset[1], vector.z + offset[2], time) : vector;

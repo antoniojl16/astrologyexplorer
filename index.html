@@ -10,9 +10,9 @@
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <!-- The asset version (tools/bump-version.py): every local script and stylesheet below
        carries it, so a new release is never mixed with cached old files. -->
-  <script>const ORBITAL_VERSION = "20261004-0032";</script>
-  <link rel="stylesheet" href="fonts.css?v=20261004-0032">
-  <link rel="stylesheet" href="styles.css?v=20261004-0032">
+  <script>const ORBITAL_VERSION = "20261004-0053";</script>
+  <link rel="stylesheet" href="fonts.css?v=20261004-0053">
+  <link rel="stylesheet" href="styles.css?v=20261004-0053">
 </head>
 <body>
   <div id="ephemerisDebugBar" class="ephemeris-debug-bar"></div>
@@ -91,38 +91,38 @@
 </div></dialog>
   <dialog id="shortcutsDialog"><div class="dialog-head"><div><p class="eyebrow accent-label">QUICK REFERENCE</p><h2>Keyboard guide</h2></div><button class="close-button" id="closeShortcuts" aria-label="Close">×</button></div><div class="shortcut-list shortcut-columns"><div class="shortcut-group"><p class="shortcut-section">General</p><div><span class="shortcut-keys"><kbd>?</kbd></span><span>Open this guide</span></div><div><span class="shortcut-keys"><kbd>Esc</kbd></span><span>Close any dialog</span></div></div><div class="shortcut-group"><p class="shortcut-section">Library</p><div><span class="shortcut-keys"><kbd>N</kbd></span><span>Add a new chart</span></div><div><span class="shortcut-keys"><kbd>J</kbd> <kbd>K</kbd></span><span>Next / previous chart</span></div><div><span class="shortcut-keys"><kbd>X</kbd></span><span>Select or deselect that chart</span></div><div><span class="shortcut-keys"><kbd>E</kbd></span><span>Edit that chart</span></div><div><span class="shortcut-keys"><kbd>↵</kbd></span><span>Open selected chart</span></div></div><div class="shortcut-group"><p class="shortcut-section">Explorers <small>Ctrl, or Alt / Option</small></p><div><span class="shortcut-keys"><kbd>Ctrl</kbd> <kbd>L</kbd></span><span>Library</span></div><div><span class="shortcut-keys"><kbd>Ctrl</kbd> <kbd>I</kbd></span><span>Chart explorer</span></div><div><span class="shortcut-keys"><kbd>Ctrl</kbd> <kbd>P</kbd></span><span>Pair explorer</span></div><div><span class="shortcut-keys"><kbd>Ctrl</kbd> <kbd>T</kbd></span><span>Timeline explorer</span></div><div><span class="shortcut-keys"><kbd>Ctrl</kbd> <kbd>C</kbd></span><span>Cycle explorer</span></div><div><span class="shortcut-keys"><kbd>Ctrl</kbd> <kbd>O</kbd></span><span>Epoch explorer</span></div></div><div class="shortcut-group"><p class="shortcut-section">Systems <small>Ctrl, or Alt / Option</small></p><div><span class="shortcut-keys"><kbd>Ctrl</kbd> <kbd>A</kbd></span><span>Astrology</span></div><div><span class="shortcut-keys"><kbd>Ctrl</kbd> <kbd>H</kbd></span><span>Human Design</span></div><div><span class="shortcut-keys"><kbd>Ctrl</kbd> <kbd>G</kbd></span><span>Gene Keys</span></div><div><span class="shortcut-keys"><kbd>Ctrl</kbd> <kbd>Y</kbd></span><span>Astrocartography</span></div><div><span class="shortcut-keys"><kbd>Ctrl</kbd> <kbd>E</kbd></span><span>Life Events (Cycle explorer: Life Timeline)</span></div></div><div class="shortcut-group"><p class="shortcut-section">Chart views</p><div><span class="shortcut-keys"><kbd>E</kbd></span><span>Chart explorer: edit the chart</span></div><div><span class="shortcut-keys"><kbd>Z</kbd></span><span>Fix the zodiac on the astrology wheel</span></div><div><span class="shortcut-keys"><kbd>0</kbd></span><span>Center the timeline slider</span></div><div><span class="shortcut-keys"><kbd>Shift</kbd> <kbd>←</kbd> <kbd>→</kbd></span><span>Timeline slider: one step of the tick labels’ unit</span></div><div><span class="shortcut-keys"><kbd>←</kbd> <kbd>→</kbd></span><span>Timeline slider: one step of the next smaller unit</span></div><div><span class="shortcut-keys"><kbd>P</kbd></span><span>Human Design: Personality only (again: all)</span></div><div><span class="shortcut-keys"><kbd>D</kbd></span><span>Human Design: Design only (again: all)</span></div><div><span class="shortcut-keys"><kbd>X</kbd></span><span>Human Design: Incarnation Cross only (again: all)</span></div><div><span class="shortcut-keys"><kbd>M</kbd></span><span>Human Design: Mandala ↔ Bodygraph</span></div><div><span class="shortcut-keys"><kbd>T</kbd></span><span>Astrocartography: Travel ↔ Local Space</span></div><div><span class="shortcut-keys"><kbd>M</kbd></span><span>Astrocartography: Relief ↔ Plain map</span></div><div><span class="shortcut-keys"><kbd>D</kbd></span><span>ACG Local Space: Relocated ↔ Natal directions</span></div></div><div class="shortcut-group"><p class="shortcut-section">Pair &amp; cycle explorers</p><div><span class="shortcut-keys"><kbd>1</kbd></span><span>First chart (Chart A / Natal)</span></div><div><span class="shortcut-keys"><kbd>2</kbd></span><span>Second chart (Chart B / Cycle)</span></div><div><span class="shortcut-keys"><kbd>3</kbd></span><span>Both together (Synastry / Composite; Astrology: again to switch)</span></div><div><span class="shortcut-keys"><kbd>R</kbd></span><span>Pair: swap the two charts</span></div></div><div class="shortcut-group"><p class="shortcut-section">Epoch explorer</p><div><span class="shortcut-keys"><kbd>,</kbd> <kbd>.</kbd></span><span>Previous / next conjunction (Human Design: sub-epoch)</span></div><div><span class="shortcut-keys"><kbd>[</kbd> <kbd>]</kbd></span><span>Previous / next phase of the cycle (Human Design: line)</span></div><div><span class="shortcut-keys"><kbd>{</kbd> <kbd>}</kbd></span><span>Human Design: previous / next gate</span></div><div><span class="shortcut-keys"><kbd>1</kbd> <kbd>2</kbd></span><span>Astrology: move the inner / outer moment</span></div><div><span class="shortcut-keys"><kbd>R</kbd></span><span>Astrology: reverse the two moments</span></div><div><span class="shortcut-keys"><kbd>N</kbd></span><span>The moment to now</span></div><div><span class="shortcut-keys"><kbd>←</kbd> <kbd>→</kbd></span><span>On a marker: move it (Shift: ten times as far)</span></div></div></div></dialog>
   <div class="toast" id="toast" role="status"></div>
-  <script src="astronomy-engine.js?v=20261004-0032"></script>
-  <script src="ephemeris.js?v=20261004-0032"></script>
-  <script src="tz-history.js?v=20261004-0032"></script>
-  <script src="app.js?v=20261004-0032"></script>
-  <script src="zodiac-data.js?v=20261004-0032"></script>
-  <script src="timeline.js?v=20261004-0032"></script>
-  <script src="human-design.js?v=20261004-0032"></script>
-  <script src="editing.js?v=20261004-0032"></script>
-  <script src="aspects.js?v=20261004-0032"></script>
-  <script src="workspace-actions.js?v=20261004-0032"></script>
-  <script src="workspace-files.js?v=20261004-0032"></script>
-  <script src="gene-keys-data.js?v=20261004-0032"></script>
-  <script src="hd-meanings.js?v=20261004-0032"></script>
-  <script src="systems.js?v=20261004-0032"></script>
-  <script src="library.js?v=20261004-0032"></script>
-  <script src="place-search.js?v=20261004-0032"></script>
-  <script src="csv-import.js?v=20261004-0032"></script>
-  <script src="acg-meanings.js?v=20261004-0032"></script>
-  <script src="astrocartography.js?v=20261004-0032"></script>
-  <script src="cycles.js?v=20261004-0032"></script>
-  <script src="cycle-moment.js?v=20261004-0032"></script>
-  <script src="cycle-summary.js?v=20261004-0032"></script>
-  <script src="life-patterns.js?v=20261004-0032"></script>
-  <script src="pair.js?v=20261004-0032"></script>
-  <script src="pair-composite.js?v=20261004-0032"></script>
-  <script src="life-events.js?v=20261004-0032"></script>
-  <script src="pair-life.js?v=20261004-0032"></script>
-  <script src="epoch-ephemeris.js?v=20261004-0032"></script>
-  <script src="epoch.js?v=20261004-0032"></script>
-  <script src="epoch-astrology.js?v=20261004-0032"></script>
-  <script src="epoch-human-design.js?v=20261004-0032"></script>
-  <script src="router.js?v=20261004-0032"></script>
-  <script src="shortcuts.js?v=20261004-0032"></script>
+  <script src="astronomy-engine.js?v=20261004-0053"></script>
+  <script src="ephemeris.js?v=20261004-0053"></script>
+  <script src="tz-history.js?v=20261004-0053"></script>
+  <script src="app.js?v=20261004-0053"></script>
+  <script src="zodiac-data.js?v=20261004-0053"></script>
+  <script src="timeline.js?v=20261004-0053"></script>
+  <script src="human-design.js?v=20261004-0053"></script>
+  <script src="editing.js?v=20261004-0053"></script>
+  <script src="aspects.js?v=20261004-0053"></script>
+  <script src="workspace-actions.js?v=20261004-0053"></script>
+  <script src="workspace-files.js?v=20261004-0053"></script>
+  <script src="gene-keys-data.js?v=20261004-0053"></script>
+  <script src="hd-meanings.js?v=20261004-0053"></script>
+  <script src="systems.js?v=20261004-0053"></script>
+  <script src="library.js?v=20261004-0053"></script>
+  <script src="place-search.js?v=20261004-0053"></script>
+  <script src="csv-import.js?v=20261004-0053"></script>
+  <script src="acg-meanings.js?v=20261004-0053"></script>
+  <script src="astrocartography.js?v=20261004-0053"></script>
+  <script src="cycles.js?v=20261004-0053"></script>
+  <script src="cycle-moment.js?v=20261004-0053"></script>
+  <script src="cycle-summary.js?v=20261004-0053"></script>
+  <script src="life-patterns.js?v=20261004-0053"></script>
+  <script src="pair.js?v=20261004-0053"></script>
+  <script src="pair-composite.js?v=20261004-0053"></script>
+  <script src="life-events.js?v=20261004-0053"></script>
+  <script src="pair-life.js?v=20261004-0053"></script>
+  <script src="epoch-ephemeris.js?v=20261004-0053"></script>
+  <script src="epoch.js?v=20261004-0053"></script>
+  <script src="epoch-astrology.js?v=20261004-0053"></script>
+  <script src="epoch-human-design.js?v=20261004-0053"></script>
+  <script src="router.js?v=20261004-0053"></script>
+  <script src="shortcuts.js?v=20261004-0053"></script>
 </body>
 </html>

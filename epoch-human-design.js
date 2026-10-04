@@ -280,13 +280,10 @@ function renderEpochHumanDesign(surface) {
         <div data-epoch-mandala></div>
         <div class="epoch-moments epoch-hd-moment">
           <div class="epoch-moment active"><span class="epoch-moment-pick"><i class="legend-dot" style="background:var(--accent)"></i>Moment</span>${epochDateFieldsMarkup('hd')}<button type="button" class="secondary-button epoch-now" data-epoch-hd-now title="Set to now (N)">Now</button></div>
-          <div class="epoch-step-buttons epoch-hd-steps">
-            <button type="button" class="secondary-button" data-epoch-hd-step="event:-1" title="Previous sub-epoch (,)">◀ Sub-epoch</button>
-            <button type="button" class="secondary-button" data-epoch-hd-step="event:1" title="Next sub-epoch (.)">Sub-epoch ▶</button>
-            <button type="button" class="secondary-button" data-epoch-hd-step="phase:-1" title="Previous line ([)">◀ Line</button>
-            <button type="button" class="secondary-button" data-epoch-hd-step="phase:1" title="Next line (])">Line ▶</button>
-            <button type="button" class="secondary-button" data-epoch-hd-step="gate:-1" title="Previous gate ({)">◀ Gate</button>
-            <button type="button" class="secondary-button" data-epoch-hd-step="gate:1" title="Next gate (})">Gate ▶</button>
+          <div class="epoch-steppers epoch-hd-steps">
+            <div class="epoch-stepper"><span>Sub-epoch</span><button type="button" data-epoch-hd-step="event:-1" title="Previous sub-epoch: the profile changes when either the Personality or the Design line does, alternately after ~9 and ~58 years (,)" aria-label="Previous sub-epoch">◀</button><button type="button" data-epoch-hd-step="event:1" title="Next sub-epoch (.)" aria-label="Next sub-epoch">▶</button></div>
+            <div class="epoch-stepper"><span>Line</span><button type="button" data-epoch-hd-step="phase:-1" title="Previous Personality line: ~67 years, two sub-epochs ([)" aria-label="Previous line">◀</button><button type="button" data-epoch-hd-step="phase:1" title="Next Personality line (])" aria-label="Next line">▶</button></div>
+            <div class="epoch-stepper"><span>Gate</span><button type="button" data-epoch-hd-step="gate:-1" title="Previous gate: the epoch, ~400 years ({)" aria-label="Previous gate">◀</button><button type="button" data-epoch-hd-step="gate:1" title="Next gate (})" aria-label="Next gate">▶</button></div>
           </div>
         </div>
         <div class="timeline-control epoch-timeline-box" data-epoch-hd-timeline></div>
@@ -308,6 +305,8 @@ function renderEpochHumanDesign(surface) {
     const sub = epochHdSpan('sub', state.ayanamsa)[0];
     mandala.innerHTML = epochHdMandalaMarkup(state);
     mandala.querySelectorAll('.mandala-gate').forEach((node) => { node.dataset.epochGate = node.textContent; node.setAttribute('tabindex', '0'); });
+    // The signs explain themselves on hover, as on every astrology wheel (zodiacSignTooltipHtml).
+    mandala.querySelectorAll('.mandala-zodiac').forEach((node, index) => { node.dataset.zodiacSign = index; });
     if (sub !== shownSub) {
       shownSub = sub;
       summary.innerHTML = epochHdSummaryMarkup(state);
