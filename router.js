@@ -12,7 +12,7 @@
 //   #/cycle/<chart>/event/<event id>/<start|end>/<system>[/<map view>]
 //   #/cycle/<chart>/birth/<system>[/<map view>]
 //   #/cycle/<chart>/now/<system>[/<map view>]   (transits: the sky when the link is opened)
-//   #/epoch/<system>[/<pair>/<planet>]   (the Epoch Explorer; Astrology's reference pair, e.g. jupiter-saturn, and the moment's planet)
+//   #/epoch/<system>[/<pair>/<planet>]   (the Epoch Explorer: astrology, conjunctions or human-design; Astrology's reference pair, e.g. jupiter-saturn, and the moment's planet)
 //
 // e.g. #/chart/mira-mercer/human-design/mandala/design
 //      #/pair/mira-mercer/jonas-sol/astrology/synastry/both

@@ -10,7 +10,7 @@
 // Every moment here is a number: days from J2000 (1 Jan 2000, 12:00 UT), in UT — the
 // same scale Astronomy Engine's MakeTime takes, and safe for any year (unlike Date).
 
-const EPOCH_SYSTEMS = ['Astrology', 'Human Design'];
+const EPOCH_SYSTEMS = ['Astrology', 'Conjunctions', 'Human Design'];
 let epochActiveSystem = 'Astrology';
 let epochMounted = false;
 const EPOCH_J2000_JD = 2451545.0;
@@ -23,6 +23,7 @@ function epochNow() {
 // ── Data files, loaded on first visit ────────────────────────────────────
 const EPOCH_DATA_FILES = {
   Astrology: ['epoch-ephemeris-data.js', 'epoch-conjunctions.js'],
+  Conjunctions: ['epoch-ephemeris-data.js', 'epoch-conjunctions.js'],
   'Human Design': ['epoch-precession.js'],
 };
 const epochScriptLoads = {};
@@ -40,7 +41,7 @@ function epochLoadScript(file) {
 }
 function epochLoadSystem(system) {
   return Promise.all(EPOCH_DATA_FILES[system].map(epochLoadScript)).then(() => {
-    if (system === 'Astrology') epochEphemerisSetup(Astronomy, EPOCH_EPHEMERIS_CORRECTIONS);
+    if (system !== 'Human Design') epochEphemerisSetup(Astronomy, EPOCH_EPHEMERIS_CORRECTIONS);
   });
 }
 
@@ -116,7 +117,7 @@ function epochShortDate(ut) {
 }
 // ── Sliders ──────────────────────────────────────────────────────────────
 // The app's own timeline slider (timeline.js), set up for these spans: values are
-// minutes from now ("Back to now"), the range is the view's, and the ticks and typed
+// minutes from now (the "Now" button), the range is the view's, and the ticks and typed
 // dates are UTC (the exact time shows only in the date form "Go to a date…" opens). options: { label (above the slider),
 // range [fromUt, toUt], get() → the moment, set(ut), initialYears (the window's width),
 // markers() → [{ from, to (ut), label, color }], wheelZoom (false: no zooming with the
@@ -180,6 +181,7 @@ function switchEpochSystem(system, force = false) {
     const host = document.createElement('div');
     surface.replaceChildren(host);
     if (system === 'Astrology') renderEpochAstrology(host);
+    else if (system === 'Conjunctions') renderEpochConjunctions(host);
     else renderEpochHumanDesign(host);
   }).catch((error) => {
     surface.innerHTML = `<p class="intro-copy">${escapeHtml(error.message)}. Check the connection and try again.</p>`;
@@ -189,7 +191,8 @@ function switchEpochSystem(system, force = false) {
 // ── Keyboard ─────────────────────────────────────────────────────────────
 //   , / .   Astrology: the reference to the previous / next conjunction pass of its pair,
 //           or the moment to its planet's previous / next crossing of the reference
-//           degree; Human Design: previous / next line (the Personality or Design line changes)
+//           degree; Conjunctions: the previous / next pass of any pair; Human Design:
+//           previous / next line (the Personality or Design line changes)
 //   [ / ]   Astrology: the reference to the previous / next aspect pass; Human Design: gate
 //   1 / 2   Astrology: the reference / the moment is the one , . and N move
 //   N       the active moment to now

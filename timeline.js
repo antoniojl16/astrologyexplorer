@@ -402,7 +402,7 @@ function bindTimelineSlider(container, { onChange, originLabel = 'Birth moment',
   const ends = container.querySelector('[data-timeline-ends]');
   const spanLabel = container.querySelector('[data-timeline-span]');
   const centerButton = container.querySelector('[data-timeline-center]');
-  const nameButton = () => { if (centerButton) { centerButton.textContent = `Back to ${name}`; centerButton.title = `Back to ${originLabel} (0)`; } };
+  const nameButton = () => { if (centerButton) { centerButton.textContent = name === 'now' ? 'Now' : `Back to ${name}`; centerButton.title = `Back to ${originLabel} (0)`; } };
   nameButton();
   const percent = value => ((value - (center - span)) / (2 * span)) * 100;
   const utcOf = value => origin + value * 60000;

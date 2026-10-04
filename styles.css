@@ -586,3 +586,17 @@ body.dark .life-tag-chip.active{color:var(--ink)}
 .epoch-wheel-title{font:400 23px 'Playfair Display',serif;fill:var(--ink)}
 .epoch-wheel-legend{font:11.5px 'DM Mono',monospace;fill:var(--ink)}
 .epoch-wheel-subtitle{font:12px 'DM Mono',monospace;fill:var(--epoch-inner)}
+.epoch-conj-layout{display:grid;grid-template-columns:minmax(420px,1.1fr) minmax(470px,1fr);gap:20px;align-items:start;margin-top:20px}
+.epoch-conj-layout .panel-toolbar .epoch-lock{margin-left:auto}
+.epoch-conj-glyphs{font-size:15px}
+.epoch-conj-year{font:10.5px 'DM Mono',monospace;fill:var(--ink)}
+.epoch-conj-mark{cursor:help}
+.epoch-conj-table td{white-space:nowrap}
+.epoch-conj-table td small{color:var(--muted)}
+.epoch-conj-pass{display:block;font:9px 'DM Mono',monospace}
+.epoch-conj-share{display:flex;align-items:center;gap:6px}
+.epoch-conj-share .epoch-progress{width:46px;min-width:0;flex:none}
+.epoch-sort{border:0;background:none;padding:0;font:inherit;color:inherit;cursor:pointer;letter-spacing:inherit}
+.epoch-sort:hover,.epoch-sort.active{color:var(--ink)}
+.epoch-sort-arrow{font-size:8px}
+.epoch-conj-moment .epoch-moment-head .epoch-focus{margin-left:auto}
