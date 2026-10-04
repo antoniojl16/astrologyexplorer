@@ -230,14 +230,14 @@ function epochMomentPanelMarkup(marker) {
   const key = marker.key;
   return `<div class="epoch-moment-panel" data-epoch-moment="${key}" style="--thumb:${marker.color}">
     <div class="epoch-moment-head">
-      <button type="button" class="epoch-moment-pick" data-epoch-activate="${key}" title="The keys move this moment (${key === 'inner' ? '1' : '2'})"><i class="legend-dot" style="background:${marker.color}"></i>${marker.label}</button>
-      <label class="epoch-field epoch-inline">Pair<select data-epoch-pair="${key}">${EPOCH_PAIRS.map((pair) => `<option value="${pair}">${epochPairGlyphs(pair)}  ${epochPairName(pair)}</option>`).join('')}</select></label>
-      <label class="epoch-field epoch-inline">Go to conjunction<select data-epoch-jump="${key}"></select></label>
+      <button type="button" class="epoch-moment-pick" data-epoch-activate="${key}" title="The keys move this moment (${key === 'inner' ? '1' : '2'})"><i class="legend-dot" style="background:${marker.color}"></i>${key === 'inner' ? 'Inner' : 'Outer'}</button>
+      <select class="epoch-compact-select" data-epoch-pair="${key}" aria-label="Pair" title="The pair whose cycle this moment follows">${EPOCH_PAIRS.map((pair) => `<option value="${pair}">${epochPairGlyphs(pair)}  ${epochPairName(pair)}</option>`).join('')}</select>
+      <select class="epoch-compact-select" data-epoch-jump="${key}" aria-label="Go to conjunction"></select>
       <div class="epoch-stepper"><span>Conjunction</span><button type="button" data-epoch-step="${key}:event:-1" title="Previous conjunction of this pair (,)" aria-label="Previous conjunction">◀</button><button type="button" data-epoch-step="${key}:event:1" title="Next conjunction of this pair (.)" aria-label="Next conjunction">▶</button></div>
-      <div class="epoch-stepper"><span>Aspect</span><button type="button" data-epoch-step="${key}:phase:-1" title="Previous exact aspect of this pair's cycle: the conjunction or a shown aspect ([)" aria-label="Previous aspect">◀</button><button type="button" data-epoch-step="${key}:phase:1" title="Next exact aspect of this pair's cycle ([ ])" aria-label="Next aspect">▶</button></div>
+      <div class="epoch-stepper"><span>Aspect</span><button type="button" data-epoch-step="${key}:phase:-1" title="Previous exact aspect of this pair's cycle: the conjunction or a shown aspect ([)" aria-label="Previous aspect">◀</button><button type="button" data-epoch-step="${key}:phase:1" title="Next exact aspect of this pair's cycle (])" aria-label="Next aspect">▶</button></div>
+      <span class="epoch-cycle-progress" data-epoch-cycle-progress="${key}" title="Time since this cycle's conjunction, and its share of the cycle"></span>
     </div>
     <div data-epoch-slider="${key}">${epochSliderMarkup('DATE')}</div>
-    <p class="epoch-cycle-progress" data-epoch-cycle-progress="${key}"></p>
   </div>`;
 }
 // "11.2 years (2%)": since the conjunction that opened the moment's cycle, and that as a
@@ -381,7 +381,7 @@ function renderEpochAstrology(surface) {
   const fillPair = (key) => {
     const pair = epochAstro.pairs[key];
     surface.querySelector(`[data-epoch-pair="${key}"]`).value = pair;
-    surface.querySelector(`[data-epoch-jump="${key}"]`).innerHTML = `<option value="">Choose…</option>${epochConjunctions(pair).map((event, index) => `<option value="${index}">${epochDateText(event.start, { time: false })} · ${epochPositionText(epochConjunctionLongitude(pair, event.start))}</option>`).join('')}`;
+    surface.querySelector(`[data-epoch-jump="${key}"]`).innerHTML = `<option value="">Go to conjunction…</option>${epochConjunctions(pair).map((event, index) => `<option value="${index}">${epochDateText(event.start, { time: false })} · ${epochPositionText(epochConjunctionLongitude(pair, event.start))}</option>`).join('')}`;
   };
   const draw = () => {
     renderEpochWheel(svg);

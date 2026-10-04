@@ -484,7 +484,6 @@ body.dark .life-tag-chip.active{color:var(--ink)}
 .hd-mandala .mandala-gate[data-epoch-gate]{cursor:help}
 .epoch-astro-layout{grid-template-columns:minmax(380px,1fr) 280px}
 .epoch-hd-layout{grid-template-columns:minmax(420px,1fr) 300px}
-.epoch-time-panel{margin-top:20px}
 .epoch-check-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;font-size:11px}
 .epoch-check-grid label{display:flex;align-items:center;gap:6px;white-space:nowrap}
 .epoch-check-grid input{margin:0}
@@ -517,18 +516,6 @@ body.dark .life-tag-chip.active{color:var(--ink)}
 .epoch-tip-table th{text-align:left;font-weight:400;opacity:.85;padding:2px 10px 2px 0}
 .epoch-tip-table td{padding:2px 10px 2px 0;white-space:nowrap}
 
-.epoch-time-panel{margin-top:20px;padding:4px 0}
-.epoch-moment-panel{padding:14px 20px 6px;border-left:3px solid transparent}
-.epoch-moment-panel.active{border-left-color:var(--thumb);background:linear-gradient(90deg,var(--paper),transparent 40%)}
-.epoch-moment-head{display:flex;align-items:flex-end;flex-wrap:wrap;gap:10px 16px}
-.epoch-moment-pick{border:0;background:none;padding:0 0 6px;font-size:12px;color:var(--ink);display:inline-flex;align-items:center;border-radius:0;cursor:pointer;min-width:118px}
-.epoch-inline select{min-width:160px}
-.epoch-moment-head .epoch-stepper{padding-bottom:2px}
-.epoch-slider{border-top:0;padding:10px 0 0}
-.epoch-cycle-progress{margin:2px 0 8px;font:11px 'DM Mono',monospace;color:var(--ink)}
-.epoch-moment-links{display:flex;align-items:center;gap:16px;padding:6px 20px;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
-.epoch-moment-links .pair-swap{margin:0;width:34px;height:34px}
-.epoch-moment-links .epoch-lock{margin-left:0}
 .epoch-cycles-panel{margin-top:20px}
 .epoch-cycle-cell{cursor:pointer}
 .epoch-cycle-cell:hover{background:var(--paper-deep)}
@@ -541,3 +528,31 @@ body.dark .life-tag-chip.active{color:var(--ink)}
 .epoch-mandala-title .epoch-cross-name{margin:0}
 .epoch-mandala-title .epoch-cross-gates{margin:6px 0 2px;font-size:15px}
 .epoch-cross-dates{margin:0;font:10px 'DM Mono',monospace;color:var(--muted)}
+
+/* The Astrology moments: three slim lines each (controls; date, zoom; track). */
+.epoch-time-panel{margin-top:16px;padding:0}
+.epoch-moment-panel{padding:8px 16px 2px;border-left:3px solid transparent}
+.epoch-moment-panel.active{border-left-color:var(--thumb);background:linear-gradient(90deg,var(--paper),transparent 40%)}
+.epoch-moment-head{display:flex;align-items:center;flex-wrap:wrap;gap:6px 12px}
+.epoch-moment-pick{border:0;background:none;padding:0;font-size:12px;font-weight:600;color:var(--ink);display:inline-flex;align-items:center;border-radius:0;cursor:pointer;min-width:58px}
+.epoch-compact-select{font:11px Manrope,sans-serif;padding:3px 4px;border:1px solid var(--line);background:var(--paper);color:var(--ink);max-width:170px;border-radius:2px}
+.epoch-moment-head .epoch-stepper button{padding:2px 7px;font-size:9px}
+.epoch-cycle-progress{margin-left:auto;font:11px 'DM Mono',monospace;color:var(--ink)}
+.epoch-moment-panel .epoch-slider{display:grid;grid-template-columns:auto auto 1fr;align-items:center;column-gap:14px;border-top:0;padding:6px 0 0}
+.epoch-moment-panel .timeline-label span{display:none}
+.epoch-moment-panel .timeline-exact-row{margin:0}
+.epoch-moment-panel .timeline-exact{font-size:10px}
+.epoch-moment-panel .timeline-zoom{margin:0;justify-content:flex-end}
+.epoch-moment-panel .timeline-zoom .timeline-center{margin-right:8px}
+.epoch-moment-panel .timeline-track{grid-column:1 / -1;margin-top:2px}
+.epoch-moment-panel .timeline-control input{margin:6px 0 3px}
+.epoch-moment-panel .timeline-pan{margin-top:6px}
+.epoch-moment-panel .timeline-ticks{height:22px;margin:0}
+.epoch-moment-panel .timeline-ends{display:none}
+.epoch-moment-links{display:flex;align-items:center;gap:14px;padding:3px 16px;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.epoch-moment-links .pair-swap{margin:0;width:26px;height:26px;font-size:13px}
+.epoch-moment-links .epoch-lock{margin-left:0}/* The wheel shrinks to leave room for both moments below it on one screen. */
+.epoch-wheel-panel .wheel-stage{padding:10px 16px 8px;position:relative}
+.epoch-wheel{display:block;width:100%;max-height:max(420px,calc(100vh - 430px));margin:0 auto}
+.epoch-wheel-panel .epoch-legend{position:absolute;left:16px;bottom:10px;margin:0}
+.epoch-wheel-panel .panel-toolbar{padding-top:8px;padding-bottom:8px}
