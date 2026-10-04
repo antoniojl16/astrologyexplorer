@@ -777,8 +777,8 @@ function wheelHouseBandMarkup(cx, cy, fromR, toR, cuspR, cusps, wheelRotation) {
 // A conjunction's two ends are too close for a line to show, so it's drawn as an arc
 // just inside the circle, from one body's angle to the other's (at least half a degree,
 // so the tightest still shows as a short thick stroke), drawn over the lines. Arcs that
-// would overlap step inward, one ring each. Widths and dashes follow the aspect's
-// intensity, as for lines, half again as heavy (a short arc needs the weight to show).
+// overlap sit on top of each other, as the conjunctions do. Widths and dashes follow the
+// aspect's intensity, as for lines, three times as heavy (a short arc needs the weight).
 const WHEEL_CONJUNCTION_MIN_ARC = 0.5;
 function wheelAspectLinesMarkup(cx, cy, r, aspects, anglesOf) {
   const point = (angle, radius = r) => {
@@ -787,19 +787,14 @@ function wheelAspectLinesMarkup(cx, cy, r, aspects, anglesOf) {
   };
   const widthOf = aspect => ({ exact: 4, strong: 1.8, normal: 1.1 }[aspect.intensity] || 0.8);
   const dashOf = aspect => (aspect.intensity === 'weak' ? ' stroke-dasharray="3 3"' : '');
-  // Each conjunction's arc: its span in wheel degrees and the ring it sits on.
+  // Each conjunction's arc: its span in wheel degrees.
   const arcs = new Map();
-  const rings = [];
-  aspects.map((aspect, index) => ({ aspect, index })).filter(({ aspect }) => aspect.name === 'Conjunction').map(({ aspect, index }) => {
+  aspects.forEach((aspect, index) => {
+    if (aspect.name !== 'Conjunction') return;
     const [a1, a2] = anglesOf(aspect);
     const delta = ((((a2 - a1) % 360) + 540) % 360) - 180;
     const middle = a1 + delta / 2, half = Math.max(Math.abs(delta) / 2, WHEEL_CONJUNCTION_MIN_ARC / 2);
-    return { index, from: middle - half, to: middle + half };
-  }).sort((a, b) => a.from - b.from).forEach(arc => {
-    let ring = rings.findIndex(spans => spans.every(([from, to]) => arc.from > to + 1 || arc.to < from - 1));
-    if (ring < 0) { rings.push([]); ring = rings.length - 1; }
-    rings[ring].push([arc.from, arc.to]);
-    arcs.set(arc.index, { ...arc, radius: r - 7 - ring * 5 });
+    arcs.set(index, { from: middle - half, to: middle + half, radius: r - 7 });
   });
   const arcPath = ({ from, to, radius }) => {
     const start = point(from, radius), end = point(to, radius);
@@ -808,7 +803,7 @@ function wheelAspectLinesMarkup(cx, cy, r, aspects, anglesOf) {
   const ends = aspects.map(aspect => anglesOf(aspect).map(angle => point(angle)));
   const arcMarkup = [...arcs.keys()].map(index => {
     const aspect = aspects[index];
-    return `<path d="${arcPath(arcs.get(index))}" fill="none" stroke="${aspect.color}" stroke-width="${widthOf(aspect) * 1.5}" stroke-linecap="round"${aspect.intensity === 'weak' ? ' stroke-dasharray="2 3"' : ''} class="aspect-line aspect-arc"/>`;
+    return `<path d="${arcPath(arcs.get(index))}" fill="none" stroke="${aspect.color}" stroke-width="${widthOf(aspect) * 3}" stroke-linecap="round"${aspect.intensity === 'weak' ? ' stroke-dasharray="2 3"' : ''} class="aspect-line aspect-arc"/>`;
   }).join('');
   const lines = aspects.map((aspect, index) => {
     if (arcs.has(index)) return '';
