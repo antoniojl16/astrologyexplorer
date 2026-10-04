@@ -366,10 +366,11 @@ function updateTimelineReadout(container, chart, offsetMinutes) {
 //     minutes from the origin (to > from for a period); clicking one goes there;
 //   range [fromUtc, toUtc] (ms) — instead of the ephemeris's 3000 BC – AD 5000 (the
 //     Epoch Explorer's reaches further back); minSpan — the shortest half-window, in
-//     minutes; dateOnly — typed dates have no time of day.
+//     minutes; dateOnly — typed dates have no time of day; wheelZoom: false — the mouse
+//     wheel scrolls the page instead of zooming (sideways scrolling still pans).
 // Returns the range input, with `timeline` = { moveTo(value, recentre), refresh() } for
 // views that move it themselves (and redraw its markers).
-function bindTimelineSlider(container, { onChange, originLabel = 'Birth moment', anchorName = null, initialSpan = 1440, markers = null, originTime = null, clock = null, initial = null, onView = null, range = null, minSpan = 5, dateOnly = false }) {
+function bindTimelineSlider(container, { onChange, originLabel = 'Birth moment', anchorName = null, initialSpan = 1440, markers = null, originTime = null, clock = null, initial = null, onView = null, range = null, minSpan = 5, dateOnly = false, wheelZoom = true }) {
   const slider = container.querySelector('[data-timeline-slider]');
   if (!slider) return null;
   // Without an originTime, the origin is the explorer's chart, looked up as it's needed
@@ -484,8 +485,9 @@ function bindTimelineSlider(container, { onChange, originLabel = 'Birth moment',
   slider.addEventListener('dblclick', recenter);
   // A trackpad's sideways scroll (or Shift + wheel) moves through time; the wheel zooms.
   container.querySelector('.timeline-track')?.addEventListener('wheel', event => {
-    event.preventDefault();
     const sideways = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.shiftKey ? event.deltaY : 0;
+    if (!sideways && !wheelZoom) return;
+    event.preventDefault();
     if (sideways) shift(Math.round((sideways / 400) * 2 * span));
     else if (event.deltaY) zoomTo(event.deltaY < 0 ? span / 1.5 : span * 1.5);
   }, { passive: false });

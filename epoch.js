@@ -119,7 +119,8 @@ function epochShortDate(ut) {
 // minutes from now ("Back to now"), the range is the view's, and the ticks and typed
 // dates are UTC (the exact time shows only in the date form "Go to a date…" opens). options: { label (above the slider),
 // range [fromUt, toUt], get() → the moment, set(ut), initialYears (the window's width),
-// markers() → [{ from, to (ut), label, color }] }. Returns { moveTo(ut) } (the window
+// markers() → [{ from, to (ut), label, color }], wheelZoom (false: no zooming with the
+// mouse wheel) }. Returns { moveTo(ut) } (the window
 // follows), plus refresh() to redraw the markers.
 const EPOCH_UTC_CLOCK = timelineClock('UTC');
 const epochUtc = (ut) => EPOCH_J2000_MS + ut * 86400000;
@@ -134,7 +135,7 @@ function epochBindSlider(container, options) {
   const span = (options.initialYears / 2) * 525960;
   const slider = bindTimelineSlider(container, {
     originTime: origin, clock: EPOCH_UTC_CLOCK, anchorName: 'now', originLabel: 'Now',
-    range: options.range.map(epochUtc), minSpan: 15 * 1440,
+    range: options.range.map(epochUtc), minSpan: 15 * 1440, wheelZoom: options.wheelZoom ?? true,
     initialSpan: span, initial: { value: Math.round(minutes(options.get())), center: Math.round(minutes(options.get())), span },
     markers: options.markers && (() => options.markers().map((marker) => ({ ...marker, from: minutes(marker.from), to: minutes(marker.to ?? marker.from) }))),
     onChange: (value) => {

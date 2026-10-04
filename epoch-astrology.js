@@ -416,7 +416,7 @@ function renderEpochAstrology(surface) {
   EPOCH_MARKERS.forEach((marker) => {
     const key = marker.key;
     sliders[key] = epochBindSlider(surface.querySelector(`[data-epoch-slider="${key}"]`), {
-      range: [EPOCH_ASTRO_MIN, EPOCH_ASTRO_MAX], initialYears: 100,
+      range: [EPOCH_ASTRO_MIN, EPOCH_ASTRO_MAX], initialYears: 100, wheelZoom: false,
       get: () => epochAstro.times[key],
       set: (ut) => { epochAstro.active = key; moved(key, ut); },
       // The moment's pair's conjunctions, from the first pass to the last.
