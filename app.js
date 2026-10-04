@@ -936,10 +936,13 @@ function setView(view) {
           ? 'CYCLE EXPLORER'
           : view === 'pair'
             ? 'PAIR EXPLORER'
-            : 'TIMELINE EXPLORER';
+            : view === 'epoch'
+              ? 'EPOCH EXPLORER'
+              : 'TIMELINE EXPLORER';
   if (view === 'library') renderRows();
   if (view === 'cycle' && typeof renderCycleExplorer === 'function') renderCycleExplorer();
   if (view === 'pair' && typeof renderPairExplorer === 'function') renderPairExplorer();
+  if (view === 'epoch' && typeof renderEpochExplorer === 'function') renderEpochExplorer();
   if (view === 'explorer' || view === 'timeline') {
     mountExplorerBody(view);
     // Life Events belong to a chart, so the Timeline Explorer (the current sky) has none.

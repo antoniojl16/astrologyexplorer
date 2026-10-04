@@ -7,7 +7,7 @@
 // Ctrl + letter (or Alt/Option + letter, for systems where the browser keeps Ctrl):
 //   A / H / G / Y / E   Astrology / Human Design / Gene Keys / Astrocartography / Life Events
 //                  (the Cycle Explorer has no Life Events tab: E opens or closes its Life Timeline)
-//   L / I / P / T / C   Library / Chart / Pair / Timeline / Cycle explorer
+//   L / I / P / T / C / O   Library / Chart / Pair / Timeline / Cycle / Epoch explorer
 // Plain keys:
 //   J / K   Library: next / previous chart (↵ opens it), as in Gmail
 //   X   Library: select or deselect that chart (for Copy, Move, Export…)
@@ -23,9 +23,10 @@
 //   E   Chart Explorer: edit the chart
 //   1 / 2 / 3   Pair and Cycle Explorers: first chart / second chart / both together
 //               (3 again in the Pair Explorer's Astrology: Synastry ↔ Composite)
+//   The Epoch Explorer's own keys (, . [ ] { } 1 2 R N) are in epoch.js.
 
 const SHORTCUT_SYSTEMS = { KeyA: "Astrology", KeyH: "Human Design", KeyG: "Gene Keys", KeyY: "Astrocartography", KeyE: "Life Events" };
-const SHORTCUT_VIEWS = { KeyL: "library", KeyI: "explorer", KeyP: "pair", KeyT: "timeline", KeyC: "cycle" };
+const SHORTCUT_VIEWS = { KeyL: "library", KeyI: "explorer", KeyP: "pair", KeyT: "timeline", KeyC: "cycle", KeyO: "epoch" };
 const SHORTCUT_HD_FILTERS = { p: "Personality", d: "Design", x: "Incarnation Cross" };
 
 // The first control matching `selector` that's actually on screen.
@@ -51,7 +52,7 @@ document.addEventListener("keydown", (event) => {
     const system = SHORTCUT_SYSTEMS[event.code];
     if (system) {
       event.preventDefault();
-      const pressed = shortcutPress(`[data-explorer-system="${system}"], [data-pair-system="${system}"], [data-cycle-system="${system}"], [data-library-system="${system}"]`);
+      const pressed = shortcutPress(`[data-explorer-system="${system}"], [data-pair-system="${system}"], [data-cycle-system="${system}"], [data-epoch-system="${system}"], [data-library-system="${system}"]`);
       const timeline = !pressed && system === "Life Events" && shortcutTarget("#cycleLifeTimeline");
       if (timeline) timeline.open = !timeline.open;
       return;
