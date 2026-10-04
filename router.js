@@ -12,7 +12,7 @@
 //   #/cycle/<chart>/event/<event id>/<start|end>/<system>[/<map view>]
 //   #/cycle/<chart>/birth/<system>[/<map view>]
 //   #/cycle/<chart>/now/<system>[/<map view>]   (transits: the sky when the link is opened)
-//   #/epoch/<system>[/<inner pair>/<outer pair>]   (the Epoch Explorer; Astrology's two moments' pairs, e.g. jupiter-saturn)
+//   #/epoch/<system>[/<pair>/<planet>]   (the Epoch Explorer; Astrology's reference pair, e.g. jupiter-saturn, and the moment's planet)
 //
 // e.g. #/chart/mira-mercer/human-design/mandala/design
 //      #/pair/mira-mercer/jonas-sol/astrology/synastry/both
@@ -90,7 +90,7 @@ function currentRoute() {
     parts.push(routeSlug(librarySystem));
   } else if (currentView === "epoch") {
     parts.push(routeSlug(epochActiveSystem));
-    if (epochActiveSystem === "Astrology") parts.push(routeSlug(epochAstro.pairs.inner), routeSlug(epochAstro.pairs.outer));
+    if (epochActiveSystem === "Astrology") parts.push(routeSlug(epochAstro.pair), routeSlug(epochAstro.planet));
   } else if (currentView === "cycle") {
     const system = document.querySelector("[data-cycle-system].active")?.dataset.cycleSystem || "Summary";
     // The studied moment: birth, a life event (its start or end), or a cycle's occurrence (from 1).
@@ -206,11 +206,12 @@ function applyRoute(hash) {
     setView("cycle");
     switchCycleSystem(chosenSystem);
   } else if (view === "epoch") {
-    const [system, innerPair, outerPair] = rest;
+    const [system, pair, planet] = rest;
     epochActiveSystem = routeOption(EPOCH_SYSTEMS, system) || epochActiveSystem;
-    const pairOf = (slug) => EPOCH_PAIRS.find((item) => routeSlug(item) === slug);
-    if (pairOf(innerPair)) epochAstro.pairs.inner = pairOf(innerPair);
-    if (pairOf(outerPair)) epochAstro.pairs.outer = pairOf(outerPair);
+    const pairOf = EPOCH_PAIRS.find((item) => routeSlug(item) === pair);
+    const planetOf = EPOCH_RETURN_BODIES.find((item) => routeSlug(item) === planet);
+    if (pairOf) epochAstro.pair = pairOf;
+    if (planetOf) epochAstro.planet = planetOf;
     setView("epoch");
   } else {
     const [system] = rest;

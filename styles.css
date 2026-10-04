@@ -549,12 +549,9 @@ body.dark .life-tag-chip.active{color:var(--ink)}
 .epoch-moment-panel .timeline-pan{margin-top:6px}
 .epoch-moment-panel .timeline-ticks{height:22px;margin:0}
 .epoch-moment-panel .timeline-ends{display:none}
-.epoch-moment-links{display:flex;align-items:center;gap:14px;padding:3px 16px;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
-.epoch-moment-links .pair-swap{margin:0;width:26px;height:26px;font-size:13px}
-.epoch-moment-links .epoch-lock{margin-left:0}/* The wheel shrinks to leave room for both moments below it on one screen. */
+/* The wheel shrinks to leave room for both moments below it on one screen. */
 .epoch-wheel-panel .wheel-stage{padding:10px 16px 8px;position:relative}
 .epoch-wheel{display:block;width:100%;max-height:max(420px,calc(100vh - 430px));margin:0 auto}
-.epoch-wheel-panel .epoch-legend{position:absolute;left:16px;bottom:10px;margin:0}
 .epoch-wheel-panel .panel-toolbar{padding-top:8px;padding-bottom:8px}
 .epoch-cross-text p{margin:8px 0}
 .epoch-cross-text p strong{color:var(--ink)}
@@ -567,3 +564,25 @@ body.dark .life-tag-chip.active{color:var(--ink)}
 .epoch-cross-text{border-top:1px solid var(--line);margin-top:18px;padding-top:16px}
 .epoch-cross-text .epoch-cross-text-name{font:400 19px 'Playfair Display',serif;color:var(--ink);text-align:center;margin:0}
 .epoch-cross-text .epoch-cross-theme{font-size:12px;text-align:center;margin:2px 0 12px}
+.epoch-side{display:flex;flex-direction:column;gap:16px}
+.epoch-moment-head .epoch-lock{margin-left:0}
+.epoch-moment-head .epoch-stepper button:disabled{opacity:.35;cursor:not-allowed}
+.epoch-focus{margin:0;min-height:15px;font:11px 'DM Mono',monospace;color:var(--thumb)}
+.epoch-moment-head .epoch-focus{margin-left:auto;min-height:0}
+.epoch-moment-head .epoch-focus:empty{display:none}
+.epoch-moment-head .epoch-focus:empty+.epoch-cycle-progress{margin-left:auto}
+.epoch-moment-head .epoch-focus+.epoch-cycle-progress{margin-left:14px}
+.epoch-reference-panel{gap:8px;padding:14px 14px 4px;border-left:3px solid transparent}
+.epoch-reference-panel .epoch-moment-pick{align-self:flex-start}
+.epoch-select-row{display:flex;gap:6px}
+.epoch-reference-panel .epoch-compact-select{max-width:none;min-width:0;flex:1 1 0}
+.epoch-reference-panel [data-epoch-pair]{flex-grow:1.5}
+.epoch-reference-panel .epoch-stepper button{padding:2px 7px;font-size:9px}
+.epoch-reference-panel .epoch-focus{margin:0}
+.epoch-reference-panel .epoch-slider{grid-template-columns:1fr auto}
+.epoch-reference-panel .timeline-label{grid-column:1 / -1}
+.epoch-reference-panel .timeline-center{display:none}
+.epoch-reference-degree{stroke:var(--epoch-inner);stroke-width:1.5;stroke-dasharray:4 3}
+.epoch-wheel-title{font:400 23px 'Playfair Display',serif;fill:var(--ink)}
+.epoch-wheel-legend{font:11.5px 'DM Mono',monospace;fill:var(--ink)}
+.epoch-wheel-subtitle{font:12px 'DM Mono',monospace;fill:var(--epoch-inner)}

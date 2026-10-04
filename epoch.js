@@ -94,7 +94,7 @@ const epochPad = (value) => String(value).padStart(2, '0');
 // "15 Feb 2027 · 22:10 UTC"; `time: false` drops the time, `calendar: true` marks Julian dates.
 function epochDateText(ut, { time = true, calendar = false } = {}) {
   const date = epochCalendar(ut);
-  const text = `${date.day} ${EPOCH_MONTHS[date.month - 1]} ${epochYearLabel(date.year)}`;
+  const text = `${epochYearLabel(date.year)} ${EPOCH_MONTHS[date.month - 1]} ${date.day}`;
   return `${text}${time ? ` · ${epochPad(date.hours)}:${epochPad(date.minutes)} UTC` : ''}${calendar && date.julian ? ' (Julian)' : ''}`;
 }
 // Approximate astronomical year (for axes and spans).
@@ -187,11 +187,11 @@ function switchEpochSystem(system, force = false) {
 }
 
 // ── Keyboard ─────────────────────────────────────────────────────────────
-//   , / .   Astrology: previous / next conjunction of the chosen pair; Human Design:
-//           previous / next line (the Personality or the Design line changes)
-//   [ / ]   Astrology: previous / next aspect of the chosen pair; Human Design: gate
-//   1 / 2   Astrology: the inner / outer moment is the one keys and buttons move
-//   R       Astrology: reverse the two moments
+//   , / .   Astrology: the reference to the previous / next conjunction pass of its pair,
+//           or the moment to its planet's previous / next crossing of the reference
+//           degree; Human Design: previous / next line (the Personality or Design line changes)
+//   [ / ]   Astrology: the reference to the previous / next aspect pass; Human Design: gate
+//   1 / 2   Astrology: the reference / the moment is the one , . and N move
 //   N       the active moment to now
 const EPOCH_KEYS = { ',': ['event', -1], '.': ['event', 1], '[': ['phase', -1], ']': ['phase', 1] };
 let epochKeyHandler = null; // set by the active system: (action, direction) → handled
@@ -199,6 +199,6 @@ document.addEventListener('keydown', (event) => {
   if (currentView !== 'epoch' || event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return;
   if (shortcutTyping(event.target) || document.querySelector('dialog[open]')) return;
   const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
-  const [action, direction] = EPOCH_KEYS[event.key] || ({ r: ['reverse', 0], n: ['now', 0], 1: ['marker', 0], 2: ['marker', 1] })[key] || [];
+  const [action, direction] = EPOCH_KEYS[event.key] || ({ n: ['now', 0], 1: ['marker', 0], 2: ['marker', 1] })[key] || [];
   if (action && epochKeyHandler?.(action, direction)) event.preventDefault();
 });
