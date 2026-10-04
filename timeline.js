@@ -774,20 +774,51 @@ function wheelHouseBandMarkup(cx, cy, fromR, toR, cuspR, cusps, wheelRotation) {
 // Aspect lines on the circle of radius r, between the TRUE wheel angles anglesOf(aspect)
 // returns (traditional wheels never spread the lines with the glyphs), plus invisible,
 // wider twins (.aspect-hit, data-aspect = index) so even the thinnest line is easy to hover.
+// A conjunction's two ends are too close for a line to show, so it's drawn as an arc
+// just inside the circle, from one body's angle to the other's (at least half a degree,
+// so the tightest still shows as a short thick stroke), drawn over the lines. Arcs that
+// would overlap step inward, one ring each. Widths and dashes follow the aspect's
+// intensity, as for lines, half again as heavy (a short arc needs the weight to show).
+const WHEEL_CONJUNCTION_MIN_ARC = 0.5;
 function wheelAspectLinesMarkup(cx, cy, r, aspects, anglesOf) {
-  const point = angle => {
+  const point = (angle, radius = r) => {
     const rad = (angle - 90) * Math.PI / 180;
-    return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
+    return { x: cx + radius * Math.cos(rad), y: cy + radius * Math.sin(rad) };
   };
-  const ends = aspects.map(aspect => anglesOf(aspect).map(point));
-  const lines = aspects.map((aspect, index) => {
-    const [p1, p2] = ends[index];
-    const strokeWidth = { exact: 4, strong: 1.8, normal: 1.1 }[aspect.intensity] || 0.8;
-    const dash = aspect.intensity === 'weak' ? ' stroke-dasharray="3 3"' : '';
-    return `<line x1="${p1.x}" y1="${p1.y}" x2="${p2.x}" y2="${p2.y}" stroke="${aspect.color}" stroke-width="${strokeWidth}" opacity=".7"${dash} class="aspect-line"/>`;
+  const widthOf = aspect => ({ exact: 4, strong: 1.8, normal: 1.1 }[aspect.intensity] || 0.8);
+  const dashOf = aspect => (aspect.intensity === 'weak' ? ' stroke-dasharray="3 3"' : '');
+  // Each conjunction's arc: its span in wheel degrees and the ring it sits on.
+  const arcs = new Map();
+  const rings = [];
+  aspects.map((aspect, index) => ({ aspect, index })).filter(({ aspect }) => aspect.name === 'Conjunction').map(({ aspect, index }) => {
+    const [a1, a2] = anglesOf(aspect);
+    const delta = ((((a2 - a1) % 360) + 540) % 360) - 180;
+    const middle = a1 + delta / 2, half = Math.max(Math.abs(delta) / 2, WHEEL_CONJUNCTION_MIN_ARC / 2);
+    return { index, from: middle - half, to: middle + half };
+  }).sort((a, b) => a.from - b.from).forEach(arc => {
+    let ring = rings.findIndex(spans => spans.every(([from, to]) => arc.from > to + 1 || arc.to < from - 1));
+    if (ring < 0) { rings.push([]); ring = rings.length - 1; }
+    rings[ring].push([arc.from, arc.to]);
+    arcs.set(arc.index, { ...arc, radius: r - 7 - ring * 5 });
+  });
+  const arcPath = ({ from, to, radius }) => {
+    const start = point(from, radius), end = point(to, radius);
+    return `M ${start.x} ${start.y} A ${radius} ${radius} 0 0 1 ${end.x} ${end.y}`;
+  };
+  const ends = aspects.map(aspect => anglesOf(aspect).map(angle => point(angle)));
+  const arcMarkup = [...arcs.keys()].map(index => {
+    const aspect = aspects[index];
+    return `<path d="${arcPath(arcs.get(index))}" fill="none" stroke="${aspect.color}" stroke-width="${widthOf(aspect) * 1.5}" stroke-linecap="round"${aspect.intensity === 'weak' ? ' stroke-dasharray="2 3"' : ''} class="aspect-line aspect-arc"/>`;
   }).join('');
-  const hits = ends.map(([p1, p2], index) => `<line x1="${p1.x}" y1="${p1.y}" x2="${p2.x}" y2="${p2.y}" class="aspect-hit" data-aspect="${index}"/>`).join('');
-  return lines + hits;
+  const lines = aspects.map((aspect, index) => {
+    if (arcs.has(index)) return '';
+    const [p1, p2] = ends[index];
+    return `<line x1="${p1.x}" y1="${p1.y}" x2="${p2.x}" y2="${p2.y}" stroke="${aspect.color}" stroke-width="${widthOf(aspect)}" opacity=".7"${dashOf(aspect)} class="aspect-line"/>`;
+  }).join('');
+  const hits = ends.map(([p1, p2], index) => arcs.has(index)
+    ? `<path d="${arcPath(arcs.get(index))}" fill="none" class="aspect-hit" style="stroke-width:8px" data-aspect="${index}"/>`
+    : `<line x1="${p1.x}" y1="${p1.y}" x2="${p2.x}" y2="${p2.y}" class="aspect-hit" data-aspect="${index}"/>`).join('');
+  return lines + arcMarkup + hits;
 }
 
 function renderPreciseWheel(chart, offsetMinutes, targetId = 'chartWheel') {
