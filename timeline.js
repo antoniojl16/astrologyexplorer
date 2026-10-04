@@ -370,6 +370,8 @@ function updateTimelineReadout(container, chart, offsetMinutes) {
 //     wheel scrolls the page instead of zooming (sideways scrolling still pans).
 // Returns the range input, with `timeline` = { moveTo(value, recentre), refresh() } for
 // views that move it themselves (and redraw its markers).
+// Anchors whose one word says it all on the button ("Now" rather than "Back to now").
+const TIMELINE_SHORT_ANCHORS = { now: 'Now', birth: 'Birth' };
 function bindTimelineSlider(container, { onChange, originLabel = 'Birth moment', anchorName = null, initialSpan = 1440, markers = null, originTime = null, clock = null, initial = null, onView = null, range = null, minSpan = 5, dateOnly = false, wheelZoom = true }) {
   const slider = container.querySelector('[data-timeline-slider]');
   if (!slider) return null;
@@ -402,7 +404,7 @@ function bindTimelineSlider(container, { onChange, originLabel = 'Birth moment',
   const ends = container.querySelector('[data-timeline-ends]');
   const spanLabel = container.querySelector('[data-timeline-span]');
   const centerButton = container.querySelector('[data-timeline-center]');
-  const nameButton = () => { if (centerButton) { centerButton.textContent = name === 'now' ? 'Now' : `Back to ${name}`; centerButton.title = `Back to ${originLabel} (0)`; } };
+  const nameButton = () => { if (centerButton) { centerButton.textContent = TIMELINE_SHORT_ANCHORS[name] || `Back to ${name}`; centerButton.title = `Back to ${originLabel} (0)`; } };
   nameButton();
   const percent = value => ((value - (center - span)) / (2 * span)) * 100;
   const utcOf = value => origin + value * 60000;
