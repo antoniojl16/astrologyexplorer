@@ -25,7 +25,6 @@ const EPOCH_HD_ANCHOR = epochUtFromCalendar(2027, 2, 15, 22 + 10 / 60);
 // The range: whole epochs within the precession table (set by epochHdInit, once the
 // table has loaded) — about 16,800 BC to 3600 AD, around Human Design's whole table.
 let EPOCH_HD_MIN = null, EPOCH_HD_MAX = null;
-const EPOCH_HD_ZOOMS = [['20000 y', 20800 * EPOCH_YEAR_DAYS], ['5000 y', 5000 * EPOCH_YEAR_DAYS], ['1000 y', 1000 * EPOCH_YEAR_DAYS], ['400 y', 400 * EPOCH_YEAR_DAYS], ['100 y', 100 * EPOCH_YEAR_DAYS], ['20 y', 20 * EPOCH_YEAR_DAYS]];
 const EPOCH_HD_RIGHT = new Set(['1/3', '1/4', '2/4', '2/5', '3/5', '3/6', '4/6']);
 
 // Human Design's published table of global cycles (Jovian Archive), as printed: start
@@ -65,7 +64,7 @@ EPOCH_HD_PUBLISHED.forEach(([, lock, gates, name]) => gates.forEach((gate) => {
 const epochHdCrossName = (gate) => `Cross of ${EPOCH_HD_CROSS_NAMES[gate] || '?'}`;
 
 const epochHd = { time: null };
-let epochHdTimeline = null;
+let epochHdSlider = null;
 
 // ── Precession ───────────────────────────────────────────────────────────
 // The ayanamsa (degrees) at `ut`: a Catmull-Rom cubic through EPOCH_PRECESSION's
@@ -305,14 +304,13 @@ function renderEpochHumanDesign(surface) {
       <div class="system-visual hd-mandala-visual epoch-mandala-panel">
         <div class="system-toolbar"><span class="eyebrow">MANDALA / THE EQUINOX AMONG THE GATES</span></div>
         <div data-epoch-mandala></div>
-        <div class="epoch-moments epoch-hd-moment">
-          <div class="epoch-moment active"><span class="epoch-moment-pick"><i class="legend-dot" style="background:var(--accent)"></i>Moment</span>${epochDateFieldsMarkup('hd')}<button type="button" class="secondary-button epoch-now" data-epoch-hd-now title="Set to now (N)">Now</button></div>
+        <div class="epoch-hd-moment">
           <div class="epoch-steppers epoch-hd-steps">
             <div class="epoch-stepper"><span>Line</span><button type="button" data-epoch-hd-step="event:-1" title="Previous line: the profile changes whenever the Personality or the Design line does, alternately after ~9 and ~58 years (,)" aria-label="Previous line">◀</button><button type="button" data-epoch-hd-step="event:1" title="Next line (.)" aria-label="Next line">▶</button></div>
             <div class="epoch-stepper"><span>Gate</span><button type="button" data-epoch-hd-step="gate:-1" title="Previous gate: the epoch, ~400 years ([)" aria-label="Previous gate">◀</button><button type="button" data-epoch-hd-step="gate:1" title="Next gate (])" aria-label="Next gate">▶</button></div>
           </div>
         </div>
-        <div class="timeline-control epoch-timeline-box" data-epoch-hd-timeline></div>
+        <div data-epoch-hd-slider>${epochSliderMarkup('DATE')}</div>
       </div>
       <aside class="system-info epoch-hd-summary" data-epoch-hd-summary></aside>
     </div>
@@ -322,12 +320,10 @@ function renderEpochHumanDesign(surface) {
   const mandala = surface.querySelector('[data-epoch-mandala]');
   const summary = surface.querySelector('[data-epoch-hd-summary]');
   const table = surface.querySelector('[data-epoch-hd-table]');
-  let shownSub = null;
+  let shownSub = null, markedEpoch = null;
   table.innerHTML = epochHdEpochTableMarkup();
   const draw = () => {
     const state = epochHdState(epochHd.time);
-    epochFillDateFields(surface.querySelector('[data-epoch-date="hd"]'), epochHd.time);
-    epochHdTimeline?.update();
     // The mandala follows every move; the panel and the table's highlight change with the line.
     const sub = epochHdSpan('sub', state.ayanamsa)[0];
     mandala.innerHTML = epochHdMandalaMarkup(state);
@@ -337,6 +333,9 @@ function renderEpochHumanDesign(surface) {
     if (sub !== shownSub) {
       shownSub = sub;
       summary.innerHTML = epochHdSummaryMarkup(state);
+      // The slider marks the current epoch's lines: redrawn when the epoch changes.
+      const epoch = epochHdSpan('gate', state.ayanamsa)[0];
+      if (epoch !== markedEpoch) { markedEpoch = epoch; epochHdSlider?.refresh(); }
       table.querySelectorAll('tr[data-from]').forEach((row) => row.classList.toggle('selected', Number(row.dataset.from) <= epochHd.time && epochHd.time < Number(row.dataset.to)));
     }
   };
@@ -344,15 +343,15 @@ function renderEpochHumanDesign(surface) {
     epochHd.time = Math.max(EPOCH_HD_MIN, Math.min(EPOCH_HD_MAX, ut));
     draw();
   };
-  epochHdTimeline = epochTimeline(surface.querySelector('[data-epoch-hd-timeline]'), {
-    markers: [{ key: 'hd', label: 'Moment', color: 'var(--accent)' }],
+  // The app's timeline slider, marking every gate boundary (and, within the current
+  // epoch, every line boundary); clicking a mark goes there.
+  epochHdSlider = epochBindSlider(surface.querySelector('[data-epoch-hd-slider]'), {
+    range: [EPOCH_HD_MIN, EPOCH_HD_MAX], initialYears: 800,
     get: () => epochHd.time,
-    set: (key, ut) => setTime(ut),
-    min: EPOCH_HD_MIN, max: EPOCH_HD_MAX, zooms: EPOCH_HD_ZOOMS, zoom: 2,
-    decorate: epochHdTrackMarkup,
-    labels: epochHdTrackLabels,
+    set: setTime,
+    markers: epochHdSliderMarks,
   });
-  const jumpTo = (ut) => { setTime(ut); epochHdTimeline.reveal('hd'); };
+  const jumpTo = (ut) => { setTime(ut); epochHdSlider.moveTo(epochHd.time); };
   // Previous / next line (sub-epoch: the Personality or the Design line changes) or gate:
   // to the start of the next one, or back to
   // the start of the current one (if more than a day in), else of the previous one.
@@ -377,11 +376,9 @@ function renderEpochHumanDesign(surface) {
     if (action === 'now') { jumpTo(epochNow()); return true; }
     return false;
   };
-  epochBindDateFields(surface.querySelector('[data-epoch-date="hd"]'), jumpTo, () => epochHd.time);
   surface.addEventListener('click', (event) => {
     const go = event.target.closest('[data-epoch-hd-go]');
     if (go) return jumpTo(Number(go.dataset.epochHdGo));
-    if (event.target.closest('[data-epoch-hd-now]')) return jumpTo(epochNow());
     const stepButton = event.target.closest('[data-epoch-hd-step]');
     if (stepButton) {
       const [kind, direction] = stepButton.dataset.epochHdStep.split(':');
@@ -391,42 +388,18 @@ function renderEpochHumanDesign(surface) {
   draw();
 }
 
-// The timeline's track: a band per gate (alternating shades), with line and Design-line
-// boundaries as finer ticks when the window is short enough to show them.
-function epochHdTrackMarkup(from, to) {
-  const x = (ut) => Math.max(0, Math.min(1000, ((ut - from) / (to - from)) * 1000)).toFixed(2);
-  const a0 = epochAyanamsa(from), a1 = epochAyanamsa(to);
-  let markup = '';
-  for (let value = epochGridFloor(EPOCH_HD_GATE_GRID, a0); value < a1; value += EPOCH_HD_GATE_GRID[1]) {
-    const start = epochAyanamsaTime(value), end = epochAyanamsaTime(value + EPOCH_HD_GATE_GRID[1]);
-    const shade = Math.round(value / EPOCH_HD_GATE_GRID[1]) % 2 === 0;
-    markup += `<rect x="${x(start)}" y="0" width="${(x(end) - x(start)).toFixed(2)}" height="100" class="epoch-band${shade ? ' alt' : ''}"/><line x1="${x(start)}" x2="${x(start)}" y1="0" y2="100" class="epoch-tick strong"/>`;
-  }
-  const lines = (a1 - a0) / EPOCH_HD_LINE_GRID[1];
-  if (lines < 150) {
-    for (let value = epochGridFloor(EPOCH_HD_LINE_GRID, a0); value < a1; value += EPOCH_HD_LINE_GRID[1]) markup += `<line x1="${x(epochAyanamsaTime(value))}" x2="${x(epochAyanamsaTime(value))}" y1="35" y2="100" class="epoch-tick"/>`;
-    for (let value = epochGridFloor(EPOCH_HD_DESIGN_GRID, a0); value < a1; value += EPOCH_HD_DESIGN_GRID[1]) markup += `<line x1="${x(epochAyanamsaTime(value))}" x2="${x(epochAyanamsaTime(value))}" y1="65" y2="100" class="epoch-tick design"/>`;
-  }
-  return markup;
-}
-// Gate numbers over their bands (and line numbers when zoomed in).
-function epochHdTrackLabels(from, to) {
-  const a0 = epochAyanamsa(from), a1 = epochAyanamsa(to);
-  const labels = [];
-  const gateWidth = EPOCH_HD_GATE_GRID[1] / (a1 - a0);
-  if (gateWidth > 0.025) {
-    for (let value = epochGridFloor(EPOCH_HD_GATE_GRID, a0); value < a1; value += EPOCH_HD_GATE_GRID[1]) {
-      const middle = (epochAyanamsaTime(value) + epochAyanamsaTime(value + EPOCH_HD_GATE_GRID[1])) / 2;
-      if (middle >= from && middle <= to) labels.push({ ut: middle, text: String(epochHdState(middle).personalitySun.gate) });
-    }
-  }
-  if (gateWidth > 0.9) {
-    labels.length = 0;
-    for (let value = epochGridFloor(EPOCH_HD_LINE_GRID, a0); value < a1; value += EPOCH_HD_LINE_GRID[1]) {
-      const middle = (epochAyanamsaTime(value) + epochAyanamsaTime(value + EPOCH_HD_LINE_GRID[1])) / 2;
-      const state = epochHdState(middle);
-      if (middle >= from && middle <= to) labels.push({ ut: middle, text: `${state.personalitySun.gate}.${state.personalitySun.line}` });
-    }
-  }
-  return labels;
+// The slider's marks: every gate boundary (the equinox entering the next gate), and the
+// line boundaries of the epoch the moment is in.
+function epochHdSliderMarks() {
+  const epochs = epochHdEpochs();
+  const marks = epochs.slice(1).map((epoch, index) => ({
+    from: epoch.from, color: 'var(--ink)',
+    label: `Gate ${epochs[index].gate} → ${epoch.gate} · ${epochHdCrossName(epoch.gate)} · ${epochDateText(epoch.from, { time: false, calendar: true })}`,
+  }));
+  const current = epochs.find((epoch) => epoch.from <= epochHd.time && epochHd.time < epoch.to);
+  if (current) epochHdSubEpochs(current).slice(1).forEach((sub) => marks.push({
+    from: sub.from, color: 'var(--accent)',
+    label: `${sub.state.profile} · ${sub.state.personalitySun.gate}.${sub.state.personalitySun.line} | ${sub.state.designSun.gate}.${sub.state.designSun.line} · ${epochDateText(sub.from, { time: false, calendar: true })}`,
+  }));
+  return marks;
 }

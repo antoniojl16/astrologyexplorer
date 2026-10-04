@@ -4,8 +4,9 @@
 // two meet (conjunction) and ends it when they meet again; in between, the faster one
 // pulls ahead through the waxing sextile, square and trine, the opposition, and the
 // waning trine, square and sextile. Two moments are compared on one bi-wheel — the
-// inner one in purple, the outer one in green — each set from the conjunction lists,
-// the cycle tables, the date fields, or by dragging its marker on the shared timeline.
+// inner one in purple, the outer one in green. Each moment is its own little cycle
+// explorer: its own pair, steps from conjunction to conjunction or aspect to aspect, and
+// its own timeline slider; they can be moved together, or swapped (Reverse).
 //
 // Conjunctions are stored (EPOCH_CONJUNCTIONS, epoch-conjunctions.js, every exact pass
 // from 5000 BC to 3100 AD); the other phases are found on demand from the positions
@@ -30,21 +31,20 @@ const EPOCH_MARKERS = [
   { key: 'outer', label: 'Outer moment', color: 'var(--epoch-outer)' },
 ];
 const EPOCH_ASTRO_LINES = [['inner', 'Inner'], ['between', 'Between'], ['outer', 'Outer']];
-const EPOCH_ASTRO_ZOOMS = [['8000 y', 8001 * EPOCH_YEAR_DAYS], ['1000 y', 1000 * EPOCH_YEAR_DAYS], ['200 y', 200 * EPOCH_YEAR_DAYS], ['50 y', 50 * EPOCH_YEAR_DAYS], ['10 y', 10 * EPOCH_YEAR_DAYS], ['1 y', EPOCH_YEAR_DAYS]];
 const EPOCH_ASTRO_MIN = epochUtFromCalendar(-5000, 1, 1);
 const EPOCH_ASTRO_MAX = epochUtFromCalendar(3000, 12, 31, 23.99);
 const EPOCH_ELEMENTS = ['Fire', 'Earth', 'Air', 'Water'];
 
 const epochAstro = {
-  pair: 'Jupiter-Saturn',
   times: null, // { inner, outer }, set on first render
-  active: 'inner',
+  pairs: { inner: 'Jupiter-Saturn', outer: 'Jupiter-Saturn' }, // each moment's cycle
+  active: 'inner', // the moment the keys move
+  together: false, // moving one moment moves the other by as much
   aspects: new Set(EPOCH_OPTIONAL_ASPECTS),
   lines: 'between',
   // Bodies on the wheel: the slow planets, until others are ticked (not remembered).
   bodies: new Set(EPOCH_BODIES),
 };
-let epochAstroTimeline = null;
 
 const epochPairBodies = (pair) => pair.split('-');
 const epochPairName = (pair, joiner = '–') => epochPairBodies(pair).join(joiner);
@@ -224,36 +224,59 @@ function renderEpochWheel(svg) {
 }
 
 // ── Panels ───────────────────────────────────────────────────────────────
-function epochMomentRowMarkup(marker) {
-  return `<div class="epoch-moment" data-epoch-moment="${marker.key}">
-    <button type="button" class="epoch-moment-pick" data-epoch-activate="${marker.key}" title="Keys and buttons move this moment (${marker.key === 'inner' ? '1' : '2'})"><i class="legend-dot" style="background:${marker.color}"></i>${marker.label}</button>
-    ${epochDateFieldsMarkup(marker.key)}
-    <button type="button" class="secondary-button epoch-now" data-epoch-now="${marker.key}" title="Set to now">Now</button>
-    <small class="epoch-moment-note" data-epoch-moment-note="${marker.key}"></small>
+// One moment: its pair, a conjunction to jump to, steps, and its slider; under the
+// slider, how far into its cycle it is.
+function epochMomentPanelMarkup(marker) {
+  const key = marker.key;
+  return `<div class="epoch-moment-panel" data-epoch-moment="${key}" style="--thumb:${marker.color}">
+    <div class="epoch-moment-head">
+      <button type="button" class="epoch-moment-pick" data-epoch-activate="${key}" title="The keys move this moment (${key === 'inner' ? '1' : '2'})"><i class="legend-dot" style="background:${marker.color}"></i>${marker.label}</button>
+      <label class="epoch-field epoch-inline">Pair<select data-epoch-pair="${key}">${EPOCH_PAIRS.map((pair) => `<option value="${pair}">${epochPairGlyphs(pair)}  ${epochPairName(pair)}</option>`).join('')}</select></label>
+      <label class="epoch-field epoch-inline">Go to conjunction<select data-epoch-jump="${key}"></select></label>
+      <div class="epoch-stepper"><span>Conjunction</span><button type="button" data-epoch-step="${key}:event:-1" title="Previous conjunction of this pair (,)" aria-label="Previous conjunction">◀</button><button type="button" data-epoch-step="${key}:event:1" title="Next conjunction of this pair (.)" aria-label="Next conjunction">▶</button></div>
+      <div class="epoch-stepper"><span>Aspect</span><button type="button" data-epoch-step="${key}:phase:-1" title="Previous exact aspect of this pair's cycle: the conjunction or a shown aspect ([)" aria-label="Previous aspect">◀</button><button type="button" data-epoch-step="${key}:phase:1" title="Next exact aspect of this pair's cycle ([ ])" aria-label="Next aspect">▶</button></div>
+    </div>
+    <div data-epoch-slider="${key}">${epochSliderMarkup('DATE')}</div>
+    <p class="epoch-cycle-progress" data-epoch-cycle-progress="${key}"></p>
   </div>`;
 }
+// "11.2 years (2%)": since the conjunction that opened the moment's cycle, and that as a
+// share of the time to the next one.
+function epochCycleProgressText(pair, ut) {
+  const events = epochConjunctions(pair);
+  const index = epochCycleIndex(pair, ut);
+  if (index < 0) return 'Before the first conjunction in range';
+  const start = events[index].start, next = events[index + 1]?.start;
+  const years = ((ut - start) / EPOCH_YEAR_DAYS).toFixed(1);
+  return next ? `${years} years (${Math.round(((ut - start) / (next - start)) * 100)}%)` : `${years} years`;
+}
 // Where every pair stands in its cycle at each moment: the conjunction that opened the
-// cycle (each pass, with where it fell), the aspect in orb (if any, as its symbol), and
-// how far through the cycle the moment is, as a bar (exact share on hover).
+// cycle (each pass, with where it fell), the aspect in orb (its symbol and orb), and how
+// far through the cycle the moment is, as a bar (exact share on hover). Each column
+// marks its own moment's pair; clicking a cell gives that moment that pair.
 function epochCycleTableMarkup() {
   const cell = (pair, key) => {
     const ut = epochAstro.times[key];
     const events = epochConjunctions(pair);
     const index = epochCycleIndex(pair, ut);
-    if (index < 0) return '<td>—</td>';
+    const chosen = epochAstro.pairs[key] === pair ? ' selected' : '';
+    const attributes = `class="epoch-cycle-cell${chosen}" data-epoch-pair-cell="${key}:${pair}" tabindex="0" title="Follow the ${epochPairName(pair)} cycle in the ${key} moment"`;
+    if (index < 0) return `<td ${attributes}>—</td>`;
     const event = events[index], next = events[index + 1];
     const passes = event.passes.map((pass) => `<span class="epoch-pass">${epochShortDate(pass)} <b>${epochPositionText(epochConjunctionLongitude(pair, pass))}</b></span>`).join('');
     const aspect = epochAspectAt(epochPhaseAngle(pair, ut));
-    const symbol = aspect ? `<b class="epoch-aspect-symbol" style="color:${ASPECT_COLORS[aspect.phase.aspect]}" title="${aspect.phase.label} ${aspect.offset >= 0 ? '+' : '−'}${Math.abs(aspect.offset).toFixed(1)}°">${ASPECT_DEFINITIONS.find((definition) => definition.name === aspect.phase.aspect).glyph}</b>` : '<b class="epoch-aspect-symbol"></b>';
+    const symbol = aspect
+      ? `<span class="epoch-aspect-tag" title="${aspect.phase.label} · ${Math.abs(aspect.offset).toFixed(1)}° ${aspect.offset < 0 ? 'before exact (applying)' : 'past exact (separating)'}"><b class="epoch-aspect-symbol" style="color:${ASPECT_COLORS[aspect.phase.aspect]}">${ASPECT_DEFINITIONS.find((definition) => definition.name === aspect.phase.aspect).glyph}</b><small>${Math.abs(aspect.offset).toFixed(1)}°</small></span>`
+      : '<span class="epoch-aspect-tag"></span>';
     const bar = next
       ? `<span class="epoch-progress" data-epoch-progress tabindex="0" data-pair="${pair}" data-from="${event.start}" data-to="${next.start}" data-at="${ut}"><i style="width:${Math.max(0, Math.min(100, ((ut - event.start) / (next.start - event.start)) * 100)).toFixed(1)}%"></i></span>`
       : '<span class="epoch-progress empty"></span>';
-    return `<td>${passes}<span class="epoch-progress-row">${bar}${symbol}</span></td>`;
+    return `<td ${attributes}>${passes}<span class="epoch-progress-row">${bar}${symbol}</span></td>`;
   };
   const head = (marker) => `<th><i class="legend-dot" style="background:${marker.color}"></i>${marker.key === 'inner' ? 'Inner' : 'Outer'} <small>${epochShortDate(epochAstro.times[marker.key])}</small></th>`;
   return `<table class="epoch-table epoch-cycles-table">
     <thead><tr><th>Cycle</th>${head(EPOCH_MARKERS[0])}${head(EPOCH_MARKERS[1])}</tr></thead>
-    <tbody>${EPOCH_PAIRS.map((pair) => `<tr class="${pair === epochAstro.pair ? 'selected' : ''}" data-epoch-pair-row="${pair}" tabindex="0" title="Choose the ${epochPairName(pair)} cycle"><th>${epochPairGlyphs(pair)}<small>${epochPairName(pair)}</small></th>${cell(pair, 'inner')}${cell(pair, 'outer')}</tr>`).join('')}</tbody>
+    <tbody>${EPOCH_PAIRS.map((pair) => `<tr><th>${epochPairGlyphs(pair)}<small>${epochPairName(pair)}</small></th>${cell(pair, 'inner')}${cell(pair, 'outer')}</tr>`).join('')}</tbody>
   </table>`;
 }
 function epochProgressTipHtml(element) {
@@ -263,22 +286,9 @@ function epochProgressTipHtml(element) {
     <div class="gk-tip-text">${years(at - from)} of ${years(to - from)} years, from the conjunction of ${epochShortDate(from)} to the next, ${epochShortDate(to)}.</div>`;
 }
 bindHoverTooltips('[data-epoch-progress]', epochProgressTipHtml, 'epochProgressTooltip');
-// The cycle of the chosen pair that contains the active moment: the conjunction that
-// opens it and the one that closes it (the aspects in between are reached with the
-// Aspect steps).
-function epochCurrentCycleMarkup() {
-  const pair = epochAstro.pair;
-  const ut = epochAstro.times[epochAstro.active];
-  const index = epochCycleIndex(pair, ut);
-  const events = epochConjunctions(pair);
-  if (index < 0) return '<p class="intro-copy">Before the first conjunction in range.</p>';
-  const next = events[index + 1];
-  const row = (label, event) => `<tr><td>${label}</td><td>${event.passes.map((pass) => `<span class="epoch-pass">${epochDateText(pass, { calendar: true })}</span>`).join('')}</td><td>${event.passes.map((pass) => `<span class="epoch-pass">${epochPositionText(epochConjunctionLongitude(pair, pass))}</span>`).join('')}</td><td class="epoch-set">${epochSetButtonsMarkup(event.start)}</td></tr>`;
-  return `<p class="epoch-cycle-span">${epochPairName(pair)} cycle from <strong>${epochDateText(events[index].start, { time: false, calendar: true })}</strong>${next ? ` to <strong>${epochDateText(next.start, { time: false, calendar: true })}</strong> (${((next.start - events[index].start) / EPOCH_YEAR_DAYS).toFixed(1)} years)` : ''}</p>
-    <table class="epoch-table"><thead><tr><th>Conjunction</th><th>Exact (each pass)</th><th>Position</th><th></th></tr></thead><tbody>${row('Opens the cycle', events[index])}${next ? row('Closes it (the next)', next) : ''}</tbody></table>`;
-}
-function epochSetButtonsMarkup(ut) {
-  return EPOCH_MARKERS.map((marker) => `<button type="button" class="epoch-set-button" data-epoch-set="${marker.key}" data-ut="${ut}" title="Set the ${marker.key} moment here" style="--thumb:${marker.color}">${marker.key === 'inner' ? 'Inner' : 'Outer'}</button>`).join('');
+// A conjunction's Inner / Outer buttons: that moment takes the pair and the time.
+function epochSetButtonsMarkup(ut, pair) {
+  return EPOCH_MARKERS.map((marker) => `<button type="button" class="epoch-set-button" data-epoch-set="${marker.key}" data-ut="${ut}" data-pair="${pair}" title="Set the ${marker.key} moment here" style="--thumb:${marker.color}">${marker.key === 'inner' ? 'Inner' : 'Outer'}</button>`).join('');
 }
 // Every conjunction of every pair, by pair and millennium (rows built when opened).
 function epochConjunctionListMarkup() {
@@ -307,7 +317,7 @@ function epochPairListBodyMarkup(pair) {
     const rows = list.map((event) => {
       const longitude = epochConjunctionLongitude(pair, event.start);
       const sign = Math.floor(epochWrap360(longitude) / 30);
-      return `<tr><td>${event.passes.map((pass) => `<span class="epoch-pass">${epochDateText(pass, { calendar: true })}</span>`).join('')}</td><td>${epochPositionText(longitude)}</td><td>${EPOCH_ELEMENTS[sign % 4]}</td><td class="epoch-set">${epochSetButtonsMarkup(event.start)}</td></tr>`;
+      return `<tr><td>${event.passes.map((pass) => `<span class="epoch-pass">${epochDateText(pass, { calendar: true })}</span>`).join('')}</td><td>${epochPositionText(longitude)}</td><td>${EPOCH_ELEMENTS[sign % 4]}</td><td class="epoch-set">${epochSetButtonsMarkup(event.start, pair)}</td></tr>`;
     }).join('');
     return `<details class="epoch-millennium"${containsNow ? ' open' : ''}><summary>${label(millennium)} <small>${list.length}</small></summary><table class="epoch-table"><thead><tr><th>Exact (each pass)</th><th>Position</th><th>Element</th><th></th></tr></thead><tbody>${rows}</tbody></table></details>`;
   }).join('');
@@ -328,8 +338,8 @@ function renderEpochAstrology(surface) {
     const index = epochCycleIndex('Jupiter-Saturn', now);
     epochAstro.times = { inner: epochConjunctions('Jupiter-Saturn')[index]?.start ?? now, outer: now };
   }
-  // Wheel with its controls beside it; the two moments and the timeline under both;
-  // then where every cycle stands, next to the chosen cycle phase by phase.
+  // The wheel with its filters beside it; under them the two moments; then where every
+  // cycle stands, the conjunction lists and the notes.
   surface.innerHTML = `
     <div class="epoch-astro-layout">
       <div class="chart-panel epoch-wheel-panel">
@@ -339,14 +349,7 @@ function renderEpochAstrology(surface) {
         <div class="wheel-stage"><svg class="synastry-wheel epoch-wheel" viewBox="20 20 560 560" role="img" aria-label="Epoch bi-wheel: the planets at two moments" data-epoch-wheel></svg><div class="epoch-legend" data-epoch-legend></div></div>
       </div>
       <div class="epoch-panel epoch-controls">
-        <span class="eyebrow">CYCLE</span>
-        <label class="epoch-field">Pair<select data-epoch-pair>${EPOCH_PAIRS.map((pair) => `<option value="${pair}">${epochPairGlyphs(pair)}  ${epochPairName(pair)}</option>`).join('')}</select></label>
-        <label class="epoch-field">Go to conjunction<select data-epoch-jump></select></label>
-        <div class="epoch-steppers">
-          <div class="epoch-stepper"><span>Conjunction</span><button type="button" data-epoch-step="event:-1" title="Previous conjunction of this pair (,)" aria-label="Previous conjunction">◀</button><button type="button" data-epoch-step="event:1" title="Next conjunction of this pair (.)" aria-label="Next conjunction">▶</button></div>
-          <div class="epoch-stepper"><span>Aspect</span><button type="button" data-epoch-step="phase:-1" title="Previous exact aspect of this pair's cycle: the conjunction or a shown aspect ([)" aria-label="Previous aspect">◀</button><button type="button" data-epoch-step="phase:1" title="Next exact aspect of this pair's cycle: the conjunction or a shown aspect (])" aria-label="Next aspect">▶</button></div>
-        </div>
-        <span class="eyebrow epoch-panel-section">ASPECTS</span>
+        <span class="eyebrow">ASPECTS</span>
         <div class="epoch-check-grid">
           <label><input type="checkbox" checked disabled>☌ Conjunction</label>
           ${EPOCH_OPTIONAL_ASPECTS.map((name) => `<label><input type="checkbox" data-epoch-aspect="${name}" ${epochAstro.aspects.has(name) ? 'checked' : ''}><span style="color:${ASPECT_COLORS[name]}">${ASPECT_DEFINITIONS.find((definition) => definition.name === name).glyph}</span> ${name}</label>`).join('')}
@@ -358,169 +361,157 @@ function renderEpochAstrology(surface) {
       </div>
     </div>
     <div class="chart-panel epoch-time-panel">
-      <div class="epoch-moments">
-        ${epochMomentRowMarkup(EPOCH_MARKERS[0])}
-        <button type="button" class="pair-swap epoch-reverse" data-epoch-reverse title="Reverse the two moments (R)" aria-label="Reverse the two moments">⇅</button>
-        ${epochMomentRowMarkup(EPOCH_MARKERS[1])}
+      ${epochMomentPanelMarkup(EPOCH_MARKERS[0])}
+      <div class="epoch-moment-links">
+        <button type="button" class="pair-swap epoch-reverse" data-epoch-reverse title="Reverse the two moments, pairs and all (R)" aria-label="Reverse the two moments">⇅</button>
+        <label class="epoch-lock"><input type="checkbox" data-epoch-together ${epochAstro.together ? 'checked' : ''}>Move together</label>
       </div>
-      <div class="timeline-control epoch-timeline-box" data-epoch-timeline></div>
+      ${epochMomentPanelMarkup(EPOCH_MARKERS[1])}
     </div>
-    <div class="epoch-astro-lower">
-      <div class="epoch-panel">
-        <span class="eyebrow">WHERE EACH CYCLE STANDS</span>
-        <div data-epoch-cycles></div>
-      </div>
-      <section class="cycle-life epoch-section">
-        <div class="epoch-section-head"><strong data-epoch-cycle-title></strong><small>the cycle containing the active moment</small></div>
-        <div class="epoch-section-body" data-epoch-current-cycle></div>
-      </section>
+    <div class="epoch-panel epoch-cycles-panel">
+      <span class="eyebrow">WHERE EACH CYCLE STANDS</span>
+      <div data-epoch-cycles></div>
     </div>
     <h3 class="epoch-heading">All conjunctions, 5000 BC – 3000 AD</h3>
     <div data-epoch-lists>${epochConjunctionListMarkup()}</div>
     ${epochAstrologyNotesMarkup()}`;
 
   const svg = surface.querySelector('[data-epoch-wheel]');
-  const pairSelect = surface.querySelector('[data-epoch-pair]');
-  const jumpSelect = surface.querySelector('[data-epoch-jump]');
-  const fillJump = () => {
-    pairSelect.value = epochAstro.pair;
-    jumpSelect.innerHTML = `<option value="">Choose…</option>${epochConjunctions(epochAstro.pair).map((event, index) => `<option value="${index}">${epochDateText(event.start, { time: false })} · ${epochPositionText(epochConjunctionLongitude(epochAstro.pair, event.start))}</option>`).join('')}`;
+  const sliders = {};
+  const fillPair = (key) => {
+    const pair = epochAstro.pairs[key];
+    surface.querySelector(`[data-epoch-pair="${key}"]`).value = pair;
+    surface.querySelector(`[data-epoch-jump="${key}"]`).innerHTML = `<option value="">Choose…</option>${epochConjunctions(pair).map((event, index) => `<option value="${index}">${epochDateText(event.start, { time: false })} · ${epochPositionText(epochConjunctionLongitude(pair, event.start))}</option>`).join('')}`;
   };
-  // Light: the wheel, the moment fields and notes, the cycle table. Full: also the
-  // chosen cycle and the timeline's track (which follows the pair and aspects).
-  const draw = ({ full = false } = {}) => {
+  const draw = () => {
     renderEpochWheel(svg);
     EPOCH_MARKERS.forEach((marker) => {
-      epochFillDateFields(surface.querySelector(`[data-epoch-date="${marker.key}"]`), epochAstro.times[marker.key]);
       surface.querySelector(`[data-epoch-moment="${marker.key}"]`).classList.toggle('active', epochAstro.active === marker.key);
-      const index = epochCycleIndex(epochAstro.pair, epochAstro.times[marker.key]);
-      const note = surface.querySelector(`[data-epoch-moment-note="${marker.key}"]`);
-      const julian = epochCalendar(epochAstro.times[marker.key]).julian ? ' · Julian calendar' : '';
-      note.textContent = index >= 0 ? `${((epochAstro.times[marker.key] - epochConjunctions(epochAstro.pair)[index].start) / EPOCH_YEAR_DAYS).toFixed(1)} years into the ${epochPairName(epochAstro.pair)} cycle${julian}` : julian.slice(3);
+      surface.querySelector(`[data-epoch-cycle-progress="${marker.key}"]`).textContent = epochCycleProgressText(epochAstro.pairs[marker.key], epochAstro.times[marker.key]);
     });
     surface.querySelector('[data-epoch-cycles]').innerHTML = epochCycleTableMarkup();
     surface.querySelector('[data-epoch-legend]').innerHTML = EPOCH_MARKERS.map((marker) => `<span><i class="legend-dot" style="background:${marker.color}"></i>${marker.key === 'inner' ? 'Inner' : 'Outer'} — ${epochShortDate(epochAstro.times[marker.key])}</span>`).join('');
-    epochAstroTimeline?.update();
-    if (full) {
-      surface.querySelector('[data-epoch-cycle-title]').textContent = `${epochPairName(epochAstro.pair, ' – ')} · ${epochAstro.active === 'inner' ? 'inner' : 'outer'} moment`;
-      surface.querySelector('[data-epoch-current-cycle]').innerHTML = epochCurrentCycleMarkup();
-      epochAstroTimeline?.refresh();
+  };
+  // A moment moved (by its slider, or set here): with "Move together", the other one
+  // follows by as much.
+  let following = false;
+  const moved = (key, ut) => {
+    const clamped = Math.max(EPOCH_ASTRO_MIN, Math.min(EPOCH_ASTRO_MAX, ut));
+    const delta = clamped - epochAstro.times[key];
+    epochAstro.times[key] = clamped;
+    if (epochAstro.together && !following && delta) {
+      const other = key === 'inner' ? 'outer' : 'inner';
+      following = true;
+      epochAstro.times[other] = Math.max(EPOCH_ASTRO_MIN, Math.min(EPOCH_ASTRO_MAX, epochAstro.times[other] + delta));
+      sliders[other]?.moveTo(epochAstro.times[other]);
+      following = false;
     }
+    draw();
   };
-  // The chosen cycle's table changes only when the active moment enters another cycle.
-  let shownCycle = null;
-  const afterMove = () => {
-    const cycle = `${epochAstro.pair}#${epochAstro.active}#${epochCycleIndex(epochAstro.pair, epochAstro.times[epochAstro.active])}`;
-    draw({ full: false });
-    if (cycle !== shownCycle) {
-      shownCycle = cycle;
-      surface.querySelector('[data-epoch-cycle-title]').textContent = `${epochPairName(epochAstro.pair, ' – ')} · ${epochAstro.active === 'inner' ? 'inner' : 'outer'} moment`;
-      surface.querySelector('[data-epoch-current-cycle]').innerHTML = epochCurrentCycleMarkup();
-    }
+  const jumpTo = (key, ut) => {
+    moved(key, ut);
+    sliders[key].moveTo(epochAstro.times[key]);
   };
-  const setTime = (key, ut) => {
-    epochAstro.times[key] = Math.max(EPOCH_ASTRO_MIN, Math.min(EPOCH_ASTRO_MAX, ut));
-    afterMove();
-  };
-  const activate = (key) => {
-    epochAstro.active = key;
-    epochAstroTimeline.activate(key);
-    afterMove();
-  };
-  epochAstroTimeline = epochTimeline(surface.querySelector('[data-epoch-timeline]'), {
-    markers: EPOCH_MARKERS,
-    get: (key) => epochAstro.times[key],
-    set: (key, ut) => { epochAstro.times[key] = ut; afterMove(); },
-    min: EPOCH_ASTRO_MIN, max: EPOCH_ASTRO_MAX, zooms: EPOCH_ASTRO_ZOOMS, zoom: 2, lockable: true,
-    active: epochAstro.active,
-    onActivate: (key) => { if (epochAstro.active !== key) { epochAstro.active = key; afterMove(); } },
-    decorate: epochAstroTrackMarkup,
+  const activate = (key) => { epochAstro.active = key; draw(); };
+  EPOCH_MARKERS.forEach((marker) => {
+    const key = marker.key;
+    sliders[key] = epochBindSlider(surface.querySelector(`[data-epoch-slider="${key}"]`), {
+      range: [EPOCH_ASTRO_MIN, EPOCH_ASTRO_MAX], initialYears: 100,
+      get: () => epochAstro.times[key],
+      set: (ut) => { epochAstro.active = key; moved(key, ut); },
+      // The moment's pair's conjunctions, from the first pass to the last.
+      markers: () => epochConjunctions(epochAstro.pairs[key]).map((event) => ({
+        from: event.start, to: event.passes[event.passes.length - 1], color: marker.color,
+        label: `${epochPairName(epochAstro.pairs[key])} conjunction · ${epochDateText(event.start, { time: false, calendar: true })}${event.passes.length > 1 ? ` (${event.passes.length} passes)` : ''}`,
+      })),
+    });
+    fillPair(key);
   });
-  const jumpTo = (ut) => {
-    setTime(epochAstro.active, ut);
-    epochAstroTimeline.reveal(epochAstro.active);
-  };
-
-  // Stepping the active moment to the previous/next conjunction or phase.
-  const step = (action, direction) => {
-    const ut = epochAstro.times[epochAstro.active];
-    const events = epochConjunctions(epochAstro.pair);
+  // Steps for a moment: to the previous/next conjunction or aspect of its own pair.
+  const step = (key, action, direction) => {
+    const pair = epochAstro.pairs[key];
+    const ut = epochAstro.times[key];
+    const events = epochConjunctions(pair);
     let target = null;
     if (action === 'event') {
-      const index = epochCycleIndex(epochAstro.pair, ut - (direction < 0 ? 1 / 24 : -1 / 24));
+      const index = epochCycleIndex(pair, ut - (direction < 0 ? 1 / 24 : -1 / 24));
       target = direction > 0 ? events[index + 1]?.start : (events[index]?.start < ut - 1 / 24 ? events[index].start : events[index - 1]?.start);
     } else {
-      const index = epochCycleIndex(epochAstro.pair, ut);
+      const index = epochCycleIndex(pair, ut);
       const candidates = [index - 1, index, index + 1].filter((i) => i >= 0 && i < events.length)
-        .flatMap((i) => epochCyclePhases(epochAstro.pair, i).filter((entry) => epochPhaseShown(entry.phase)).map((entry) => entry.start));
+        .flatMap((i) => epochCyclePhases(pair, i).filter((entry) => epochPhaseShown(entry.phase)).map((entry) => entry.start));
       target = direction > 0 ? candidates.filter((t) => t > ut + 1 / 24).sort((a, b) => a - b)[0] : candidates.filter((t) => t < ut - 1 / 24).sort((a, b) => b - a)[0];
     }
     if (target == null) return false;
-    jumpTo(target);
+    epochAstro.active = key;
+    jumpTo(key, target);
     return true;
   };
+  const choosePair = (key, pair) => {
+    epochAstro.pairs[key] = pair;
+    fillPair(key);
+    sliders[key].refresh();
+    draw();
+  };
+  const reverse = () => {
+    epochAstro.times = { inner: epochAstro.times.outer, outer: epochAstro.times.inner };
+    epochAstro.pairs = { inner: epochAstro.pairs.outer, outer: epochAstro.pairs.inner };
+    const together = epochAstro.together;
+    epochAstro.together = false;
+    EPOCH_MARKERS.forEach(({ key }) => { fillPair(key); sliders[key].refresh(); sliders[key].moveTo(epochAstro.times[key]); });
+    epochAstro.together = together;
+    draw();
+  };
   epochKeyHandler = (action, direction) => {
-    if (action === 'event' || action === 'phase') return step(action, direction);
-    if (action === 'reverse') { surface.querySelector('[data-epoch-reverse]').click(); return true; }
-    if (action === 'now') { jumpTo(epochNow()); return true; }
+    if (action === 'event' || action === 'phase') return step(epochAstro.active, action, direction);
+    if (action === 'reverse') { reverse(); return true; }
+    if (action === 'now') { jumpTo(epochAstro.active, epochNow()); return true; }
     if (action === 'marker') { activate(EPOCH_MARKERS[direction].key); return true; }
     return false;
   };
 
-  surface.querySelectorAll('[data-epoch-date]').forEach((box) => epochBindDateFields(box, (ut) => {
-    epochAstro.active = box.dataset.epochDate;
-    epochAstroTimeline.activate(epochAstro.active);
-    jumpTo(ut);
-  }, () => epochAstro.times[box.dataset.epochDate]));
   surface.addEventListener('click', (event) => {
     const target = event.target;
     const set = target.closest('[data-epoch-set]');
     if (set) {
-      epochAstro.active = set.dataset.epochSet;
-      epochAstroTimeline.activate(epochAstro.active);
-      jumpTo(Number(set.dataset.ut));
+      const key = set.dataset.epochSet;
+      epochAstro.active = key;
+      if (set.dataset.pair && set.dataset.pair !== epochAstro.pairs[key]) choosePair(key, set.dataset.pair);
+      jumpTo(key, Number(set.dataset.ut));
       return;
     }
     const activator = target.closest('[data-epoch-activate]');
     if (activator) return activate(activator.dataset.epochActivate);
-    const now = target.closest('[data-epoch-now]');
-    if (now) {
-      epochAstro.active = now.dataset.epochNow;
-      epochAstroTimeline.activate(epochAstro.active);
-      return jumpTo(epochNow());
-    }
-    if (target.closest('[data-epoch-reverse]')) {
-      epochAstro.times = { inner: epochAstro.times.outer, outer: epochAstro.times.inner };
-      afterMove();
-      epochAstroTimeline.reveal(epochAstro.active);
-      return;
-    }
+    if (target.closest('[data-epoch-reverse]')) return reverse();
     const stepButton = target.closest('[data-epoch-step]');
     if (stepButton) {
-      const [action, direction] = stepButton.dataset.epochStep.split(':');
-      step(action, Number(direction));
+      const [key, action, direction] = stepButton.dataset.epochStep.split(':');
+      step(key, action, Number(direction));
       return;
     }
-    const row = target.closest('[data-epoch-pair-row]');
-    if (row) choosePair(row.dataset.epochPairRow);
+    const cell = target.closest('[data-epoch-pair-cell]');
+    if (cell && !target.closest('[data-epoch-progress]')) {
+      const [key, pair] = cell.dataset.epochPairCell.split(':');
+      choosePair(key, pair);
+    }
   });
   surface.addEventListener('keydown', (event) => {
-    const row = event.target.closest?.('[data-epoch-pair-row]');
-    if (row && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); choosePair(row.dataset.epochPairRow); }
+    const cell = event.target.closest?.('[data-epoch-pair-cell]');
+    if (cell && (event.key === 'Enter' || event.key === ' ')) {
+      event.preventDefault();
+      const [key, pair] = cell.dataset.epochPairCell.split(':');
+      choosePair(key, pair);
+    }
   });
-  const choosePair = (pair) => {
-    epochAstro.pair = pair;
-    shownCycle = null;
-    fillJump();
-    draw({ full: true });
-    afterMove();
-  };
-  pairSelect.addEventListener('change', () => choosePair(pairSelect.value));
-  jumpSelect.addEventListener('change', () => {
-    const event = epochConjunctions(epochAstro.pair)[Number(jumpSelect.value)];
-    if (event) jumpTo(event.start);
-    jumpSelect.value = '';
+  EPOCH_MARKERS.forEach(({ key }) => {
+    surface.querySelector(`[data-epoch-pair="${key}"]`).addEventListener('change', (event) => choosePair(key, event.target.value));
+    surface.querySelector(`[data-epoch-jump="${key}"]`).addEventListener('change', (event) => {
+      const conjunction = epochConjunctions(epochAstro.pairs[key])[Number(event.target.value)];
+      event.target.value = '';
+      if (conjunction) { epochAstro.active = key; jumpTo(key, conjunction.start); }
+    });
   });
+  surface.querySelector('[data-epoch-together]').addEventListener('change', (event) => { epochAstro.together = event.target.checked; });
   surface.querySelector('[data-epoch-lines]').addEventListener('click', (event) => {
     const button = event.target.closest('button[data-value]');
     if (!button) return;
@@ -534,44 +525,11 @@ function renderEpochAstrology(surface) {
   }));
   surface.querySelectorAll('[data-epoch-aspect]').forEach((box) => box.addEventListener('change', () => {
     if (box.checked) epochAstro.aspects.add(box.dataset.epochAspect); else epochAstro.aspects.delete(box.dataset.epochAspect);
-    shownCycle = null;
-    draw({ full: true });
+    draw();
   }));
   surface.querySelectorAll('[data-epoch-pair-list]').forEach((details) => details.addEventListener('toggle', () => {
     const body = details.querySelector('.epoch-pair-list-body');
     if (details.open && !body.innerHTML) body.innerHTML = epochPairListBodyMarkup(details.dataset.epochPairList);
   }));
-  fillJump();
-  draw({ full: true });
-  afterMove();
-}
-
-// The timeline's track for the chosen pair: its phase angle over the window as a
-// sawtooth (0 at each conjunction, rising to 360°; the shown aspects as faint guides),
-// when the window is short enough to draw it, and a tick at every conjunction.
-function epochAstroTrackMarkup(from, to) {
-  const pair = epochAstro.pair;
-  const x = (ut) => (((ut - from) / (to - from)) * 1000).toFixed(2);
-  let markup = '';
-  const cycleDays = (epochMeanCycleYears(pair) || 20) * EPOCH_YEAR_DAYS;
-  const samples = 600;
-  if ((to - from) / cycleDays <= 40) {
-    markup += EPOCH_PHASES.slice(1).filter(epochPhaseShown).map((phase) => {
-      const y = (96 - (phase.angle / 360) * 90).toFixed(2);
-      return `<line x1="0" x2="1000" y1="${y}" y2="${y}" class="epoch-guide" stroke="${ASPECT_COLORS[phase.aspect]}"/>`;
-    }).join('');
-    let path = '', previous = null;
-    for (let i = 0; i <= samples; i += 1) {
-      const ut = from + ((to - from) * i) / samples;
-      const angle = epochPhaseAngle(pair, ut);
-      const y = (96 - (angle / 360) * 90).toFixed(2);
-      // Lift the pen across the wrap from 360° back to 0°.
-      path += `${previous == null || Math.abs(angle - previous) > 180 ? 'M' : 'L'}${x(ut)} ${y}`;
-      previous = angle;
-    }
-    markup += `<path d="${path}" class="epoch-curve"/>`;
-  }
-  markup += epochConjunctions(pair).filter((event) => event.passes[event.passes.length - 1] >= from && event.start <= to)
-    .map((event) => event.passes.map((pass) => `<line x1="${x(pass)}" x2="${x(pass)}" y1="0" y2="100" class="epoch-tick"/>`).join('')).join('');
-  return markup;
+  draw();
 }

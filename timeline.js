@@ -167,10 +167,24 @@ function timelineDateParts(wall) {
     const date = new Date(days * dayMs);
     return { year: date.getUTCFullYear(), month: date.getUTCMonth(), day: date.getUTCDate(), hours, minutes, weekday, julian: false };
   }
+  // The formula below needs jdn > −32082 (about 4800 BC); earlier dates (the Epoch
+  // Explorer's) go through it shifted by whole 4-year Julian cycles.
+  if (jdn < 0) {
+    const cycles = Math.ceil(-jdn / TIMELINE_JULIAN_SHIFT_DAYS);
+    const parts = timelineDateParts(wall + cycles * TIMELINE_JULIAN_SHIFT_DAYS * dayMs);
+    return { ...parts, year: parts.year - cycles * TIMELINE_JULIAN_SHIFT_YEARS, weekday };
+  }
   const c = jdn + 32082, d = Math.floor((4 * c + 3) / 1461), e = c - Math.floor(1461 * d / 4), m = Math.floor((5 * e + 2) / 153);
   return { year: d - 4800 + Math.floor(m / 10), month: m + 2 - 12 * Math.floor(m / 10), day: e - Math.floor((153 * m + 2) / 5) + 1, hours, minutes, weekday, julian: true };
 }
+// 4000 Julian years (1000 four-year cycles): a shift that keeps a date Julian.
+const TIMELINE_JULIAN_SHIFT_YEARS = 4000;
+const TIMELINE_JULIAN_SHIFT_DAYS = (TIMELINE_JULIAN_SHIFT_YEARS / 4) * 1461;
 function timelineWallFromParts(year, month, day, hours = 0, minutes = 0) {
+  if (year < -4000) {
+    const cycles = Math.ceil((-4000 - year) / TIMELINE_JULIAN_SHIFT_YEARS);
+    return timelineWallFromParts(year + cycles * TIMELINE_JULIAN_SHIFT_YEARS, month, day, hours, minutes) - cycles * TIMELINE_JULIAN_SHIFT_DAYS * 86400000;
+  }
   const a = Math.floor((13 - month) / 12), y = year + 4800 - a, m = month + 1 + 12 * a - 3;
   let jdn = day + Math.floor((153 * m + 2) / 5) + 365 * y + Math.floor(y / 4) - 32083;
   if (jdn >= TIMELINE_GREGORIAN_START) {
@@ -256,7 +270,7 @@ const TIMELINE_TICK_STEPS = [
   ...[1, 2, 5, 10, 15, 30, 60, 120, 180, 360, 720].map(minutes => ({ kind: 'minute', n: minutes, size: minutes })),
   { kind: 'day', n: 1, size: 1440 }, { kind: 'day', n: 2, size: 2880 }, { kind: 'week', n: 1, size: 10080 },
   { kind: 'month', n: 1, size: 43830 }, { kind: 'month', n: 3, size: 131490 }, { kind: 'month', n: 6, size: 262980 },
-  ...[1, 2, 5, 10, 20, 50, 100, 200, 500, 1000].map(years => ({ kind: 'year', n: years, size: years * 525960 })),
+  ...[1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000].map(years => ({ kind: 'year', n: years, size: years * 525960 })),
 ];
 // [{ utc, top, context }] for the window [fromUtc, toUtc]: `top` is what changes from
 // tick to tick at this scale, `context` the larger unit, only where it changes.
@@ -349,13 +363,18 @@ function updateTimelineReadout(container, chart, offsetMinutes) {
 //   initial { value, center, span } — to start where the view was left; onView(state)
 //     — told whenever the window or thumb moves (the Cycle Explorer carries it across tabs);
 //   markers() — moments to show along the track: [{ from, to, label, color, current }],
-//     minutes from the origin (to > from for a period); clicking one goes there.
-function bindTimelineSlider(container, { onChange, originLabel = 'Birth moment', anchorName = null, initialSpan = 1440, markers = null, originTime = null, clock = null, initial = null, onView = null }) {
+//     minutes from the origin (to > from for a period); clicking one goes there;
+//   range [fromUtc, toUtc] (ms) — instead of the ephemeris's 3000 BC – AD 5000 (the
+//     Epoch Explorer's reaches further back); minSpan — the shortest half-window, in
+//     minutes; dateOnly — typed dates have no time of day.
+// Returns the range input, with `timeline` = { moveTo(value, recentre), refresh() } for
+// views that move it themselves (and redraw its markers).
+function bindTimelineSlider(container, { onChange, originLabel = 'Birth moment', anchorName = null, initialSpan = 1440, markers = null, originTime = null, clock = null, initial = null, onView = null, range = null, minSpan = 5, dateOnly = false }) {
   const slider = container.querySelector('[data-timeline-slider]');
   if (!slider) return null;
   // Without an originTime, the origin is the explorer's chart, looked up as it's needed
   // (the Chart and Timeline explorers keep one slider while their chart changes).
-  let origin, theClock, name, lowest, highest, MIN_SPAN = 5, MAX_SPAN;
+  let origin, theClock, name, lowest, highest, MIN_SPAN = minSpan, MAX_SPAN;
   const resolveOrigin = () => {
     const chart = originTime == null ? currentExplorerChart() : null;
     const next = originTime ?? (chart ? chartBirthMomentUTC(chart).getTime() : Date.now());
@@ -364,8 +383,8 @@ function bindTimelineSlider(container, { onChange, originLabel = 'Birth moment',
     theClock = clock || chartTimelineClock(chart);
     name = anchorName || (explorerMode === 'timeline' ? 'now' : 'birth');
     // The ephemeris's range, as offsets from the origin.
-    lowest = Math.ceil((TIMELINE_MIN_UTC - origin) / 60000);
-    highest = Math.floor((TIMELINE_MAX_UTC - origin) / 60000);
+    lowest = Math.ceil(((range ? range[0] : TIMELINE_MIN_UTC) - origin) / 60000);
+    highest = Math.floor(((range ? range[1] : TIMELINE_MAX_UTC) - origin) / 60000);
     MAX_SPAN = Math.max(MIN_SPAN, Math.floor((highest - lowest) / 2));
     return true;
   };
@@ -507,12 +526,12 @@ function bindTimelineSlider(container, { onChange, originLabel = 'Birth moment',
     const form = document.createElement('span');
     form.className = 'timeline-goto';
     form.dataset.timelineGoto = '';
-    form.innerHTML = `<input type="number" data-goto="year" min="1" max="5000" value="${at.year <= 0 ? 1 - at.year : at.year}" aria-label="Year">
+    form.innerHTML = `<input type="number" data-goto="year" min="1" max="${range ? 99999 : 5000}" value="${at.year <= 0 ? 1 - at.year : at.year}" aria-label="Year">
       <select data-goto="era" aria-label="Era"><option value="AD"${at.year > 0 ? ' selected' : ''}>AD</option><option value="BC"${at.year <= 0 ? ' selected' : ''}>BC</option></select>
       <select data-goto="month" aria-label="Month">${TIMELINE_MONTHS.map((month, index) => `<option value="${index}"${index === at.month ? ' selected' : ''}>${month}</option>`).join('')}</select>
       <input type="number" data-goto="day" min="1" max="31" value="${at.day}" aria-label="Day">
-      <input type="time" data-goto="time" value="${timelinePad(at.hours)}:${timelinePad(at.minutes)}" aria-label="Time${theClock.zone ? ` (${theClock.zone})` : ''}">
-      <button type="button" data-goto="go">Go</button><small>${theClock.zone ? escapeHtml(theClock.zone) : 'your time'} · Julian before 15 Oct 1582</small>`;
+      ${dateOnly ? '' : `<input type="time" data-goto="time" value="${timelinePad(at.hours)}:${timelinePad(at.minutes)}" aria-label="Time${theClock.zone ? ` (${theClock.zone})` : ''}">`}
+      <button type="button" data-goto="go">Go</button><small>${dateOnly ? '' : `${theClock.zone ? escapeHtml(theClock.zone) : 'your time'} · `}Julian before 15 Oct 1582</small>`;
     exact.hidden = true;
     exact.after(form);
     form.querySelector('[data-goto="year"]').select();
@@ -521,7 +540,7 @@ function bindTimelineSlider(container, { onChange, originLabel = 'Birth moment',
       const field = name => form.querySelector(`[data-goto="${name}"]`).value;
       const year = Number(field('year')), day = Number(field('day'));
       if (!Number.isInteger(year) || year < 1 || !Number.isInteger(day) || day < 1 || day > 31) return;
-      const [hours, minutes] = (field('time') || '12:00').split(':').map(Number);
+      const [hours, minutes] = (dateOnly ? '12:00' : field('time') || '12:00').split(':').map(Number);
       const wall = timelineWallFromParts(field('era') === 'BC' ? 1 - year : year, Number(field('month')), day, hours || 0, minutes || 0);
       close();
       moveTo((theClock.utc(wall) - origin) / 60000, true);
@@ -536,6 +555,7 @@ function bindTimelineSlider(container, { onChange, originLabel = 'Birth moment',
   slider.addEventListener('input', () => { change(); edgeScroll(); });
   updateRange();
   change();
+  slider.timeline = { moveTo, refresh: updateRange };
   return slider;
 }
 

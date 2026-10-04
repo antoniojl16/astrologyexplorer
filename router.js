@@ -12,7 +12,7 @@
 //   #/cycle/<chart>/event/<event id>/<start|end>/<system>[/<map view>]
 //   #/cycle/<chart>/birth/<system>[/<map view>]
 //   #/cycle/<chart>/now/<system>[/<map view>]   (transits: the sky when the link is opened)
-//   #/epoch/<system>[/<pair>]   (the Epoch Explorer; Astrology's pair, e.g. jupiter-saturn)
+//   #/epoch/<system>[/<inner pair>/<outer pair>]   (the Epoch Explorer; Astrology's two moments' pairs, e.g. jupiter-saturn)
 //
 // e.g. #/chart/mira-mercer/human-design/mandala/design
 //      #/pair/mira-mercer/jonas-sol/astrology/synastry/both
@@ -90,7 +90,7 @@ function currentRoute() {
     parts.push(routeSlug(librarySystem));
   } else if (currentView === "epoch") {
     parts.push(routeSlug(epochActiveSystem));
-    if (epochActiveSystem === "Astrology") parts.push(routeSlug(epochAstro.pair));
+    if (epochActiveSystem === "Astrology") parts.push(routeSlug(epochAstro.pairs.inner), routeSlug(epochAstro.pairs.outer));
   } else if (currentView === "cycle") {
     const system = document.querySelector("[data-cycle-system].active")?.dataset.cycleSystem || "Summary";
     // The studied moment: birth, a life event (its start or end), or a cycle's occurrence (from 1).
@@ -206,10 +206,11 @@ function applyRoute(hash) {
     setView("cycle");
     switchCycleSystem(chosenSystem);
   } else if (view === "epoch") {
-    const [system, pair] = rest;
+    const [system, innerPair, outerPair] = rest;
     epochActiveSystem = routeOption(EPOCH_SYSTEMS, system) || epochActiveSystem;
-    const chosenPair = EPOCH_PAIRS.find((item) => routeSlug(item) === pair);
-    if (chosenPair) epochAstro.pair = chosenPair;
+    const pairOf = (slug) => EPOCH_PAIRS.find((item) => routeSlug(item) === slug);
+    if (pairOf(innerPair)) epochAstro.pairs.inner = pairOf(innerPair);
+    if (pairOf(outerPair)) epochAstro.pairs.outer = pairOf(outerPair);
     setView("epoch");
   } else {
     const [system] = rest;

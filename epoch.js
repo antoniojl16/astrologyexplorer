@@ -114,207 +114,39 @@ function epochShortDate(ut) {
   const year = date.year <= 0 ? 1 - date.year : date.year;
   return `${year}.${epochPad(date.month)}.${epochPad(date.day)}${date.year <= 0 ? ' BC' : ''}`;
 }
-// A date editor: day, month, year and era (no clock time: at these scales it doesn't
-// matter, and a moment keeps its own time of day when the date is edited).
-// `onChange(ut)` gets the new moment.
-function epochDateFieldsMarkup(key) {
-  return `<span class="epoch-date-fields" data-epoch-date="${key}">
-    <input type="number" min="1" max="31" data-part="day" aria-label="Day">
-    <select data-part="month" aria-label="Month">${EPOCH_MONTHS.map((month, index) => `<option value="${index + 1}">${month}</option>`).join('')}</select>
-    <input type="number" min="1" max="9999" data-part="year" aria-label="Year">
-    <select data-part="era" aria-label="Era"><option value="AD">AD</option><option value="BC">BC</option></select>
-  </span>`;
+// ── Sliders ──────────────────────────────────────────────────────────────
+// The app's own timeline slider (timeline.js), set up for these spans: values are
+// minutes from now ("Back to now"), the range is the view's, the ticks are UTC dates,
+// and dates are typed without a time of day. options: { label (above the slider),
+// range [fromUt, toUt], get() → the moment, set(ut), initialYears (the window's width),
+// markers() → [{ from, to (ut), label, color }] }. Returns { moveTo(ut) } (the window
+// follows), plus refresh() to redraw the markers.
+const EPOCH_UTC_CLOCK = timelineClock('UTC');
+const epochUtc = (ut) => EPOCH_J2000_MS + ut * 86400000;
+function epochSliderMarkup(label) {
+  return `<div class="timeline-control epoch-slider">${timelineSliderInnerMarkup(label)}</div>`;
 }
-function epochFillDateFields(box, ut) {
-  const date = epochCalendar(ut);
-  const set = (part, value) => { const field = box.querySelector(`[data-part="${part}"]`); if (field && document.activeElement !== field) field.value = value; };
-  set('day', date.day);
-  set('month', date.month);
-  set('year', date.year <= 0 ? 1 - date.year : date.year);
-  set('era', date.year <= 0 ? 'BC' : 'AD');
-  box.title = date.julian ? 'Julian calendar (dates before 15 October 1582)' : 'Gregorian calendar';
-}
-// `current()` is the moment being edited, whose time of day is kept.
-function epochBindDateFields(box, onChange, current) {
-  box.addEventListener('change', () => {
-    const value = (part) => box.querySelector(`[data-part="${part}"]`).value;
-    const year = Number(value('year')), day = Number(value('day'));
-    if (!Number.isInteger(year) || year < 1 || !Number.isInteger(day) || day < 1 || day > 31) return;
-    const { hours, minutes } = epochCalendar(current());
-    onChange(epochUtFromCalendar(value('era') === 'BC' ? 1 - year : year, Number(value('month')), day, hours + minutes / 60));
+function epochBindSlider(container, options) {
+  const origin = Date.now();
+  const minutes = (ut) => (epochUtc(ut) - origin) / 60000;
+  const fromMinutes = (value) => (origin + value * 60000 - EPOCH_J2000_MS) / 86400000;
+  const span = (options.initialYears / 2) * 525960;
+  const slider = bindTimelineSlider(container, {
+    originTime: origin, clock: EPOCH_UTC_CLOCK, anchorName: 'now', originLabel: 'Now',
+    range: options.range.map(epochUtc), minSpan: 15 * 1440, dateOnly: true,
+    initialSpan: span, initial: { value: Math.round(minutes(options.get())), center: Math.round(minutes(options.get())), span },
+    markers: options.markers && (() => options.markers().map((marker) => ({ ...marker, from: minutes(marker.from), to: minutes(marker.to ?? marker.from) }))),
+    onChange: (value) => {
+      const ut = fromMinutes(value);
+      // The moment keeps its exact time unless the slider really moved it.
+      if (Math.abs(minutes(options.get()) - value) >= 1) options.set(ut);
+      container.querySelector('[data-timeline-date]').textContent = epochDateText(options.get(), { time: false, calendar: true });
+      container.querySelector('[data-timeline-exact]').textContent = 'Go to a date…';
+    },
   });
-}
-
-// ── Timeline with markers ────────────────────────────────────────────────
-// A time track showing a window of [from, to] within [min, max], at one of several
-// zoom levels, with a draggable, keyboard-operable marker per moment (role="slider").
-// options: {
-//   markers: [{ key, label, color }],
-//   get(key) → the marker's time; set(key, ut) → move it (the caller redraws);
-//   min, max, zooms: [[label, span in days]], zoom (index),
-//   lockable: offer "Move together" (both markers keep their gap),
-//   decorate(from, to) → SVG markup for the track (viewBox 0 0 1000 100; a curve, ticks),
-//   labels(from, to) → [{ ut, text }] shown in a row above the track,
-//   active (key of the marker that keys and buttons act on), onActivate(key) }
-// Returns { update() — reposition the markers; refresh() — redraw the track;
-// reveal(key) — bring a marker into view; window(); active() }.
-function epochTimeline(container, options) {
-  const { markers, min, max, zooms } = options;
-  let zoom = options.zoom ?? zooms.length - 1;
-  let activeKey = options.active || markers[0].key;
-  let from = min, to = max;
-  container.innerHTML = `
-    <div class="epoch-timeline">
-      <div class="epoch-timeline-bar">
-        <div class="pair-seg" data-epoch-zoom role="group" aria-label="Zoom">${zooms.map(([label], index) => `<button type="button" data-value="${index}">${label}</button>`).join('')}</div>
-        <div class="epoch-pan"><button type="button" data-epoch-pan="-1" title="Earlier" aria-label="Earlier">◀</button><button type="button" data-epoch-pan="1" title="Later" aria-label="Later">▶</button></div>
-        ${options.lockable ? '<label class="epoch-lock"><input type="checkbox" data-epoch-lock>Move together</label>' : ''}
-      </div>
-      ${options.labels ? '<div class="epoch-track-labels" data-epoch-labels aria-hidden="true"></div>' : ''}
-      <div class="epoch-track" data-epoch-track>
-        <svg class="epoch-track-svg" viewBox="0 0 1000 100" preserveAspectRatio="none" aria-hidden="true" data-epoch-track-svg></svg>
-        ${markers.map((marker) => `<button type="button" class="epoch-thumb" role="slider" data-epoch-thumb="${marker.key}" style="--thumb:${marker.color}" aria-label="${marker.label}"></button>`).join('')}
-      </div>
-      <div class="epoch-axis" data-epoch-axis aria-hidden="true"></div>
-    </div>`;
-  const track = container.querySelector('[data-epoch-track]');
-  const svg = container.querySelector('[data-epoch-track-svg]');
-  const axis = container.querySelector('[data-epoch-axis]');
-  const labelRow = container.querySelector('[data-epoch-labels]');
-  const lock = container.querySelector('[data-epoch-lock]');
-  const thumbs = Object.fromEntries(markers.map((marker) => [marker.key, container.querySelector(`[data-epoch-thumb="${marker.key}"]`)]));
-  const clamp = (ut) => Math.max(min, Math.min(max, ut));
-  const span = () => Math.min(zooms[zoom][1], max - min);
-  const centerOn = (ut) => {
-    const width = span();
-    from = Math.max(min, Math.min(max - width, ut - width / 2));
-    to = from + width;
-  };
-  const move = (key, ut) => {
-    const target = clamp(ut);
-    if (lock?.checked && markers.length > 1) {
-      const delta = target - options.get(key);
-      const others = markers.filter((marker) => marker.key !== key);
-      // Keep the gap: stop at the range's ends.
-      const allowed = others.reduce((value, marker) => {
-        const moved = options.get(marker.key) + value;
-        return moved < min ? value + (min - moved) : moved > max ? value - (moved - max) : value;
-      }, delta);
-      options.set(key, options.get(key) + allowed);
-      others.forEach((marker) => options.set(marker.key, options.get(marker.key) + allowed));
-    } else {
-      options.set(key, target);
-    }
-  };
-  const activate = (key) => {
-    activeKey = key;
-    Object.entries(thumbs).forEach(([thumbKey, thumb]) => thumb.classList.toggle('active', thumbKey === key));
-    options.onActivate?.(key);
-  };
-  const axisMarkup = () => {
-    const years = (to - from) / EPOCH_YEAR_DAYS;
-    const place = (ut, label) => `<span style="left:${(((ut - from) / (to - from)) * 100).toFixed(3)}%">${label}</span>`;
-    if (years > 2.5) {
-      const raw = years / 6;
-      const power = 10 ** Math.floor(Math.log10(raw));
-      const step = [1, 2, 5, 10].map((f) => f * power).find((value) => value >= raw);
-      const first = Math.ceil(epochYearOf(from) / step) * step;
-      const labels = [];
-      for (let year = first; year <= epochYearOf(to); year += step) {
-        const ut = epochUtFromCalendar(year);
-        if (ut >= from && ut <= to) labels.push(place(ut, epochYearLabel(year)));
-      }
-      return labels.join('');
-    }
-    const months = years * 12, step = [1, 2, 3, 6, 12].find((value) => value >= months / 6) || 12;
-    const start = epochCalendar(from);
-    const labels = [];
-    for (let index = 0, y = start.year, m = start.month; index < 40; index += 1) {
-      m += 1; if (m > 12) { m = 1; y += 1; }
-      if ((m - 1) % step) continue;
-      const ut = epochUtFromCalendar(y, m, 1);
-      if (ut > to) break;
-      labels.push(place(ut, `${EPOCH_MONTHS[m - 1]} ${epochYearLabel(y)}`));
-    }
-    return labels.join('');
-  };
-  const update = () => {
-    markers.forEach((marker) => {
-      const ut = options.get(marker.key), thumb = thumbs[marker.key];
-      const inside = ut >= from && ut <= to;
-      thumb.hidden = !inside;
-      thumb.style.left = `${(((ut - from) / (to - from)) * 100).toFixed(3)}%`;
-      thumb.setAttribute('aria-valuetext', `${marker.label}: ${epochDateText(ut)}`);
-      thumb.setAttribute('aria-valuemin', String(Math.round(min)));
-      thumb.setAttribute('aria-valuemax', String(Math.round(max)));
-      thumb.setAttribute('aria-valuenow', String(Math.round(ut)));
-    });
-  };
-  const refresh = () => {
-    container.querySelectorAll('[data-epoch-zoom] button').forEach((button) => button.classList.toggle('active', Number(button.dataset.value) === zoom));
-    svg.innerHTML = options.decorate ? options.decorate(from, to) : '';
-    axis.innerHTML = axisMarkup();
-    if (labelRow) labelRow.innerHTML = options.labels(from, to).map(({ ut, text }) => `<span style="left:${(((ut - from) / (to - from)) * 100).toFixed(3)}%">${text}</span>`).join('');
-    update();
-  };
-  const reveal = (key = activeKey) => {
-    const ut = options.get(key);
-    if (ut < from || ut > to) { centerOn(ut); refresh(); } else update();
-  };
-  const timeAt = (clientX) => {
-    const box = track.getBoundingClientRect();
-    return clamp(from + ((clientX - box.left) / box.width) * (to - from));
-  };
-  // Dragging a marker, or pressing on the track (which brings the active marker there).
-  track.addEventListener('pointerdown', (event) => {
-    if (event.button !== 0) return;
-    const thumb = event.target.closest('[data-epoch-thumb]');
-    const key = thumb ? thumb.dataset.epochThumb : activeKey;
-    activate(key);
-    if (!thumb) move(key, timeAt(event.clientX));
-    thumbs[key].focus({ preventScroll: true });
-    track.setPointerCapture(event.pointerId);
-    const onMove = (moveEvent) => move(key, timeAt(moveEvent.clientX));
-    const onUp = () => { track.removeEventListener('pointermove', onMove); track.removeEventListener('pointerup', onUp); track.removeEventListener('pointercancel', onUp); };
-    track.addEventListener('pointermove', onMove);
-    track.addEventListener('pointerup', onUp);
-    track.addEventListener('pointercancel', onUp);
-    event.preventDefault();
-  });
-  Object.entries(thumbs).forEach(([key, thumb]) => {
-    thumb.addEventListener('focus', () => activate(key));
-    thumb.addEventListener('keydown', (event) => {
-      const width = to - from;
-      const steps = { ArrowLeft: -width / 200, ArrowRight: width / 200, ArrowDown: -width / 200, ArrowUp: width / 200, PageDown: -width / 10, PageUp: width / 10 };
-      if (!(event.key in steps)) return;
-      event.preventDefault();
-      event.stopPropagation();
-      move(key, options.get(key) + steps[event.key] * (event.shiftKey ? 10 : 1));
-      reveal(key);
-    });
-  });
-  container.querySelector('[data-epoch-zoom]').addEventListener('click', (event) => {
-    const button = event.target.closest('button[data-value]');
-    if (!button) return;
-    zoom = Number(button.dataset.value);
-    centerOn(options.get(activeKey));
-    refresh();
-  });
-  container.querySelectorAll('[data-epoch-pan]').forEach((button) => button.addEventListener('click', () => {
-    const width = span();
-    from = Math.max(min, Math.min(max - width, from + (Number(button.dataset.epochPan) * width) / 2));
-    to = from + width;
-    refresh();
-  }));
-  centerOn(options.get(activeKey));
-  activate(activeKey);
-  refresh();
   return {
-    update, refresh, reveal,
-    window: () => [from, to],
-    active: () => activeKey,
-    activate: (key) => { activate(key); reveal(key); },
-    zoomTo: (index) => { zoom = index; centerOn(options.get(activeKey)); refresh(); },
+    moveTo: (ut) => slider.timeline.moveTo(minutes(ut)),
+    refresh: () => slider.timeline.refresh(),
   };
 }
 
