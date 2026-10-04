@@ -556,3 +556,14 @@ body.dark .life-tag-chip.active{color:var(--ink)}
 .epoch-wheel{display:block;width:100%;max-height:max(420px,calc(100vh - 430px));margin:0 auto}
 .epoch-wheel-panel .epoch-legend{position:absolute;left:16px;bottom:10px;margin:0}
 .epoch-wheel-panel .panel-toolbar{padding-top:8px;padding-bottom:8px}
+.epoch-cross-text p{margin:8px 0}
+.epoch-cross-text p strong{color:var(--ink)}
+.epoch-cross-gate-list{list-style:none;padding:0;margin:10px 0;font-size:11px;line-height:1.5}
+.epoch-cross-gate-list li{padding:3px 0}
+.epoch-cross-gate-list .epoch-gate{font-family:'DM Mono',monospace}
+.epoch-cross-role{display:block;font:9px 'DM Mono',monospace;color:var(--muted)}
+.epoch-cross-iching{color:var(--muted)}
+.epoch-cross-text .epoch-cross-source{font-size:10px;font-style:italic}
+.epoch-cross-text{border-top:1px solid var(--line);margin-top:18px;padding-top:16px}
+.epoch-cross-text .epoch-cross-text-name{font:400 19px 'Playfair Display',serif;color:var(--ink);text-align:center;margin:0}
+.epoch-cross-text .epoch-cross-theme{font-size:12px;text-align:center;margin:2px 0 12px}

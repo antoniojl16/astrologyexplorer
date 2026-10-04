@@ -63,6 +63,148 @@ EPOCH_HD_PUBLISHED.forEach(([, lock, gates, name]) => gates.forEach((gate) => {
 }));
 const epochHdCrossName = (gate) => `Cross of ${EPOCH_HD_CROSS_NAMES[gate] || '?'}`;
 
+// ── What the cross means ─────────────────────────────────────────────────
+// The 64 gates' Human Design names, with their I Ching hexagram names.
+const EPOCH_HD_GATE_NAMES = {
+  1: ['Self-Expression', 'The Creative'], 2: ['the Direction of the Self', 'The Receptive'], 3: ['Ordering', 'Difficulty at the Beginning'],
+  4: ['Formulization', 'Youthful Folly'], 5: ['Fixed Rhythms', 'Waiting'], 6: ['Friction', 'Conflict'], 7: ['the Role of the Self', 'The Army'],
+  8: ['Contribution', 'Holding Together'], 9: ['Focus', 'The Taming Power of the Small'], 10: ['the Behavior of the Self', 'Treading'],
+  11: ['Ideas', 'Peace'], 12: ['Caution', 'Standstill'], 13: ['the Listener', 'The Fellowship of Man'], 14: ['Power Skills', 'Possession in Great Measure'],
+  15: ['Extremes', 'Modesty'], 16: ['Skills', 'Enthusiasm'], 17: ['Opinions', 'Following'], 18: ['Correction', 'Work on What Has Been Spoilt'],
+  19: ['Wanting', 'Approach'], 20: ['the Now', 'Contemplation'], 21: ['the Hunter/Huntress', 'Biting Through'], 22: ['Openness', 'Grace'],
+  23: ['Assimilation', 'Splitting Apart'], 24: ['Rationalization', 'Return'], 25: ['the Spirit of the Self', 'Innocence'],
+  26: ['the Egoist', 'The Taming Power of the Great'], 27: ['Caring', 'Nourishment'], 28: ['the Game Player', 'Preponderance of the Great'],
+  29: ['Saying Yes', 'The Abysmal'], 30: ['Feelings', 'The Clinging Fire'], 31: ['Influence', 'Influence'], 32: ['Continuity', 'Duration'],
+  33: ['Privacy', 'Retreat'], 34: ['Power', 'The Power of the Great'], 35: ['Change', 'Progress'], 36: ['Crisis', 'Darkening of the Light'],
+  37: ['Friendship', 'The Family'], 38: ['the Fighter', 'Opposition'], 39: ['Provocation', 'Obstruction'], 40: ['Aloneness', 'Deliverance'],
+  41: ['Contraction', 'Decrease'], 42: ['Growth', 'Increase'], 43: ['Insight', 'Breakthrough'], 44: ['Alertness', 'Coming to Meet'],
+  45: ['the Gatherer', 'Gathering Together'], 46: ['the Determination of the Self', 'Pushing Upward'], 47: ['Realization', 'Oppression'],
+  48: ['Depth', 'The Well'], 49: ['Principles', 'Revolution'], 50: ['Values', 'The Cauldron'], 51: ['Shock', 'The Arousing'],
+  52: ['Stillness', 'Keeping Still'], 53: ['Beginnings', 'Development'], 54: ['Ambition', 'The Marrying Maiden'], 55: ['Spirit', 'Abundance'],
+  56: ['Stimulation', 'The Wanderer'], 57: ['Intuitive Clarity', 'The Gentle'], 58: ['Vitality', 'The Joyous'], 59: ['Sexuality', 'Dispersion'],
+  60: ['Acceptance', 'Limitation'], 61: ['Inner Truth', 'Inner Truth'], 62: ['Details', 'Preponderance of the Small'], 63: ['Doubt', 'After Completion'],
+  64: ['Confusion', 'Before Completion'],
+};
+// The four quarters of the mandala, each sixteen gates from its first gate, and the
+// purpose Human Design gives each one.
+const EPOCH_HD_QUARTERS = [
+  { name: 'Initiation', first: 13, purpose: 'purpose fulfilled through mind' },
+  { name: 'Civilization', first: 2, purpose: 'purpose fulfilled through form' },
+  { name: 'Duality', first: 7, purpose: 'purpose fulfilled through bonding' },
+  { name: 'Mutation', first: 1, purpose: 'purpose fulfilled through transformation' },
+];
+// Each angle of a cross, as Human Design describes it.
+const EPOCH_HD_ANGLES = {
+  'Right angle': 'Right angle crosses (profiles 1/3 to 4/6) carry a personal destiny: the theme lives itself out through its own process, without needing others to complete it.',
+  Juxtaposition: 'The Juxtaposition (profile 4/1) is a fixed fate: a narrow bridge between the personal and the transpersonal, steady and hard to deflect.',
+  'Left angle': 'Left angle crosses (profiles 5/1 to 6/3) carry a transpersonal karma: the theme is lived out through meeting and engaging with others.',
+};
+// The 16 Right Angle Crosses: what each is about, paraphrasing Ra Uru Hu's teaching on
+// the incarnation crosses (Jovian Archive), written for this app. `era` is what he
+// taught about the cross as a global cycle, where he did.
+const EPOCH_HD_CROSS_TEXT = {
+  'the Sphinx': {
+    theme: 'Direction',
+    text: 'All four gates belong to the G center, the seat of identity, love and direction. Human Design calls these the gates of direction: the Listener (13) gathers the past, the Role of the Self (7) leads the present, and the Direction of the Self (2) and Self-Expression (1) hold the future. The cross is about knowing where life is headed and pointing others in that direction.',
+  },
+  'the Vessel of Love': {
+    theme: 'Love',
+    text: 'The other four G center gates, which Human Design calls the four gates of love: love of oneself and one’s own behavior (10), love of humanity in all its extremes (15), universal, impersonal love (25), and love of the body and of being in the physical world (46). The cross is a container for love in every form, and its life is about embracing love and the experiences it brings.',
+  },
+  'the Four Ways': {
+    theme: 'Patterns of Return',
+    text: 'Its I Ching names trace a movement towards and away: Return (24), Coming to Meet (44), Approach (19) and Retreat (33). It joins the mind’s rationalizing (24), the instinct’s memory for patterns (44), the root’s drive of need (19) and the throat’s private reflection (33). Human Design sees it as the cross of recognizing what has happened before, and finding the right way through what comes back.',
+  },
+  'the Unexpected': {
+    theme: 'Surprise and Purpose',
+    text: 'Caring (27), the Game Player’s struggle (28), Influence (31) and the pressure of Contraction (41), the gate that opens the mandala’s yearly cycle. Life under this cross rarely runs as planned: its meaning emerges from the unexpected turns, and the struggle to find something worth caring for and fighting for.',
+  },
+  Laws: {
+    theme: 'Values that Bind',
+    text: 'Values (50), the Cauldron that guards the tribe’s laws, with Ordering (3), Acceptance of limits (60) and the Wanderer’s Stimulation (56). The cross is about the laws and values a community lives by: setting them, keeping them, and telling the stories that hand them on.',
+  },
+  Maya: {
+    theme: 'The World of the Mind',
+    text: 'Maya is the illusion of the world as the mind perceives it. The cross joins Inner Truth (61) and Details (62), the pressure to know and the need to name things, with Continuity (32) and Growth (42), which carries cycles to completion. It is about the mind’s grasp of the world, and of what endures in it.',
+  },
+  Penetration: {
+    theme: 'Breaking Through',
+    text: 'Shock (51), the Arousing thunder, and Intuitive Clarity (57), the Gentle wind that penetrates, with Beginnings (53) and Ambition (54). The cross breaks through: it shocks things awake, cuts to what’s true, and pushes new beginnings forward.',
+  },
+  Tension: {
+    theme: 'Struggle and Provocation',
+    text: 'Depth (48), the Well, with the Hunter’s control (21), Provocation (39) and the Fighter’s stubborn struggle (38). The cross lives with tension: the friction between what is lacking and what could be, which provokes and drives the effort to find depth and meaning.',
+  },
+  Service: {
+    theme: 'Correction and Improvement',
+    text: 'Opinions (17) and Correction (18), with the Vitality (58) and the Stillness (52) of the root. All four belong to the logical process that tests patterns and fixes what’s wrong with them. The cross serves by improving things: seeing what isn’t working and having the drive to put it right.',
+  },
+  Eden: {
+    theme: 'Innocence and Experience',
+    text: 'Friction (6) and Crisis (36), the Darkening of the Light, with Caution (12) and Ideas (11), named after the I Ching’s Peace. Eden is the garden of innocence: the cross is about leaving it, meeting the world’s emotional crises and learning from them, and finding wisdom in that experience.',
+  },
+  Rulership: {
+    theme: 'Leadership over Resources',
+    text: 'The Gatherer (45), Human Design’s king or queen, with the Egoist (26), the minister and salesman, and with Realization (47) and the Grace of Openness (22). The cross is about rulership: holding and sharing a community’s resources, and leading it, for good or ill.',
+  },
+  Consciousness: {
+    theme: 'Making Sense of Experience',
+    text: 'Confusion (64) and Doubt (63), the head’s pressures to make sense of the past and to question the future, with Change (35) and Fixed Rhythms (5). The cross is about consciousness itself: turning experience and doubt into understanding, as life moves on in its rhythms.',
+  },
+  Planning: {
+    theme: 'Community and the Bargain',
+    text: 'Friendship (37), the Family, and Aloneness (40), the will to work and be rewarded for it, with Focus (9) and Skills (16). The cross is about planning: the bargain that holds a tribe together, where support is exchanged for loyalty, and focused skills build a secure future.',
+    era: 'Ra Uru Hu taught that from 1615 to 2027 this cross shaped the world: the age of the tribal bargain, of families and communities organizing into nations, alliances, unions and welfare systems, planning together for security. He taught that its structures lose their hold as the cycle ends.',
+  },
+  'the Sleeping Phoenix': {
+    theme: 'Transformation in Waiting',
+    text: 'Spirit (55), the Abundance of the emotional system, with Sexuality (59), Power (34) and the Now (20). The phoenix lies asleep: the cross carries a potential for transformation and rebirth that waits for its time, and an individual, self-empowered force acting in the present.',
+    era: 'Ra Uru Hu taught that from 2027 this cross ends the age of Planning. He described a more individual, self-absorbed time in which the tribal bargain no longer holds the world together, and linked it to a slow mutation of the Solar Plexus center (gate 55 is in it), from emotional awareness towards spirit.',
+  },
+  Contagion: {
+    theme: 'What Catches On',
+    text: 'Feelings (30), the Clinging Fire of desire, and Saying Yes (29), commitment, with Power Skills (14) and Contribution (8). The cross is contagious: what it commits to and puts forward with conviction spreads to others, and becomes their direction too.',
+  },
+  Explanation: {
+    theme: 'Revolution of Ideas',
+    text: 'Principles (49), Revolution, and Formulization (4), with Insight (43), the Breakthrough, and Assimilation (23), the gate of explaining. The cross is about explaining new insight in words others can take in, and changing the principles people live by.',
+  },
+};
+// The Right Angle Cross with Personality Sun `gate`: [Sun, Earth, Design Sun, Design Earth]
+// (Earth opposite; the Design Sun ~88°, sixteen gates, behind).
+function epochHdRightAngleGates(gate) {
+  const index = HD_GATE_WHEEL.indexOf(gate);
+  return [0, 32, -16, 16].map((offset) => HD_GATE_WHEEL[(index + offset + 64) % 64]);
+}
+function epochHdQuarter(gate) {
+  const offset = (HD_GATE_WHEEL.indexOf(gate) - HD_GATE_WHEEL.indexOf(EPOCH_HD_QUARTERS[0].first) + 64) % 64;
+  return EPOCH_HD_QUARTERS[Math.floor(offset / 16)];
+}
+// The side panel's description of the global cross at `state`.
+function epochHdCrossTextMarkup(state) {
+  const sun = state.personalitySun.gate;
+  const name = EPOCH_HD_CROSS_NAMES[sun];
+  const about = EPOCH_HD_CROSS_TEXT[name];
+  if (!about) return '';
+  const quarter = epochHdQuarter(sun);
+  const center = (gate) => HD_CENTERS.find((item) => item.id === HD_GATE_CENTER[gate])?.name;
+  const roles = ['Personality Sun', 'Personality Earth', 'Design Sun', 'Design Earth'];
+  const gates = epochHdRightAngleGates(sun).map((gate, index) => {
+    const [title, iching] = EPOCH_HD_GATE_NAMES[gate];
+    return `<li><span class="epoch-cross-role">${roles[index]}</span><span class="epoch-gate" data-epoch-gate="${gate}" tabindex="0">${gate}</span> Gate of ${title} <span class="epoch-cross-iching">· ${iching} · ${center(gate)}</span></li>`;
+  }).join('');
+  return `
+    <div class="epoch-cross-text">
+      <h4 class="epoch-cross-text-name">${epochHdCrossName(sun)}</h4>
+      <p class="epoch-cross-theme">${escapeHtml(about.theme)}</p>
+      <p>${about.text}</p>
+      ${about.era ? `<p><strong>As a global cycle.</strong> ${about.era}</p>` : ''}
+      <ul class="epoch-cross-gate-list">${gates}</ul>
+      <p>The equinox is in gate ${sun}, in the Quarter of ${quarter.name}: ${quarter.purpose}. ${EPOCH_HD_ANGLES[state.angle] || ''}${state.angle === 'Right angle' ? '' : ` Until the Right angle part of the epoch, the Design gates are still the neighbouring ones (${state.designSun.gate} / ${state.designEarth.gate}).`}</p>
+      <p class="epoch-cross-source">Human Design’s teaching on the incarnation crosses (Ra Uru Hu, Jovian Archive), paraphrased for this app. Its account of global cycles covers Planning and the Sleeping Phoenix; for the others this is the cross’s personal meaning.</p>
+    </div>`;
+}
+
 const epochHd = { time: null };
 let epochHdSlider = null;
 
@@ -225,7 +367,8 @@ function epochHdSummaryMarkup(state) {
     ${stat('EQUINOX (PERSONALITY SUN)', signText(state.equinox))}
     ${stat('DESIGN SUN (−88°)', signText(state.designSun.longitude))}
     ${stat('AYANAMSA', `${state.ayanamsa.toFixed(4)}°`)}
-    <p class="system-note">Positions are on the star-fixed mandala: the gates as they lie among the stars, which the equinox crosses backwards. Hover a gate for its center, channels, cross and Gene Key.</p>`;
+    <p class="system-note">Positions are on the star-fixed mandala: the gates as they lie among the stars, which the equinox crosses backwards. Hover a gate for its center, channels, cross and Gene Key.</p>
+    ${epochHdCrossTextMarkup(state)}`;
 }
 // The epochs, newest first, each as two rows in time order reversed: its Right angle
 // part (profiles 4/6 to 1/3, ~260 years, with the Right Angle Cross's four gates) and,
