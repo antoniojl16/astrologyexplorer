@@ -219,7 +219,7 @@ function epochHdSummaryMarkup(state) {
     <p class="epoch-cross-gates">${epochHdGateText(state.personalitySun)} / ${epochHdGateText(state.personalityEarth)} | ${epochHdGateText(state.designSun)} / ${epochHdGateText(state.designEarth)}</p>
     ${epoch ? stat('EPOCH', `${epochDateText(epoch.from, { time: false, calendar: true })} – ${epochDateText(epoch.to, { time: false, calendar: true })}`) + stat('LASTS', years(epoch.from, epoch.to)) : ''}
     ${published ? stat('HD PUBLISHED START', `${published.printed}${published.year === EPOCH_HD_TYPO_YEAR ? ' (2917 BC by its own pattern)' : ''}`) : ''}
-    <span class="eyebrow epoch-panel-section">SUB-EPOCH</span>
+    <span class="eyebrow epoch-panel-section">LINE</span>
     ${stat('PROFILE', `${state.profile} · ${state.angle}`)}
     ${stat('FROM', epochDateText(sub[0], { calendar: true }))}
     ${stat('TO', epochDateText(sub[1], { calendar: true }))}
@@ -230,19 +230,46 @@ function epochHdSummaryMarkup(state) {
     ${stat('AYANAMSA', `${state.ayanamsa.toFixed(4)}°`)}
     <p class="system-note">Positions are on the star-fixed mandala: the gates as they lie among the stars, which the equinox crosses backwards. Hover a gate for its center, channels, cross and Gene Key.</p>`;
 }
-function epochHdEpochTableMarkup(currentUt) {
-  return epochHdEpochs().map((epoch, index) => {
-    const current = epoch.from <= currentUt && currentUt < epoch.to;
-    const published = epochHdPublished(epoch);
-    const subs = epochHdSubEpochs(epoch).map((sub) => {
-      const s = sub.state;
-      const here = sub.from <= currentUt && currentUt < sub.to;
-      return `<tr class="${here ? 'selected' : ''}" data-epoch-sub="${epochHdSpan('sub', s.ayanamsa)[0].toFixed(6)}"><td>${epochDateText(sub.from, { calendar: true })}</td><td>${epochHdGateText(s.personalitySun)}</td><td>${epochHdGateText(s.personalityEarth)}</td><td>${epochHdGateText(s.designSun)}</td><td>${epochHdGateText(s.designEarth)}</td><td>${s.profile}</td><td>${s.angle}</td><td>${((sub.to - sub.from) / EPOCH_YEAR_DAYS).toFixed(1)} y</td><td><button type="button" class="epoch-set-button" data-epoch-hd-go="${(sub.from + sub.to) / 2}" style="--thumb:var(--accent)">Go</button></td></tr>`;
-    }).join('');
-    return `<details class="epoch-millennium epoch-hd-epoch" data-epoch-index="${index}"${current ? ' open' : ''}><summary><strong>${epochHdCrossName(epoch.gate)}</strong> · gate ${epoch.gate}${EPOCH_HD_LOCK_GATES.has(epoch.gate) ? ' · Lock' : ''} <small>${epochDateText(epoch.from, { time: false, calendar: true })} – ${epochDateText(epoch.to, { time: false, calendar: true })} · ${((epoch.to - epoch.from) / EPOCH_YEAR_DAYS).toFixed(0)} years${published ? ` · HD: ${published.printed}` : ''}</small></summary>
-      <table class="epoch-table"><thead><tr><th>Starts</th><th>P ☉</th><th>P ⊕</th><th>D ☉</th><th>D ⊕</th><th>Profile</th><th>Angle</th><th>Lasts</th><th></th></tr></thead><tbody>${subs}</tbody></table></details>`;
-  }).join('');
+// The epochs, newest first, each as two rows in time order reversed: its Right angle
+// part (profiles 4/6 to 1/3, ~260 years, with the Right Angle Cross's four gates) and,
+// before it, its Juxtaposition and Left angle part (6/3 to 4/1, ~140 years, where the
+// equinox enters the gate: the Design gates are still the neighbouring ones). Hovering a
+// row lists its lines (EPOCH_HD_ROW_TIP).
+function epochHdEpochParts(epoch) {
+  const subs = epochHdSubEpochs(epoch);
+  const part = (list, label) => ({ epoch, label, subs: list, from: list[0].from, to: list[list.length - 1].to, state: list[0].state });
+  const right = subs.filter((sub) => sub.state.angle === 'Right angle');
+  const other = subs.filter((sub) => sub.state.angle !== 'Right angle');
+  return [part(right, 'Right angle'), part(other, 'Juxtaposition · Left angle')];
 }
+function epochHdEpochTableMarkup() {
+  const epochs = epochHdEpochs();
+  const rows = [...epochs].reverse().flatMap((epoch) => {
+    const index = epochs.indexOf(epoch);
+    const published = epochHdPublished(epoch);
+    return epochHdEpochParts(epoch).map((part, partIndex) => {
+      const s = part.state;
+      const gates = `${epochHdGateText(s.personalitySun, false)} / ${epochHdGateText(s.personalityEarth, false)} | ${epochHdGateText(s.designSun, false)} / ${epochHdGateText(s.designEarth, false)}`;
+      const name = `${epochHdCrossName(epoch.gate)}${EPOCH_HD_LOCK_GATES.has(epoch.gate) ? ' <small class="epoch-lock-tag">Lock</small>' : ''}<small>${part.label}</small>`;
+      return `<tr class="${partIndex === 0 ? 'epoch-hd-right' : 'epoch-hd-other'}" data-epoch-hd-row="${index}:${partIndex}" data-from="${part.from}" data-to="${part.to}" tabindex="0"><td>${name}</td><td class="epoch-hd-gates">${gates}</td><td>${epochDateText(part.from, { time: false, calendar: true })}</td><td>${epochDateText(part.to, { time: false, calendar: true })}</td><td>${((part.to - part.from) / EPOCH_YEAR_DAYS).toFixed(0)} y</td><td>${partIndex === 1 && published ? `${published.printed}${published.year === EPOCH_HD_TYPO_YEAR ? ' *' : ''}` : ''}</td><td><button type="button" class="epoch-set-button" data-epoch-hd-go="${part.from + 1 / 1440}" style="--thumb:var(--accent)">Go</button></td></tr>`;
+    });
+  }).join('');
+  return `<div class="epoch-panel epoch-hd-table-panel"><table class="epoch-table epoch-hd-table">
+    <thead><tr><th>Cross</th><th>Gates (P ☉ / ⊕ | D ☉ / ⊕)</th><th>Starts</th><th>Ends</th><th>Lasts</th><th>HD published start</th><th></th></tr></thead>
+    <tbody>${rows}</tbody></table>
+    <p class="system-note">Newest first. Each cross takes two rows: the equinox enters a gate in its Juxtaposition and Left angle profiles (6/3 to 4/1), whose Design gates are still the neighbouring ones, then moves into its Right angle profiles (4/6 to 1/3). Hover a row for its lines. * printed as 2927 BC; 2917 BC by the table's own pattern.</p></div>`;
+}
+function epochHdRowTipHtml(row) {
+  const [index, partIndex] = row.dataset.epochHdRow.split(':').map(Number);
+  const part = epochHdEpochParts(epochHdEpochs()[index])[partIndex];
+  const lines = [...part.subs].reverse().map((sub) => {
+    const s = sub.state;
+    return `<tr><td>${s.profile}</td><td>${s.personalitySun.gate}.${s.personalitySun.line} | ${s.designSun.gate}.${s.designSun.line}</td><td>${epochShortDate(sub.from)} – ${epochShortDate(sub.to)}</td><td>${((sub.to - sub.from) / EPOCH_YEAR_DAYS).toFixed(0)} y</td></tr>`;
+  }).join('');
+  return `<div class="gk-tip-title">${epochHdCrossName(part.epoch.gate)} · ${part.label}</div>
+    <table class="epoch-tip-table"><thead><tr><th>Profile</th><th>P ☉ | D ☉</th><th>Dates</th><th></th></tr></thead><tbody>${lines}</tbody></table>`;
+}
+bindHoverTooltips('[data-epoch-hd-row]', epochHdRowTipHtml, 'epochHdRowTooltip');
 // The appendix: method, sources, and every published date against the computed one.
 function epochHdNotesMarkup() {
   const epochs = epochHdEpochs();
@@ -281,27 +308,27 @@ function renderEpochHumanDesign(surface) {
         <div class="epoch-moments epoch-hd-moment">
           <div class="epoch-moment active"><span class="epoch-moment-pick"><i class="legend-dot" style="background:var(--accent)"></i>Moment</span>${epochDateFieldsMarkup('hd')}<button type="button" class="secondary-button epoch-now" data-epoch-hd-now title="Set to now (N)">Now</button></div>
           <div class="epoch-steppers epoch-hd-steps">
-            <div class="epoch-stepper"><span>Sub-epoch</span><button type="button" data-epoch-hd-step="event:-1" title="Previous sub-epoch: the profile changes when either the Personality or the Design line does, alternately after ~9 and ~58 years (,)" aria-label="Previous sub-epoch">◀</button><button type="button" data-epoch-hd-step="event:1" title="Next sub-epoch (.)" aria-label="Next sub-epoch">▶</button></div>
-            <div class="epoch-stepper"><span>Line</span><button type="button" data-epoch-hd-step="phase:-1" title="Previous Personality line: ~67 years, two sub-epochs ([)" aria-label="Previous line">◀</button><button type="button" data-epoch-hd-step="phase:1" title="Next Personality line (])" aria-label="Next line">▶</button></div>
-            <div class="epoch-stepper"><span>Gate</span><button type="button" data-epoch-hd-step="gate:-1" title="Previous gate: the epoch, ~400 years ({)" aria-label="Previous gate">◀</button><button type="button" data-epoch-hd-step="gate:1" title="Next gate (})" aria-label="Next gate">▶</button></div>
+            <div class="epoch-stepper"><span>Line</span><button type="button" data-epoch-hd-step="event:-1" title="Previous line: the profile changes whenever the Personality or the Design line does, alternately after ~9 and ~58 years (,)" aria-label="Previous line">◀</button><button type="button" data-epoch-hd-step="event:1" title="Next line (.)" aria-label="Next line">▶</button></div>
+            <div class="epoch-stepper"><span>Gate</span><button type="button" data-epoch-hd-step="gate:-1" title="Previous gate: the epoch, ~400 years ([)" aria-label="Previous gate">◀</button><button type="button" data-epoch-hd-step="gate:1" title="Next gate (])" aria-label="Next gate">▶</button></div>
           </div>
         </div>
         <div class="timeline-control epoch-timeline-box" data-epoch-hd-timeline></div>
       </div>
       <aside class="system-info epoch-hd-summary" data-epoch-hd-summary></aside>
     </div>
-    <h3 class="epoch-heading">Epochs and sub-epochs, ${epochYearLabel(epochCalendar(EPOCH_HD_MIN).year)} – ${epochYearLabel(epochCalendar(EPOCH_HD_MAX).year)}</h3>
+    <h3 class="epoch-heading">Epochs, ${epochYearLabel(epochCalendar(EPOCH_HD_MAX).year)} back to ${epochYearLabel(epochCalendar(EPOCH_HD_MIN).year)}</h3>
     <div data-epoch-hd-table></div>
     ${epochHdNotesMarkup()}`;
   const mandala = surface.querySelector('[data-epoch-mandala]');
   const summary = surface.querySelector('[data-epoch-hd-summary]');
   const table = surface.querySelector('[data-epoch-hd-table]');
-  let shownSub = null, shownEpoch = null;
+  let shownSub = null;
+  table.innerHTML = epochHdEpochTableMarkup();
   const draw = () => {
     const state = epochHdState(epochHd.time);
     epochFillDateFields(surface.querySelector('[data-epoch-date="hd"]'), epochHd.time);
     epochHdTimeline?.update();
-    // The mandala and panels change only when the sub-epoch does (or the pointers move visibly).
+    // The mandala follows every move; the panel and the table's highlight change with the line.
     const sub = epochHdSpan('sub', state.ayanamsa)[0];
     mandala.innerHTML = epochHdMandalaMarkup(state);
     mandala.querySelectorAll('.mandala-gate').forEach((node) => { node.dataset.epochGate = node.textContent; node.setAttribute('tabindex', '0'); });
@@ -310,17 +337,7 @@ function renderEpochHumanDesign(surface) {
     if (sub !== shownSub) {
       shownSub = sub;
       summary.innerHTML = epochHdSummaryMarkup(state);
-      const epoch = epochHdSpan('gate', state.ayanamsa)[0];
-      if (epoch !== shownEpoch || !table.innerHTML) {
-        // Rebuilt when the epoch changes; sections the reader opened stay open.
-        shownEpoch = epoch;
-        const open = new Set([...table.querySelectorAll('details[open]')].map((details) => details.dataset.epochIndex));
-        table.innerHTML = epochHdEpochTableMarkup(epochHd.time);
-        table.querySelectorAll('details').forEach((details) => { if (open.has(details.dataset.epochIndex)) details.open = true; });
-      } else {
-        table.querySelectorAll('tr.selected').forEach((row) => row.classList.remove('selected'));
-        table.querySelector(`tr[data-epoch-sub="${sub.toFixed(6)}"]`)?.classList.add('selected');
-      }
+      table.querySelectorAll('tr[data-from]').forEach((row) => row.classList.toggle('selected', Number(row.dataset.from) <= epochHd.time && epochHd.time < Number(row.dataset.to)));
     }
   };
   const setTime = (ut) => {
@@ -336,27 +353,31 @@ function renderEpochHumanDesign(surface) {
     labels: epochHdTrackLabels,
   });
   const jumpTo = (ut) => { setTime(ut); epochHdTimeline.reveal('hd'); };
-  // Previous / next sub-epoch, line or gate: to the start of the next one, or back to
+  // Previous / next line (sub-epoch: the Personality or the Design line changes) or gate:
+  // to the start of the next one, or back to
   // the start of the current one (if more than a day in), else of the previous one.
   const step = (kind, direction) => {
     const ayanamsa = epochAyanamsa(epochHd.time);
-    const [from, to] = epochHdSpan(kind === 'event' ? 'sub' : kind === 'phase' ? 'line' : 'gate', ayanamsa);
+    const span = kind === 'event' ? 'sub' : 'gate';
+    const [from, to] = epochHdSpan(span, ayanamsa);
     let target;
     if (direction > 0) target = epochAyanamsaTime(to);
     else {
       const start = epochAyanamsaTime(from);
-      target = epochHd.time - start > 1 ? start : epochAyanamsaTime(epochHdSpan(kind === 'event' ? 'sub' : kind === 'phase' ? 'line' : 'gate', from - 1e-6)[0]);
+      target = epochHd.time - start > 1 ? start : epochAyanamsaTime(epochHdSpan(span, from - 1e-6)[0]);
     }
     // Land just inside the new span, so it reads as that span.
     jumpTo(target + 1 / 1440);
     return true;
   };
+  // , . step by line; [ ] by gate.
   epochKeyHandler = (action, direction) => {
-    if (action === 'event' || action === 'phase' || action === 'gate') return step(action, direction);
+    if (action === 'event') return step('event', direction);
+    if (action === 'phase') return step('gate', direction);
     if (action === 'now') { jumpTo(epochNow()); return true; }
     return false;
   };
-  epochBindDateFields(surface.querySelector('[data-epoch-date="hd"]'), jumpTo);
+  epochBindDateFields(surface.querySelector('[data-epoch-date="hd"]'), jumpTo, () => epochHd.time);
   surface.addEventListener('click', (event) => {
     const go = event.target.closest('[data-epoch-hd-go]');
     if (go) return jumpTo(Number(go.dataset.epochHdGo));

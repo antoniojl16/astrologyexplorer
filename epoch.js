@@ -108,14 +108,21 @@ function epochRelativeText(fromUt, toUt) {
   return days >= 0 ? `in ${amount}` : `${amount} ago`;
 }
 
-// A date editor: day, month, year, era and UTC time. `onChange(ut)` gets the new moment.
+// "2027.12.17", "146.10.18 BC": a compact date for tables and legends.
+function epochShortDate(ut) {
+  const date = epochCalendar(ut);
+  const year = date.year <= 0 ? 1 - date.year : date.year;
+  return `${year}.${epochPad(date.month)}.${epochPad(date.day)}${date.year <= 0 ? ' BC' : ''}`;
+}
+// A date editor: day, month, year and era (no clock time: at these scales it doesn't
+// matter, and a moment keeps its own time of day when the date is edited).
+// `onChange(ut)` gets the new moment.
 function epochDateFieldsMarkup(key) {
   return `<span class="epoch-date-fields" data-epoch-date="${key}">
     <input type="number" min="1" max="31" data-part="day" aria-label="Day">
     <select data-part="month" aria-label="Month">${EPOCH_MONTHS.map((month, index) => `<option value="${index + 1}">${month}</option>`).join('')}</select>
     <input type="number" min="1" max="9999" data-part="year" aria-label="Year">
     <select data-part="era" aria-label="Era"><option value="AD">AD</option><option value="BC">BC</option></select>
-    <input type="time" data-part="time" aria-label="Time (UTC)"><small>UTC</small>
   </span>`;
 }
 function epochFillDateFields(box, ut) {
@@ -125,15 +132,15 @@ function epochFillDateFields(box, ut) {
   set('month', date.month);
   set('year', date.year <= 0 ? 1 - date.year : date.year);
   set('era', date.year <= 0 ? 'BC' : 'AD');
-  set('time', `${epochPad(date.hours)}:${epochPad(date.minutes)}`);
   box.title = date.julian ? 'Julian calendar (dates before 15 October 1582)' : 'Gregorian calendar';
 }
-function epochBindDateFields(box, onChange) {
+// `current()` is the moment being edited, whose time of day is kept.
+function epochBindDateFields(box, onChange, current) {
   box.addEventListener('change', () => {
     const value = (part) => box.querySelector(`[data-part="${part}"]`).value;
     const year = Number(value('year')), day = Number(value('day'));
     if (!Number.isInteger(year) || year < 1 || !Number.isInteger(day) || day < 1 || day > 31) return;
-    const [hours, minutes] = (value('time') || '00:00').split(':').map(Number);
+    const { hours, minutes } = epochCalendar(current());
     onChange(epochUtFromCalendar(value('era') === 'BC' ? 1 - year : year, Number(value('month')), day, hours + minutes / 60));
   });
 }
@@ -346,14 +353,13 @@ function switchEpochSystem(system, force = false) {
 }
 
 // ── Keyboard ─────────────────────────────────────────────────────────────
-//   , / .   previous / next event: a conjunction of the chosen pair (Astrology), a
-//           sub-epoch (Human Design)
-//   [ / ]   Astrology: previous / next aspect of the chosen pair; Human Design: line
-//   { / }   Human Design: previous / next gate (epoch)
+//   , / .   Astrology: previous / next conjunction of the chosen pair; Human Design:
+//           previous / next line (the Personality or the Design line changes)
+//   [ / ]   Astrology: previous / next aspect of the chosen pair; Human Design: gate
 //   1 / 2   Astrology: the inner / outer moment is the one keys and buttons move
 //   R       Astrology: reverse the two moments
 //   N       the active moment to now
-const EPOCH_KEYS = { ',': ['event', -1], '.': ['event', 1], '[': ['phase', -1], ']': ['phase', 1], '{': ['gate', -1], '}': ['gate', 1] };
+const EPOCH_KEYS = { ',': ['event', -1], '.': ['event', 1], '[': ['phase', -1], ']': ['phase', 1] };
 let epochKeyHandler = null; // set by the active system: (action, direction) → handled
 document.addEventListener('keydown', (event) => {
   if (currentView !== 'epoch' || event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return;
