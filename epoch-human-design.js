@@ -213,10 +213,8 @@ function epochHdSummaryMarkup(state) {
   const stat = (label, value) => `<div class="system-stat"><span>${label}</span><strong>${value}</strong></div>`;
   const signText = (longitude) => epochPositionText(longitude);
   return `
-    <span class="eyebrow">GLOBAL CROSS</span>
-    <h3 class="epoch-cross-name">${epochHdCrossName(state.personalitySun.gate)}${EPOCH_HD_LOCK_GATES.has(state.personalitySun.gate) ? ' <small>Lock</small>' : ''}</h3>
-    <p class="epoch-cross-gates">${epochHdGateText(state.personalitySun)} / ${epochHdGateText(state.personalityEarth)} | ${epochHdGateText(state.designSun)} / ${epochHdGateText(state.designEarth)}</p>
-    ${epoch ? stat('EPOCH', `${epochDateText(epoch.from, { time: false, calendar: true })} – ${epochDateText(epoch.to, { time: false, calendar: true })}`) + stat('LASTS', years(epoch.from, epoch.to)) : ''}
+    <span class="eyebrow">EPOCH</span>
+    ${epoch ? stat('LASTS', years(epoch.from, epoch.to)) : ''}
     ${published ? stat('HD PUBLISHED START', `${published.printed}${published.year === EPOCH_HD_TYPO_YEAR ? ' (2917 BC by its own pattern)' : ''}`) : ''}
     <span class="eyebrow epoch-panel-section">LINE</span>
     ${stat('PROFILE', `${state.profile} · ${state.angle}`)}
@@ -269,6 +267,13 @@ function epochHdRowTipHtml(row) {
     <table class="epoch-tip-table"><thead><tr><th>Profile</th><th>P ☉ | D ☉</th><th>Dates</th><th></th></tr></thead><tbody>${lines}</tbody></table>`;
 }
 bindHoverTooltips('[data-epoch-hd-row]', epochHdRowTipHtml, 'epochHdRowTooltip');
+// Over the mandala: the global cross, its four gates and the epoch's dates.
+function epochHdTitleMarkup(state) {
+  const epoch = epochHdEpochs().find((item) => item.from <= state.ut && state.ut < item.to);
+  return `<h3 class="epoch-cross-name">${epochHdCrossName(state.personalitySun.gate)}${EPOCH_HD_LOCK_GATES.has(state.personalitySun.gate) ? ' <small>Lock</small>' : ''}</h3>
+    <p class="epoch-cross-gates">${epochHdGateText(state.personalitySun, false)} / ${epochHdGateText(state.personalityEarth, false)} | ${epochHdGateText(state.designSun, false)} / ${epochHdGateText(state.designEarth, false)}</p>
+    ${epoch ? `<p class="epoch-cross-dates">${epochDateText(epoch.from, { time: false, calendar: true })} – ${epochDateText(epoch.to, { time: false, calendar: true })}</p>` : ''}`;
+}
 // The appendix: method, sources, and every published date against the computed one.
 function epochHdNotesMarkup() {
   const epochs = epochHdEpochs();
@@ -303,6 +308,7 @@ function renderEpochHumanDesign(surface) {
     <div class="epoch-hd-layout">
       <div class="system-visual hd-mandala-visual epoch-mandala-panel">
         <div class="system-toolbar"><span class="eyebrow">MANDALA / THE EQUINOX AMONG THE GATES</span></div>
+        <div class="epoch-mandala-title" data-epoch-hd-title></div>
         <div data-epoch-mandala></div>
         <div class="epoch-hd-moment">
           <div class="epoch-steppers epoch-hd-steps">
@@ -333,6 +339,7 @@ function renderEpochHumanDesign(surface) {
     if (sub !== shownSub) {
       shownSub = sub;
       summary.innerHTML = epochHdSummaryMarkup(state);
+      surface.querySelector('[data-epoch-hd-title]').innerHTML = epochHdTitleMarkup(state);
       // The slider marks the current epoch's lines: redrawn when the epoch changes.
       const epoch = epochHdSpan('gate', state.ayanamsa)[0];
       if (epoch !== markedEpoch) { markedEpoch = epoch; epochHdSlider?.refresh(); }

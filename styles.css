@@ -537,3 +537,7 @@ body.dark .life-tag-chip.active{color:var(--ink)}
 .epoch-aspect-tag small{display:inline;margin:0;font:10px 'DM Mono',monospace;color:var(--ink)}
 .epoch-hd-moment{padding:10px 20px 0;border-top:1px solid var(--line)}.epoch-moment-panel input[type=range]{accent-color:var(--thumb)}
 [data-epoch-hd-slider]{padding:0 20px 12px}
+.epoch-mandala-title{text-align:center;padding:18px 20px 0}
+.epoch-mandala-title .epoch-cross-name{margin:0}
+.epoch-mandala-title .epoch-cross-gates{margin:6px 0 2px;font-size:15px}
+.epoch-cross-dates{margin:0;font:10px 'DM Mono',monospace;color:var(--muted)}
