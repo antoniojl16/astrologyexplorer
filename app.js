@@ -745,6 +745,16 @@ function renderRows() {
       if (link || event.target.closest('[data-library-open]')) { event.preventDefault(); openExplorer(); }
     }),
   );
+  // A double-click on a row opens its chart too (the first click has already selected
+  // it), except on its checkbox, buttons and links, which do their own thing.
+  rows.querySelectorAll('tr').forEach((row) =>
+    row.addEventListener('dblclick', (event) => {
+      if (event.target.closest('input, button, a, .library-events')) return;
+      window.getSelection()?.removeAllRanges();
+      selectedChartId = row.dataset.id;
+      openExplorer();
+    }),
+  );
 }
 // Sets each item's displayAngle so no two sit closer than minSeparation (or 360/n when
 // they couldn't all fit), keeping each crowded run centered on its true angles. The
