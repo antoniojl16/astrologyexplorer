@@ -491,10 +491,11 @@ function renderHumanDesignPair(container, entries) {
         <div class="panel-toolbar pair-astro-toolbar">
           ${pairSegmentedMarkup('data-pair-subject', PAIR_HD_SUBJECTS, pairHdSubject)}
           ${pairSegmentedMarkup('data-pair-view', PAIR_HD_VIEWS, pairHdView)}
+          ${hdPrecisionToggleMarkup()}
         </div>
         <div class="pair-hd-stage">
           <div class="pair-legend" data-pair-legend></div>
-          <div data-pair-hd-graphic></div>
+          <div class="hd-double-layout"><div data-pair-hd-column="A"></div><div data-pair-hd-graphic></div><div data-pair-hd-column="B"></div></div>
         </div>
       </div>
       <aside class="system-info" data-pair-hd-info></aside>
@@ -522,6 +523,13 @@ function renderHumanDesignPair(container, entries) {
       info.innerHTML = hdTypologyAsideMarkup(typology, { showFilter: false });
       details.innerHTML = hdTypologyDetailsMarkup(typology);
     }
+    container.querySelector('.pair-hd-layout').classList.toggle('hd-precise', hdFullPrecision);
+    container.querySelector('.pair-hd-layout').classList.toggle('hd-mandala-view', pairHdView === 'mandala');
+    // Each chart's activations beside the graphic: Chart A left, Chart B right.
+    ['A', 'B'].forEach((key) => {
+      const person = people[key];
+      container.querySelector(`[data-pair-hd-column="${key}"]`).innerHTML = hdDoubleColumnMarkup(computeHumanDesignChart(person.chart, 0), { title: person.chart.name, color: person.color, off: pairHdSubject !== 'composite' && pairHdSubject !== key });
+    });
     graphic.innerHTML = pairHdView === 'mandala'
       ? hdMandalaSvgMarkup(state, glyphMap)
       : `<svg class="bodygraph hd-bodygraph pair-bodygraph" viewBox="0 0 440 640" role="img" aria-label="Bodygraph">
@@ -529,6 +537,7 @@ function renderHumanDesignPair(container, entries) {
           <g data-bodygraph-layers>${hdBodygraphLayersMarkup(state)}</g>
         </svg>`;
   };
+  bindHdPrecisionToggle(container, () => draw());
   [['data-pair-subject', (value) => { pairHdSubject = value; }], ['data-pair-view', (value) => { pairHdView = value; }]].forEach(([attribute, set]) => {
     const group = container.querySelector(`[${attribute}]`);
     group.addEventListener('click', (event) => {

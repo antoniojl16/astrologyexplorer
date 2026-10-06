@@ -14,6 +14,7 @@
 //   E   Library: edit that chart; Chart Explorer: edit the chart
 //   Z   Fix Zodiac on the astrology wheel
 //   P / D / X   Human Design: Personality / Design / Incarnation Cross only (again: all)
+//   F           Human Design: Full precision on / off
 //   D   ACG Local Space: Relocated ↔ Natal directions
 //   M   Human Design: Mandala ↔ Bodygraph; Astrocartography: Relief ↔ Plain map
 //   T   Astrocartography: ACG Travel ↔ ACG Local Space
@@ -70,6 +71,9 @@ document.addEventListener("keydown", (event) => {
   let handled = false;
   if (currentView === "library" && (key === "j" || key === "k" || key === "x")) {
     handled = libraryKeyboardStep(key);
+  } else if (key === "f") {
+    // Human Design: Full precision (G.L.C.T.B) on or off.
+    handled = shortcutPress("[data-hd-precision]");
   } else if (key === "z") {
     handled = shortcutPress("#fixZodiacToggleChart, [data-pair-fix-zodiac]");
   } else if (SHORTCUT_HD_FILTERS[key]) {

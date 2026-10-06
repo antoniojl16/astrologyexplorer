@@ -25,6 +25,8 @@ let cycleLifeSort = acgStoredSetting('orbital-study-life-timeline-sort', 'asc') 
 // Which system tab the Cycle Explorer shows, and the Human Design / Gene Keys views' own state.
 let cycleActiveSystem = 'Summary';
 let cycleHdView = 'bodygraph';
+// What the Human Design bodygraph shows: both charts (composite), the natal chart (A) or the cycle moment (B).
+let cycleHdSubject = 'composite';
 let cycleGkTab = 'All Paths';
 const cycleAstroState = { subject: 'synastry', view: 'wheel' };
 
@@ -580,21 +582,21 @@ function renderCycleAstrology(surface, context) {
 
 function renderCycleHumanDesign(surface, context) {
   const { chart, cycleDef } = context;
+  const momentName = context.now ? 'Transit' : 'Cycle';
+  const subjects = [['composite', 'Composite'], ['A', 'Natal'], ['B', momentName]];
   surface.innerHTML = `
     <div class="pair-hd-layout cycle-system-layout">
       <div class="system-visual">
         <div class="panel-toolbar pair-astro-toolbar">
+          ${pairSegmentedMarkup('data-cycle-hd-subject', subjects, cycleHdSubject)}
           ${pairSegmentedMarkup('data-cycle-hd-view', PAIR_HD_VIEWS, cycleHdView)}
           ${cycleReadingSwitchMarkup(context)}
+          ${hdPrecisionToggleMarkup()}
           <span class="eyebrow cycle-toolbar-label">${escapeHtml(context.anchorLabel.toUpperCase())}</span>
         </div>
         <div class="pair-hd-stage">
-          <div class="pair-legend">
-            <span><i class="legend-dot" style="background:${CYCLE_NATAL_COLOR}"></i>Natal · ${escapeHtml(chart.name)}</span>
-            <span><i class="legend-dot" style="background:${CYCLE_MOMENT_COLOR}"></i>${context.momentNoun}${context.now ? '' : ` · ${escapeHtml(context.cycleName)}`}</span>
-            <span><i class="legend-swatch halo"></i>Electromagnetic — formed only together</span>
-          </div>
-          <div data-cycle-graphic></div>
+          <div class="pair-legend" data-cycle-hd-legend></div>
+          <div class="hd-double-layout"><div data-cycle-hd-column="A"></div><div data-cycle-graphic></div><div data-cycle-hd-column="B"></div></div>
         </div>
         ${timelineSliderMarkup(context.momentNoun.toUpperCase(), 0)}
       </div>
@@ -602,9 +604,33 @@ function renderCycleHumanDesign(surface, context) {
     </div>`;
   let momentOffset = context.anchorOffset;
   const full = cycleReading(context) === 'full';
+  const momentLabel = `${context.momentNoun}${context.now ? '' : ` · ${escapeHtml(context.cycleName)}`}`;
   const draw = () => {
-    const composite = computeCycleHumanDesign(chart, momentOffset, full);
     const graphic = surface.querySelector('[data-cycle-graphic]');
+    surface.querySelector('.pair-hd-layout').classList.toggle('hd-precise', hdFullPrecision);
+    surface.querySelector('.pair-hd-layout').classList.toggle('hd-mandala-view', cycleHdView === 'mandala');
+    // The natal chart's activations left, the moment's right (a transit: its personality side only).
+    const natalHd = computeHumanDesignChart(chart, 0), momentHd = computeHumanDesignChart(chart, momentOffset);
+    surface.querySelector('[data-cycle-hd-column="A"]').innerHTML = hdDoubleColumnMarkup(natalHd, { title: chart.name, color: CYCLE_NATAL_COLOR, off: cycleHdSubject === 'B' });
+    surface.querySelector('[data-cycle-hd-column="B"]').innerHTML = hdDoubleColumnMarkup(momentHd, { title: context.now ? 'Transit' : context.cycleName, color: CYCLE_MOMENT_COLOR, fadeDesign: !full, off: cycleHdSubject === 'A' });
+    const legend = surface.querySelector('[data-cycle-hd-legend]');
+    if (cycleHdSubject !== 'composite') {
+      // One chart alone: the natal chart, or the moment (a transit: its personality side).
+      const natal = cycleHdSubject === 'A';
+      const offset = natal ? 0 : momentOffset, filter = natal || full ? 'Complete' : 'Personality';
+      const state = computeBodygraphState(chart, offset, filter);
+      legend.innerHTML = `<span><i class="legend-dot" style="background:${natal ? CYCLE_NATAL_COLOR : CYCLE_MOMENT_COLOR}"></i>${natal ? `Natal · ${escapeHtml(chart.name)}` : momentLabel}</span><span><i class="legend-swatch" style="background:var(--ink)"></i>Personality</span>${filter === 'Complete' ? '<span><i class="legend-swatch" style="background:var(--accent)"></i>Design</span>' : ''}`;
+      graphic.innerHTML = cycleHdView === 'mandala'
+        ? hdMandalaSvgMarkup(state, humanDesignGateGlyphMap(chart, offset, filter))
+        : `<svg class="bodygraph hd-bodygraph pair-bodygraph" viewBox="0 0 440 640" role="img" aria-label="Bodygraph">${HD_BODYGRAPH_SILHOUETTE}<g data-bodygraph-layers>${hdBodygraphLayersMarkup(state)}</g></svg>`;
+      // A transit's personality side alone isn't a chart with a type of its own.
+      surface.querySelector('[data-cycle-info]').innerHTML = filter === 'Complete'
+        ? hdTypologyAsideMarkup(computeHumanDesignTypology(state.hd), { showFilter: false })
+        : cycleTransitAsideMarkup(chart, momentOffset);
+      return;
+    }
+    legend.innerHTML = `<span><i class="legend-dot" style="background:${CYCLE_NATAL_COLOR}"></i>Natal · ${escapeHtml(chart.name)}</span><span><i class="legend-dot" style="background:${CYCLE_MOMENT_COLOR}"></i>${momentLabel}</span><span><i class="legend-swatch halo"></i>Electromagnetic — formed only together</span>`;
+    const composite = computeCycleHumanDesign(chart, momentOffset, full);
     if (cycleHdView === 'mandala') {
       // Natal planets (both sides) in the natal color, the cycle moment's planets in the cycle color.
       const glyphs = new Map();
@@ -634,15 +660,32 @@ function renderCycleHumanDesign(surface, context) {
       <span class="eyebrow cycle-info-subhead">CHANNELS THE CYCLE COMPLETES · ${cycleChannels.length}</span>
       ${hdChannelListMarkup(cycleChannels)}`;
   };
-  surface.querySelector('[data-cycle-hd-view]').addEventListener('click', event => {
-    const button = event.target.closest('button[data-value]');
-    if (!button) return;
-    cycleHdView = button.dataset.value;
-    surface.querySelectorAll('[data-cycle-hd-view] button').forEach(item => item.classList.toggle('active', item === button));
-    draw();
+  [['data-cycle-hd-view', value => { cycleHdView = value; }], ['data-cycle-hd-subject', value => { cycleHdSubject = value; }]].forEach(([attribute, set]) => {
+    surface.querySelector(`[${attribute}]`).addEventListener('click', event => {
+      const button = event.target.closest('button[data-value]');
+      if (!button) return;
+      set(button.dataset.value);
+      surface.querySelectorAll(`[${attribute}] button`).forEach(item => item.classList.toggle('active', item === button));
+      draw();
+    });
   });
+  bindHdPrecisionToggle(surface, draw);
   bindCycleReadingSwitch(surface, context, () => renderCycleHumanDesign(surface, context));
   bindCycleSlider(surface.querySelector('.timeline-control'), context, offset => { momentOffset = offset; draw(); });
+}
+
+// The transits alone (their personality side): the centers and channels they define by
+// themselves; with no design side, they have no type, authority or profile of their own.
+function cycleTransitAsideMarkup(chart, offset) {
+  const gates = new Set(computeHumanDesignChart(chart, offset).personality.filter(influence => influence.gate != null).map(influence => influence.gate));
+  const structure = hdStructureFromGates(gates);
+  const stat = (label, value) => `<div class="system-stat"><span>${label}</span><strong>${value}</strong></div>`;
+  return `<span class="eyebrow">TRANSITS ALONE</span>
+    <h3>${gates.size} gates</h3>
+    <p>The transiting planets by themselves (their personality side). Without a design side they have no type, authority or profile of their own; see Composite for what they do to the natal chart.</p>
+    ${stat('CENTERS DEFINED', `${structure.definedCenters.size} / 9`)}
+    ${stat('DEFINED CHANNELS', `${structure.definedChannels.length} / 36`)}
+    ${hdChannelListMarkup(structure.definedChannels)}`;
 }
 
 function renderCycleGeneKeys(surface, context) {

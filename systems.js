@@ -35,6 +35,24 @@ function hdUpdateInfluenceLabels(root, hd) {
     ),
   );
 }
+// Two-chart views (Pair, Cycle): one chart's activations as a double column under its
+// name (underlined in its color) — the design value left of each planet's glyph (red),
+// the personality value right of it (ink). `fadeDesign`: a transit reading, which uses
+// only the personality side; `off`: the chart isn't shown on the bodygraph.
+function hdDoubleColumnMarkup(hd, { title, color, fadeDesign = false, off = false }) {
+  const rows = HD_PLANET_GLYPHS.map((glyph, index) => `<div class="hd-double-row"><b class="hd-double-design">${hdInfluenceText(hd.design[index])}</b><span>${glyph}</span><b class="hd-double-personality">${hdInfluenceText(hd.personality[index])}</b></div>`).join("");
+  return `<div class="hd-double-column${fadeDesign ? " fade-design" : ""}${off ? " off" : ""}"><div class="hd-double-title" style="border-color:${color}">${escapeHtml(title)}</div>${rows}</div>`;
+}
+// The Full precision checkbox (F), for views that redraw themselves when it changes.
+function hdPrecisionToggleMarkup() {
+  return `<label class="fix-zodiac-toggle hd-precision-toggle" title="Show gate.line.color.tone.base for every planet (F)"><input type="checkbox" data-hd-precision ${hdFullPrecision ? "checked" : ""}>Full precision</label>`;
+}
+function bindHdPrecisionToggle(root, redraw) {
+  root.querySelector("[data-hd-precision]")?.addEventListener("change", (event) => {
+    hdFullPrecision = event.target.checked;
+    redraw();
+  });
+}
 // Shared glyph order for the 13 HD_PERSONALITY_PLANETS (human-design.js) — used by
 // both the bodygraph columns and the mandala's per-gate glyph stacks.
 const HD_PLANET_GLYPHS = [
@@ -966,50 +984,34 @@ function updateHdTypology(surface, hd) {
   if (badge) badge.textContent = hdChannelBadgeText(typology);
 }
 
+// The Chart explorer's planet columns beside the bodygraph or mandala: the 13 design
+// activations (left, accent) or personality ones (right, ink). The Personality / Design /
+// Incarnation Cross filters dim or trim them (.hd-layout's filter class, styles.css).
+function hdSideColumnMarkup(side, hd) {
+  const color = side === "design" ? "var(--accent)" : "var(--ink)";
+  const rows = HD_PLANET_GLYPHS.map((glyph, index) => `
+      <div class="hd-planet ${side}" style="--row:${index};color:${color}">
+        <span>${glyph}</span>
+        <b data-hd-set="${side}" data-hd-index="${index}">${hdInfluenceText(hd ? hd[side][index] : null)}</b>
+      </div>`).join("");
+  return `<div class="hd-column ${side}-column"><div class="hd-column-title">${side === "design" ? "Design" : "Personality"}</div>${rows}</div>`;
+}
+
 function renderBodygraph(surface, chart) {
   if (activeSystemTab === "Mandala")
     return renderHumanDesignMandala(surface, chart);
-  const gates = Array.from({ length: 64 }, (_, index) => index + 1);
-  const planets = HD_PLANET_GLYPHS;
   const state = chart ? computeBodygraphState(chart, 0, activeSystemFilter) : null;
   const hd = state ? state.hd : null;
-  const visiblePlanetIndexes =
-    activeSystemFilter === "Incarnation Cross"
-      ? [0, 1]
-      : activeSystemFilter === "Personality"
-        ? [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
-        : activeSystemFilter === "Design"
-          ? [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
-          : planets.map((_, index) => index);
-  const columnData = (side, color) =>
-    visiblePlanetIndexes
-      .map((index) => {
-        const influence = hd
-          ? side === "design"
-            ? hd.design[index]
-            : hd.personality[index]
-          : null;
-        const label = hdInfluenceText(influence);
-        return `
-      <div class="hd-planet ${side}" style="--row:${index};color:${color}">
-        <span>${planets[index]}</span>
-        <b data-hd-set="${side}" data-hd-index="${index}">${label}</b>
-      </div>`;
-      })
-      .join("");
   const hdTimelineMarkup = hdTimelineControlMarkup(chart, 0);
   const filterClass = activeSystemFilter.toLowerCase().replace(" ", "-");
   surface.innerHTML = `
     <div class="hd-layout ${filterClass}">
-      <div class="hd-column design-column">
-        <div class="hd-column-title">Design</div>
-        ${columnData("design", "var(--accent)")}
-      </div>
+      ${hdSideColumnMarkup("design", hd)}
       <div class="system-visual hd-visual">
         <div class="system-toolbar">
           <span class="eyebrow">BODYGRAPH / ${activeSystemTab.toUpperCase()} / ${activeSystemFilter.toUpperCase()}</span>
           <div class="hd-toolbar-right">
-            <label class="fix-zodiac-toggle hd-precision-toggle" title="Show gate.line.color.tone.base for every planet"><input type="checkbox" data-hd-precision ${hdFullPrecision ? "checked" : ""}>Full precision</label>
+            ${hdPrecisionToggleMarkup()}
             <span class="sample-badge" data-hd-channel-badge></span>
           </div>
         </div>
@@ -1019,10 +1021,7 @@ function renderBodygraph(surface, chart) {
         </svg>
         ${hdTimelineMarkup}
       </div>
-      <div class="hd-column personality-column">
-        <div class="hd-column-title">Personality</div>
-        ${columnData("personality", "var(--ink)")}
-      </div>
+      ${hdSideColumnMarkup("personality", hd)}
     </div>
     <aside class="system-info hd-info" data-hd-typology></aside>
     <div data-hd-typology-details></div>`;
@@ -1161,14 +1160,20 @@ function hdMandalaSvgMarkup(state, glyphMap = null) {
 function renderHumanDesignMandala(surface, chart, offsetMinutes = 0) {
   const state = chart ? computeBodygraphState(chart, offsetMinutes, activeSystemFilter) : null;
   const hdTimelineMarkup = hdTimelineControlMarkup(chart, offsetMinutes);
+  const filterClass = activeSystemFilter.toLowerCase().replace(" ", "-");
   surface.innerHTML = `
     <div class="hd-mandala-layout">
-      <div class="system-visual hd-mandala-visual">
-        <div class="system-toolbar">
-          <span class="eyebrow">MANDALA / ${activeSystemTab.toUpperCase()}</span>
+      <div class="hd-layout hd-mandala-columns ${filterClass}">
+        ${hdSideColumnMarkup("design", state?.hd)}
+        <div class="system-visual hd-visual hd-mandala-visual">
+          <div class="system-toolbar">
+            <span class="eyebrow">MANDALA / ${activeSystemTab.toUpperCase()}</span>
+            ${hdPrecisionToggleMarkup()}
+          </div>
+          ${hdMandalaSvgMarkup(state)}
+          ${hdTimelineMarkup}
         </div>
-        ${hdMandalaSvgMarkup(state)}
-        ${hdTimelineMarkup}
+        ${hdSideColumnMarkup("personality", state?.hd)}
       </div>
       <aside class="system-info">
         <span class="eyebrow">MANDALA KEY</span>
@@ -1189,6 +1194,8 @@ function renderHumanDesignMandala(surface, chart, offsetMinutes = 0) {
   bindHdGateClicks(surface);
   updateHdDefinedCentersStat(surface, state);
   updateHdTypology(surface, state?.hd || null);
+  if (state?.hd) surface._hdInfluences = state.hd;
+  bindHdPrecisionToggle(surface, () => { if (surface._hdInfluences) hdUpdateInfluenceLabels(surface, surface._hdInfluences); });
   const timelineContainer = surface.querySelector(
     ".hd-mandala-visual .timeline-control",
   );
@@ -1208,6 +1215,7 @@ function renderHumanDesignMandala(surface, chart, offsetMinutes = 0) {
         }
         const bodygraphState = computeBodygraphState(chart, offset, activeSystemFilter);
         refreshHdBodygraphLayers(surface, bodygraphState);
+        hdUpdateInfluenceLabels(surface, bodygraphState.hd);
         updateHdDefinedCentersStat(surface, bodygraphState);
         updateHdTypology(surface, bodygraphState.hd);
       },
