@@ -15,7 +15,7 @@ let pairLifeSort = acgStoredSetting("orbital-study-pair-life-sort", "asc") === "
 function pairLifeEntries(chartA, chartB) {
   const entries = new Map();
   [["a", chartA], ["b", chartB]].forEach(([side, chart]) => {
-    const cycles = CYCLE_DEFINITIONS.flatMap((cycleDef) => computeCycleOccurrences(chart, cycleDef).map((occurrence, index) => lifeCycleRecord(chart, cycleDef.key, index + 1)));
+    const cycles = CYCLE_DEFINITIONS.filter((cycleDef) => !cycleDef.picker).flatMap((cycleDef) => computeCycleOccurrences(chart, cycleDef).map((occurrence, index) => lifeCycleRecord(chart, cycleDef.key, index + 1)));
     [...chartRecordsWithBirth(chart), ...cycles].filter((record) => record?.start).forEach((record) => {
       const key = lifeStoredRecord(record)?.id || record.id;
       if (!entries.has(key)) entries.set(key, { key, sides: {}, date: lifeMomentRange(record, "start", chart).mid });

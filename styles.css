@@ -600,3 +600,5 @@ body.dark .life-tag-chip.active{color:var(--ink)}
 .epoch-sort:hover,.epoch-sort.active{color:var(--ink)}
 .epoch-sort-arrow{font-size:8px}
 .epoch-conj-moment .epoch-moment-head .epoch-focus{margin-left:auto}
+.cycle-year-pick{display:flex;align-items:center;gap:10px;font:10px 'DM Mono',monospace;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.cycle-year-pick select{font:12px 'DM Mono',monospace;padding:6px 8px;min-width:200px;text-transform:none;letter-spacing:0}

@@ -96,7 +96,7 @@ function currentRoute() {
     // The studied moment: birth, a life event (its start or end), or a cycle's occurrence (from 1).
     const moment = cycleEventAnchor?.now ? ["now"] : cycleEventAnchor?.birth ? ["birth"]
       : cycleEventAnchor?.eventId ? ["event", cycleEventAnchor.eventId, cycleEventAnchor.part === "end" ? "end" : "start"]
-      : [activeCycleKey, String(activeOccurrenceIndex + 1)];
+      : [activeCycleKey, String((activeOccurrenceIndex ?? 0) + 1)];
     parts.push(chartSlug(cycleChartId), ...moment, routeSlug(system));
     if (system === "Astrocartography") parts.push(routeSlug(acgActiveView.replace("ACG ", "")));
   }
@@ -198,7 +198,7 @@ function applyRoute(hash) {
       if (numbered) [, system, subview] = more;
       else [system, subview] = more;
       if (cycle) activeCycleKey = cycle.key;
-      activeOccurrenceIndex = numbered ? Math.max(0, Number(more[0]) - 1) : 0;
+      activeOccurrenceIndex = numbered ? Math.max(0, Number(more[0]) - 1) : null;
       cycleEventAnchor = null;
     }
     const chosenSystem = routeOption(ROUTE_CYCLE_SYSTEMS, system) || "Summary";

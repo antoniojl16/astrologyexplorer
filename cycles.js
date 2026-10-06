@@ -1,5 +1,9 @@
 // Orbital Study — Copyright (c) 2026 Antonio Juarez (@antoniojl16). All rights reserved. See LICENSE.
+// `picker`: occurring every year, its occurrences are chosen from a year menu (not one
+// button each), it starts from the latest one before today (the solar return chart in
+// effect), and it stays out of the Life Timelines, which it would swamp.
 const CYCLE_DEFINITIONS = [
+  {key: 'solar-return', label: 'Solar Return', planet: 'Sun', periodYears: 1, kind: 'return', picker: true, description: 'The Sun returns to its natal degree once a year, around the birthday: the chart of that moment, cast for the birth place, is read for the year ahead.'},
   {key: 'saturn-return', label: 'Saturn Return', planet: 'Saturn', periodYears: 29.457, kind: 'return', description: 'Saturn completes its natal orbit and meets itself again — a marker of maturity and structural reckoning.'},
   {key: 'jupiter-return', label: 'Jupiter Return', planet: 'Jupiter', periodYears: 11.862, kind: 'return', description: 'Jupiter returns to its natal degree roughly every 12 years, opening a fresh cycle of growth and opportunity.'},
   {key: 'chiron-return', label: 'Chiron Return', planet: 'Chiron', periodYears: 50.0, kind: 'return', description: 'Chiron completes its long, eccentric orbit — often felt as a reckoning with the wound and the healer archetype.'},
@@ -33,9 +37,9 @@ const cycleAstroState = { subject: 'synastry', view: 'wheel' };
 const CYCLE_MAX_AGE_YEARS = 101;
 const CYCLE_DAY_MINUTES = 1440, CYCLE_YEAR_MINUTES = 365.25 * 1440;
 const cycleOccurrenceCache = new Map();
-// Fastest apparent motion either way, in °/day, rounded well up: Jupiter ≈ 0.25, Saturn
+// Fastest apparent motion either way, in °/day, rounded well up: the Sun ≈ 1.02, Jupiter ≈ 0.25, Saturn
 // ≈ 0.13, Chiron ≈ 0.15, Uranus ≈ 0.06; the true node's wobble reaches about 0.3.
-const CYCLE_MAX_SPEED = { Jupiter: 0.4, Saturn: 0.25, Chiron: 0.3, Uranus: 0.12, 'North Node': 1.5 };
+const CYCLE_MAX_SPEED = { Sun: 1.1, Jupiter: 0.4, Saturn: 0.25, Chiron: 0.3, Uranus: 0.12, 'North Node': 1.5 };
 function computeCycleOccurrences(chart, cycleDef, maxAgeYears = CYCLE_MAX_AGE_YEARS) {
   const position = chart.positions.find(item => item.name === cycleDef.planet);
   if (!position) return [];
@@ -91,8 +95,10 @@ function computeCycleOccurrences(chart, cycleDef, maxAgeYears = CYCLE_MAX_AGE_YE
   return occurrences;
 }
 
-function defaultOccurrenceIndex(occurrences) {
+// The occurrence nearest today; for a yearly cycle (picker), the latest one before today.
+function defaultOccurrenceIndex(occurrences, cycleDef) {
   const now = Date.now();
+  if (cycleDef?.picker) return Math.max(0, occurrences.findLastIndex(occurrence => occurrence.date.getTime() <= now));
   let bestIndex = 0, bestDiff = Infinity;
   occurrences.forEach((occurrence, index) => {
     const diff = Math.abs(occurrence.date.getTime() - now);
@@ -113,12 +119,12 @@ function renderCycleExplorer() {
   const select = document.getElementById('cycleChartSelect');
   if (select) {
     select.innerHTML = charts.map(item => `<option value="${item.id}" ${item.id === cycleChartId ? 'selected' : ''}>${escapeHtml(item.name)}</option>`).join('');
-    select.onchange = () => { cycleChartId = select.value; activeOccurrenceIndex = 0; cycleEventAnchor = cycleEventAnchor?.now ? { now: true, time: Date.now() } : null; renderCycleExplorer(); };
+    select.onchange = () => { cycleChartId = select.value; activeOccurrenceIndex = null; cycleEventAnchor = cycleEventAnchor?.now ? { now: true, time: Date.now() } : null; renderCycleExplorer(); };
   }
   const tabs = document.getElementById('cycleTypeTabs');
   if (tabs) {
     tabs.innerHTML = CYCLE_DEFINITIONS.map(def => `<button type="button" class="${def.key === activeCycleKey ? 'active' : ''}" data-cycle-key="${def.key}">${def.label}</button>`).join('');
-    tabs.querySelectorAll('[data-cycle-key]').forEach(button => button.addEventListener('click', () => { activeCycleKey = button.dataset.cycleKey; activeOccurrenceIndex = 0; cycleEventAnchor = null; renderCycleExplorer(); }));
+    tabs.querySelectorAll('[data-cycle-key]').forEach(button => button.addEventListener('click', () => { activeCycleKey = button.dataset.cycleKey; activeOccurrenceIndex = null; cycleEventAnchor = null; renderCycleExplorer(); }));
   }
   const cycleDef = CYCLE_DEFINITIONS.find(def => def.key === activeCycleKey);
   const occurrences = computeCycleOccurrences(chart, cycleDef);
@@ -129,8 +135,21 @@ function renderCycleExplorer() {
     if (signature) signature.innerHTML = '';
     return;
   }
-  if (activeOccurrenceIndex >= occurrences.length) activeOccurrenceIndex = defaultOccurrenceIndex(occurrences);
-  if (occurrenceRow) {
+  // A new chart or cycle starts from its first occurrence (a yearly one: the one in effect).
+  if (activeOccurrenceIndex == null) activeOccurrenceIndex = cycleDef.picker ? defaultOccurrenceIndex(occurrences, cycleDef) : 0;
+  if (activeOccurrenceIndex >= occurrences.length) activeOccurrenceIndex = defaultOccurrenceIndex(occurrences, cycleDef);
+  if (occurrenceRow && cycleDef.picker) {
+    // One a year: a menu of years (typing a year jumps to it).
+    const now = Date.now();
+    occurrenceRow.innerHTML = `<label class="cycle-year-pick">Year<select data-cycle-occurrence-select aria-label="${cycleDef.label} year">${cycleEventAnchor ? '<option value="">—</option>' : ''}${occurrences.map((occurrence, index) => `<option value="${index}" ${index === activeOccurrenceIndex && !cycleEventAnchor ? 'selected' : ''}>${occurrence.date.getFullYear()} · age ${Math.round(occurrence.ageYears)}${occurrence.date.getTime() <= now && (occurrences[index + 1]?.date.getTime() ?? Infinity) > now ? ' · current' : ''}</option>`).join('')}</select></label>`;
+    occurrenceRow.querySelector('[data-cycle-occurrence-select]').addEventListener('change', event => {
+      if (event.target.value === '') return;
+      activeOccurrenceIndex = Number(event.target.value);
+      cycleEventAnchor = null;
+      event.target.querySelector('option[value=""]')?.remove();
+      refreshCycleMoment();
+    });
+  } else if (occurrenceRow) {
     occurrenceRow.innerHTML = occurrences.map((occurrence, index) => `<button type="button" class="cycle-chip ${index === activeOccurrenceIndex && !cycleEventAnchor ? 'active' : ''} ${occurrence.date.getTime() < Date.now() ? 'past' : 'future'}" data-occurrence-index="${index}">${occurrence.date.getFullYear()} <small>age ${Math.round(occurrence.ageYears)}</small></button>`).join('');
     occurrenceRow.querySelectorAll('[data-occurrence-index]').forEach(button => button.addEventListener('click', () => {
       activeOccurrenceIndex = Number(button.dataset.occurrenceIndex);
@@ -160,6 +179,8 @@ function renderCycleCelestialSummary() {
 // After the studied moment changes: the timeline's highlight, the heading and the view.
 function refreshCycleMoment() {
   document.querySelectorAll('#cycleOccurrenceRow .cycle-chip').forEach((chip, index) => chip.classList.toggle('active', !cycleEventAnchor && index === activeOccurrenceIndex));
+  const yearSelect = document.querySelector('#cycleOccurrenceRow [data-cycle-occurrence-select]');
+  if (yearSelect && !cycleEventAnchor) yearSelect.value = String(activeOccurrenceIndex);
   renderCycleCelestialSummary();
   renderCycleLifeTimeline();
   renderCycleSignature();
@@ -259,7 +280,7 @@ function renderCycleLifeStrip(strip, chart, entries) {
     <div class="life-strip-lane dots">${dots}</div>
     <div class="life-strip-axis">${axis}</div>
   </div>
-  <div class="life-strip-legend">${CYCLE_DEFINITIONS.map(def => `<span><i style="background:${CYCLE_STRIP_COLORS[def.key]}"></i>${def.label}</span>`).join('')}<span><i class="bar"></i>Period</span><span><i class="dot"></i>Event</span></div>`;
+  <div class="life-strip-legend">${CYCLE_DEFINITIONS.filter(def => !def.picker).map(def => `<span><i style="background:${CYCLE_STRIP_COLORS[def.key]}"></i>${def.label}</span>`).join('')}<span><i class="bar"></i>Period</span><span><i class="dot"></i>Event</span></div>`;
 }
 // What an annotation adds, in one short line: the place, people, tags and whether it has notes.
 function cycleAnnotationMarkup(annotation, chart) {
@@ -664,7 +685,7 @@ function renderCycleGeneKeys(surface, context) {
 function initCycleExplorer() {
   document.querySelectorAll('[data-cycle-system]').forEach(button => button.addEventListener('click', () => switchCycleSystem(button.dataset.cycleSystem)));
   document.getElementById('cycleButton')?.addEventListener('click', () => {
-    if (selectedChartId) { cycleChartId = selectedChartId; activeOccurrenceIndex = 0; cycleEventAnchor = null; }
+    if (selectedChartId) { cycleChartId = selectedChartId; activeOccurrenceIndex = null; cycleEventAnchor = null; }
     setView('cycle');
   });
   // Transits: the chart against the sky now — from the Chart Explorer, or the Cycle Explorer's own button.

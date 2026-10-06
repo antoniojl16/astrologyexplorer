@@ -781,7 +781,8 @@ function lifeTimelineEntries(chart) {
   chartLifeEvents(chart).filter((event) => event.start && event.anchor?.chartId !== chart.id).forEach((event) => {
     entries.push({ type: "event", event, date: lifeMomentRange(event, "start", chart).mid });
   });
-  CYCLE_DEFINITIONS.forEach((cycleDef) => {
+  // (Yearly cycles, CYCLE_DEFINITIONS' `picker`, would swamp it and stay out.)
+  CYCLE_DEFINITIONS.filter((cycleDef) => !cycleDef.picker).forEach((cycleDef) => {
     computeCycleOccurrences(chart, cycleDef).forEach((occurrence, index) => entries.push({ type: "cycle", cycleDef, occurrence, index, date: occurrence.date }));
   });
   return entries.sort((a, b) => a.date - b.date);
