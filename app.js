@@ -948,11 +948,17 @@ function setView(view) {
             ? 'PAIR EXPLORER'
             : view === 'epoch'
               ? 'EPOCH EXPLORER'
-              : 'TIMELINE EXPLORER';
+              : view === 'readings'
+                ? 'BOOK A READING'
+                : 'TIMELINE EXPLORER';
   if (view === 'library') renderRows();
   if (view === 'cycle' && typeof renderCycleExplorer === 'function') renderCycleExplorer();
   if (view === 'pair' && typeof renderPairExplorer === 'function') renderPairExplorer();
   if (view === 'epoch' && typeof renderEpochExplorer === 'function') renderEpochExplorer();
+  if (view === 'readings' && typeof renderReadings === 'function') renderReadings();
+  // The readings page has its own warmer palette (styles.css, body.readings-page).
+  document.body.classList.toggle('readings-page', view === 'readings');
+  document.querySelectorAll('.readings-link').forEach((node) => node.classList.toggle('active', view === 'readings'));
   if (view === 'explorer' || view === 'timeline') {
     mountExplorerBody(view);
     // Life Events belong to a chart, so the Timeline Explorer (the current sky) has none.

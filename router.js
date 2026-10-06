@@ -12,6 +12,7 @@
 //   #/cycle/<chart>/event/<event id>/<start|end>/<system>[/<map view>]
 //   #/cycle/<chart>/birth/<system>[/<map view>]
 //   #/cycle/<chart>/now/<system>[/<map view>]   (transits: the sky when the link is opened)
+//   #/readings   (Book a reading)
 //   #/epoch/<system>[/<pair>/<planet>]   (the Epoch Explorer: astrology, conjunctions or human-design; Astrology's reference pair, e.g. jupiter-saturn, and the moment's planet)
 //
 // e.g. #/chart/mira-mercer/human-design/mandala/design
@@ -213,6 +214,8 @@ function applyRoute(hash) {
     if (pairOf) epochAstro.pair = pairOf;
     if (planetOf) epochAstro.planet = planetOf;
     setView("epoch");
+  } else if (view === "readings") {
+    setView("readings");
   } else {
     const [system] = rest;
     setLibrarySystem(routeOption(LIBRARY_SYSTEMS, system) || "Astrology");

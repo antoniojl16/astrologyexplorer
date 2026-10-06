@@ -618,3 +618,27 @@ body.dark .life-tag-chip.active{color:var(--ink)}
 .hd-mandala-layout>.hd-mandala-columns{flex:999 1 920px;min-width:0;grid-template-columns:150px minmax(0,1fr) 150px}
 .hd-mandala-layout>.system-info{flex:1 1 240px;min-width:0;padding:18px}
 .hd-mandala-columns .hd-mandala-visual{min-height:0}
+/* ── Book a reading (readings.js): a warmer palette, centred and airy ── */
+body.readings-page{--paper:#f7ecdf;--paper-deep:#efdfcb;--panel:#fcf4ea;--line:#e5d2bb;--ink:#2f2520;--muted:#7d6858;--accent:#b5562f;--accent-soft:#f3d8c6}
+body.dark.readings-page{--paper:#231a16;--paper-deep:#30241e;--panel:#2a201b;--line:#4b3a2f;--ink:#f3e7d9;--muted:#bfa995;--accent:#e78d60;--accent-soft:#5a3727}
+body.readings-page .main-content{background:radial-gradient(ellipse 60% 40% at 18% 8%,rgba(231,141,96,.10),transparent 70%),radial-gradient(ellipse 50% 35% at 88% 30%,rgba(138,99,201,.07),transparent 70%),var(--paper)}
+.readings-view{max-width:1120px;margin:0 auto;padding-top:56px}
+.readings-head{text-align:center}
+.readings-head h2{font:400 46px/1.15 'Playfair Display',serif;letter-spacing:.2px;margin:0;color:var(--ink)}
+.readings-head h2::after{content:'✦';display:block;margin:18px auto 0;font-size:12px;color:var(--accent);opacity:.8;letter-spacing:0}
+.readings-head p{color:var(--muted);font-size:14px;margin:14px 0 0}
+.readings-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:80px;row-gap:96px;margin:72px 0 40px}
+.reading-card{display:flex;flex-direction:column;align-items:center;text-align:center;max-width:430px;width:100%;justify-self:center}
+.reading-image{width:220px;height:220px;border-radius:50%;object-fit:cover;box-shadow:0 24px 50px rgba(70,35,20,.20),0 0 0 6px var(--panel),0 0 0 7px var(--line)}
+.reading-card h3{font:600 24px/1.2 'Playfair Display',serif;margin:34px 0 8px;color:var(--ink)}
+.reading-reader{font:500 10px 'DM Mono',monospace;letter-spacing:1.2px;text-transform:uppercase;color:var(--accent);margin:0}
+.reading-description{color:var(--muted);font-size:13px;line-height:1.75;margin:16px 0 0;max-width:390px}
+.reading-terms{margin:auto 0 0;padding-top:22px;display:flex;flex-direction:column;align-items:center;gap:6px}
+.reading-terms span{font:10.5px 'DM Mono',monospace;color:var(--muted)}
+.reading-terms strong{font:600 21px 'Playfair Display',serif;color:var(--ink);font-variant-numeric:lining-nums}
+.reading-book{margin-top:16px;padding:9px 20px;border:1px solid var(--accent);border-radius:999px;color:var(--accent);font-size:11px;text-decoration:none;letter-spacing:.3px;transition:background .2s,color .2s}
+.reading-book:hover,.reading-book:focus-visible{background:var(--accent);color:var(--panel)}
+.side-action.readings-link.active{color:var(--ink);background:var(--paper-deep)}
+.side-action.readings-link span{color:var(--accent)}
+body.dark.readings-page .sidebar{background:#1c1512}
+.side-action.readings-link[hidden]{display:none}
