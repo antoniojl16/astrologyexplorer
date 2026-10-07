@@ -10,7 +10,6 @@ const SYSTEM_TABS = {
     "Venus Path",
     "Pearl Path",
     "Star Pearl",
-    "Codon Rings",
   ],
   Astrocartography: ["ACG Travel", "ACG Local Space"],
 };
@@ -1864,8 +1863,7 @@ document
   );
 
 // ── Pair Explorer: Gene Keys side by side ───────────────────────────────
-// The same path tabs as the Chart Explorer (Codon Rings aside, which has no
-// diagram yet), applied to both charts at once. No timeline in Pair Explorer.
+// The same path tabs as the Chart Explorer, applied to both charts at once. No timeline in Pair Explorer.
 let geneKeysPairTab = "All Paths";
 function renderGeneKeysPair(container, entries) {
   const tabs = Object.keys(GENE_KEYS_TAB_ACTIVE_INDEXES);
